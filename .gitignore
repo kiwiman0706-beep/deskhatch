@@ -3,3 +3,8 @@ dist/
 out/
 *.log
 .DS_Store
+
+# test artifacts
+test-results/
+playwright-report/
+e2e/screenshot.png

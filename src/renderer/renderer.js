@@ -42,12 +42,8 @@ window.addEventListener('blur', () => setOverUI(false));
 // Window height: shrink to the bar when idle, grow to fit open drawers.
 // ---------------------------------------------------------------------------
 function reflowHeight() {
-  let h = BAR_H;
-  for (const id in open) {
-    const el = open[id].el;
-    h = Math.max(h, BAR_H + el.offsetHeight);
-  }
-  window.overlay.setHeight(h);
+  const heights = Object.keys(open).map((id) => open[id].el.offsetHeight);
+  window.overlay.setHeight(window.SSLayout.computeHeight(BAR_H, heights));
 }
 
 // ---------------------------------------------------------------------------
@@ -145,25 +141,20 @@ function bringToFront(el) {
 
 function anchorLeft(btn, width) {
   const rect = btn.getBoundingClientRect();
-  let left = rect.left; // align drawer's left edge with the button's left edge
-  if (left + width > window.innerWidth - MARGIN) {
-    left = window.innerWidth - width - MARGIN; // clamp into view (option 1)
-  }
-  return Math.max(MARGIN, left);
+  return window.SSLayout.computeLeft(rect.left, width, window.innerWidth, MARGIN);
+}
+
+function snapshot() {
+  const s = {};
+  for (const id in open) s[id] = { pinned: open[id].pinned };
+  return s;
 }
 
 function openTab(tab, btn) {
-  const existing = open[tab.id];
-  if (existing) {
-    if (existing.pinned) { bringToFront(existing.el); return; }
-    closeDrawer(tab.id); // toggle off when clicking the active (unpinned) tab
-    return;
-  }
-
-  // Default behaviour: only one drawer at a time. Pinned drawers stay.
-  for (const id in open) {
-    if (id !== tab.id && !open[id].pinned) closeDrawer(id);
-  }
+  const { action, toClose } = window.SSDrawers.resolveClick(snapshot(), tab.id);
+  if (action === 'focus') { bringToFront(open[tab.id].el); return; }
+  if (action === 'close') { closeDrawer(tab.id); return; }
+  toClose.forEach(closeDrawer);
 
   const d = createDrawer(tab);
   document.body.appendChild(d);

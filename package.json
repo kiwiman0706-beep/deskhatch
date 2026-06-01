@@ -5,11 +5,16 @@
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
-    "gen:icons": "node scripts/generate-icons.js"
+    "gen:icons": "node scripts/generate-icons.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "license": "MIT",
   "devDependencies": {
-    "electron": "^31.0.0"
+    "@playwright/test": "^1.47.0",
+    "electron": "^31.0.0",
+    "vitest": "^2.0.0"
   },
   "optionalDependencies": {
     "koffi": "^2.9.0"

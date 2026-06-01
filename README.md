@@ -35,6 +35,26 @@ npm start
 
 `npm install` pulls Electron (and, optionally, `koffi` for the native AppBar).
 
+## Testing
+
+```bash
+npm test          # Vitest unit tests (pure logic, runs anywhere incl. headless/CI)
+npm run test:e2e  # Playwright drives the real Electron app (needs a display)
+```
+
+- **Unit tests** (`tests/`) cover the pure logic extracted into
+  `src/renderer/lib/` — drawer placement (`computeLeft` left-align + right-edge
+  clamp, `computeHeight`) and the click state machine (`resolveClick`:
+  open/close/focus + which drawers to close). No DOM or Electron needed.
+- **E2E** (`e2e/`) launches Electron via Playwright, clicks buttons, and asserts
+  a drawer opens **aligned beneath its button**, that **only one unpinned drawer**
+  is open at a time, and saves a screenshot. It uses the offline *My Documents*
+  drawer, so it needs **no network**. On a Windows/macOS desktop it just runs; on
+  headless Linux wrap it: `xvfb-run -a npm run test:e2e`.
+
+Claude Code can run both and read the results/screenshot; the live "feel" of the
+overlay is the one thing only a human can judge.
+
 ## Project layout
 
 ```
@@ -49,6 +69,11 @@ src/
     config.js    ← edit this to add/remove drawers
     renderer.js  Bar, button-anchored slide-in, pinning, files drop zone
     styles.css
+    lib/
+      layout.js  Pure placement math (computeLeft / computeHeight)
+      drawers.js Pure click state machine (resolveClick)
+tests/           Vitest unit tests for src/renderer/lib
+e2e/             Playwright + Electron end-to-end tests
 scripts/
   generate-icons.js   Builds assets/tray.png & icon.png (no deps)
 ```
