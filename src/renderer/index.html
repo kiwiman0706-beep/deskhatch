@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+  />
+  <title>SmartSuite.next</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Thin top bar. Buttons are injected from config.js by renderer.js. -->
+  <div id="bar" class="ss-bar ss-interactive"></div>
+
+  <!-- Open drawers are appended to <body> by renderer.js, positioned absolutely
+       beneath the button that opened them. -->
+
+  <script src="config.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
