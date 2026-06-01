@@ -24,5 +24,5 @@ window.SS_TABS = [
   { id: 'keep', label: 'メモ', icon: '📝', type: 'page', mobile: true, width: 400,
     url: 'https://keep.google.com/' },
 
-  { id: 'docs', label: 'My Documents', icon: '📁', type: 'files', width: 340 },
+  { id: 'docs', label: 'My Documents', icon: '📁', type: 'files', width: 460 },
 ];

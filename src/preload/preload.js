@@ -22,3 +22,17 @@ contextBridge.exposeInMainWorld('overlay', {
     }
   },
 });
+
+// File browser bridge for the "My Documents" drawer.
+contextBridge.exposeInMainWorld('files', {
+  list: (dir) => ipcRenderer.invoke('files:list', dir),
+  places: () => ipcRenderer.invoke('files:places'),
+  icon: (p) => ipcRenderer.invoke('files:icon', p),
+  open: (p) => ipcRenderer.invoke('files:open', p),
+  reveal: (p) => ipcRenderer.invoke('files:reveal', p),
+  copyPath: (p) => ipcRenderer.invoke('files:copy-path', p),
+  pickFolder: () => ipcRenderer.invoke('files:pick-folder'),
+  copyTo: (src, dir) => ipcRenderer.invoke('files:copy-to', src, dir),
+  trash: (p) => ipcRenderer.invoke('files:trash', p),
+  contextMenu: (info) => ipcRenderer.invoke('files:context-menu', info),
+});

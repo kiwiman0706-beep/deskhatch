@@ -23,7 +23,12 @@ LINE WORKS, internal tools…) can be embedded as a drawer.
   multiple drawers automatically.
 - Embedded pages request the **mobile layout** (`mobile: true`) so narrow phone
   views fit the drawer nicely.
-- **My Documents** is a folder-like drop zone — drag files onto it to list them.
+- **My Documents** is an Explorer-style file browser: start at **This PC** (drive
+  list), navigate folders, **double-click to open/run** files, and use the native
+  **right-click menu** (open / reveal in Explorer / copy path / copy to a chosen
+  folder / move to trash). Shortcut "places" (PC, Desktop, Documents, Downloads,
+  Home) plus a **＋ to pin your own folders** (remembered via localStorage). Real
+  native file icons via `app.getFileIcon`.
 - A **tray icon** (Windows) toggles the bar; on macOS this becomes a menu-bar item.
 
 ## Run
@@ -117,7 +122,9 @@ Embedded pages use a shared `persist:smartsuite` session so you stay logged in.
 - Embedded Google **login may be blocked** in some webviews ("this browser may not
   be secure"). Workarounds: external-browser login, or a desktop Chrome UA.
 - **Google Keep / Tasks** have no consumer API; they're embedded as pages only.
-- Dropped files are listed in memory (no persistence yet).
+- The file browser embeds a **custom** Explorer-like UI (Node `fs` + Electron
+  `shell`), not the native Windows Explorer control — this keeps it cross-platform
+  and gives us the right-click menu, at the cost of not being the literal shell view.
 - Pinned drawers can overlap horizontally; no auto-tiling yet.
 - Multi-monitor: the bar lives on the primary display (target monitor is a future
   setting).

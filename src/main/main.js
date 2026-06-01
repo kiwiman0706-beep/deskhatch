@@ -3,6 +3,7 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage } = require('electron');
 const path = require('path');
 const appbar = require('./appbar');
+const files = require('./files');
 
 const BAR_HEIGHT = 44; // collapsed strip height (px)
 
@@ -94,6 +95,8 @@ ipcMain.on('overlay:set-height', (_e, height) => {
 });
 
 // --- App lifecycle ----------------------------------------------------------
+
+files.register(() => win);
 
 app.whenReady().then(() => {
   createWindow();

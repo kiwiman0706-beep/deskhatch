@@ -51,35 +51,133 @@ function reflowHeight() {
 // ---------------------------------------------------------------------------
 function buildFilesPanel() {
   const wrap = document.createElement('div');
-  wrap.className = 'ss-files';
-  const drop = document.createElement('div');
-  drop.className = 'ss-drop';
-  drop.textContent = 'ここにファイルをドロップ';
+  wrap.className = 'ss-fb';
+
+  const places = document.createElement('div');
+  places.className = 'ss-fb-places';
+
+  const nav = document.createElement('div');
+  nav.className = 'ss-fb-nav';
+  const back = document.createElement('button');
+  back.className = 'ss-fb-btn'; back.textContent = '←'; back.title = '戻る';
+  const up = document.createElement('button');
+  up.className = 'ss-fb-btn'; up.textContent = '↑'; up.title = '上のフォルダへ';
+  const crumb = document.createElement('span');
+  crumb.className = 'ss-fb-path';
+  nav.append(back, up, crumb);
+
   const list = document.createElement('ul');
-  list.className = 'ss-filelist';
-  const empty = document.createElement('div');
-  empty.className = 'ss-empty';
-  empty.textContent = '（まだ何もありません）';
-  list.appendChild(empty);
-  wrap.append(drop, list);
+  list.className = 'ss-fb-list';
 
-  const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
-  ['dragenter', 'dragover'].forEach((ev) =>
-    wrap.addEventListener(ev, (e) => { stop(e); drop.classList.add('over'); }));
-  ['dragleave', 'dragend'].forEach((ev) =>
-    wrap.addEventListener(ev, (e) => { stop(e); drop.classList.remove('over'); }));
+  wrap.append(places, nav, list);
 
-  wrap.addEventListener('drop', (e) => {
-    stop(e);
-    drop.classList.remove('over');
-    if (empty.parentNode) empty.remove();
-    for (const f of e.dataTransfer.files) {
-      const li = document.createElement('li');
-      li.textContent = f.name;
-      li.title = window.overlay.getPathForFile(f) || f.name;
-      list.appendChild(li);
+  const history = [];
+  let current = null;
+
+  async function load(p, push = true) {
+    const res = await window.files.list(p);
+    if (res.error) {
+      list.innerHTML = `<li class="ss-fb-err">開けません: ${res.error}</li>`;
+      return;
     }
-  });
+    if (push && current && current !== res.path) history.push(current);
+    current = res.path;
+    crumb.textContent = res.path === '::pc' ? 'PC' : res.path;
+    crumb.title = crumb.textContent;
+    back.disabled = history.length === 0;
+    up.disabled = !res.parent;
+    up.onclick = () => res.parent && load(res.parent);
+    renderEntries(res.entries);
+  }
+
+  function renderEntries(entries) {
+    list.innerHTML = '';
+    if (!entries.length) {
+      list.innerHTML = '<li class="ss-fb-empty">（空のフォルダ）</li>';
+      return;
+    }
+    for (const ent of entries) {
+      const li = document.createElement('li');
+      li.className = 'ss-fb-row';
+      li.title = ent.path;
+      const emoji = document.createElement('span');
+      emoji.className = 'ss-fb-emoji';
+      emoji.textContent = ent.isDir ? '📁' : '📄';
+      const name = document.createElement('span');
+      name.className = 'ss-fb-name';
+      name.textContent = ent.name;
+      li.append(emoji, name);
+
+      li.addEventListener('dblclick', () => {
+        if (ent.isDir) load(ent.path);
+        else window.files.open(ent.path);
+      });
+
+      li.addEventListener('contextmenu', async (e) => {
+        e.preventDefault();
+        const action = await window.files.contextMenu({
+          path: ent.path, isFile: ent.isFile, isDir: ent.isDir,
+        });
+        if (!action) return;
+        if (action === 'open') window.files.open(ent.path);
+        else if (action === 'reveal') window.files.reveal(ent.path);
+        else if (action === 'copy-path') window.files.copyPath(ent.path);
+        else if (action === 'copy-to') {
+          const dir = await window.files.pickFolder();
+          if (dir) await window.files.copyTo(ent.path, dir);
+        } else if (action === 'trash') {
+          await window.files.trash(ent.path);
+          load(current, false);
+        }
+      });
+
+      list.appendChild(li);
+
+      // Swap the emoji for the real native icon once it resolves.
+      window.files.icon(ent.path).then((url) => {
+        if (!url) return;
+        const img = document.createElement('img');
+        img.className = 'ss-fb-ico'; img.alt = '';
+        img.src = url;
+        li.replaceChild(img, emoji);
+      });
+    }
+  }
+
+  back.onclick = () => {
+    const p = history.pop();
+    if (p != null) load(p, false);
+  };
+
+  async function initPlaces() {
+    const base = await window.files.places();
+    const custom = JSON.parse(localStorage.getItem('ss.places') || '[]');
+    places.innerHTML = '';
+    for (const pl of [...base, ...custom]) {
+      const b = document.createElement('button');
+      b.className = 'ss-fb-place';
+      b.textContent = `${pl.icon || '📁'} ${pl.name}`;
+      b.title = pl.path;
+      b.onclick = () => load(pl.path);
+      places.appendChild(b);
+    }
+    const add = document.createElement('button');
+    add.className = 'ss-fb-place ss-fb-add';
+    add.textContent = '＋';
+    add.title = 'フォルダを追加';
+    add.onclick = async () => {
+      const dir = await window.files.pickFolder();
+      if (!dir) return;
+      const arr = JSON.parse(localStorage.getItem('ss.places') || '[]');
+      arr.push({ name: dir.split(/[\\/]/).filter(Boolean).pop() || dir, path: dir, icon: '📁' });
+      localStorage.setItem('ss.places', JSON.stringify(arr));
+      initPlaces();
+    };
+    places.appendChild(add);
+  }
+
+  initPlaces();
+  load('::pc', false);
   return wrap;
 }
 
