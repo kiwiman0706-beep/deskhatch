@@ -29,3 +29,24 @@ describe('computeHeight', () => {
     expect(layout.computeHeight(44, [300, 600, 200])).toBe(644);
   });
 });
+
+describe('clampSize', () => {
+  it('passes through a size within bounds', () => {
+    expect(layout.clampSize(500, 400, { minW: 240, minH: 160, maxW: 1900, maxH: 1000 }))
+      .toEqual({ width: 500, height: 400 });
+  });
+
+  it('enforces the minimum width and height', () => {
+    expect(layout.clampSize(100, 50, { minW: 240, minH: 160 }))
+      .toEqual({ width: 240, height: 160 });
+  });
+
+  it('enforces the maximum width and height', () => {
+    expect(layout.clampSize(3000, 3000, { maxW: 1900, maxH: 1000 }))
+      .toEqual({ width: 1900, height: 1000 });
+  });
+
+  it('uses default minimums (240x160) when no bounds are given', () => {
+    expect(layout.clampSize(10, 10)).toEqual({ width: 240, height: 160 });
+  });
+});

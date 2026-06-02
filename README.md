@@ -29,6 +29,11 @@ LINE WORKS, internal tools…) can be embedded as a drawer.
   folder / move to trash). Shortcut "places" (PC, Desktop, Documents, Downloads,
   Home) plus a **＋ to pin your own folders** (remembered via localStorage). Real
   native file icons via `app.getFileIcon`.
+- A **☰ menu button** at the left end opens **設定 / ヘルプ**. Settings let you
+  **add / delete / reorder / edit** the drawers (icon, label, type, URL, mobile,
+  width) — saved to localStorage; "既定に戻す" restores `config.js`.
+- Drawers are **resizable** (drag the bottom-right grip); each drawer's size is
+  **remembered per id**.
 - A **tray icon** (Windows) toggles the bar; on macOS this becomes a menu-bar item.
 
 ## Run

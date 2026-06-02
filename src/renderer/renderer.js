@@ -11,12 +11,35 @@ const MOBILE_UA =
 
 const drawerHeight = () => Math.min(640, Math.floor(window.innerHeight * 0.8));
 
+// The "hamburger" menu pseudo-tab pinned to the left of the bar.
+const MENU_TAB = { id: '__menu', label: 'メニュー', icon: '☰', type: 'menu', width: 380 };
+
+// --- Persistence (localStorage) -------------------------------------------
+const Store = {
+  getTabs() {
+    try {
+      const s = JSON.parse(localStorage.getItem('ss.tabs'));
+      return Array.isArray(s) && s.length ? s : null;
+    } catch (_) { return null; }
+  },
+  saveTabs(t) { localStorage.setItem('ss.tabs', JSON.stringify(t)); },
+  clearTabs() { localStorage.removeItem('ss.tabs'); },
+  getSize(id) {
+    try { return JSON.parse(localStorage.getItem('ss.size.' + id)) || null; } catch (_) { return null; }
+  },
+  saveSize(id, s) { localStorage.setItem('ss.size.' + id, JSON.stringify(s)); },
+};
+
+const defaultTabs = () => JSON.parse(JSON.stringify(window.SS_TABS || []));
+const loadTabs = () => Store.getTabs() || defaultTabs();
+
 const bar = document.getElementById('bar');
-const tabs = window.SS_TABS || [];
+let tabs = loadTabs();
 
 /** id -> { el, btn, pinned } */
 const open = {};
 let zCounter = 100;
+let dragging = false; // true while a drawer is being resized
 
 // ---------------------------------------------------------------------------
 // Mouse pass-through: capture only while the pointer is over the bar/drawers.
@@ -32,6 +55,7 @@ function setOverUI(over) {
 }
 
 document.addEventListener('mousemove', (e) => {
+  if (dragging) return; // keep capturing while resizing
   const overUI = !!(e.target.closest && e.target.closest('.ss-interactive'));
   setOverUI(overUI);
 });
@@ -194,16 +218,51 @@ function buildBody(tab) {
     body.appendChild(wv);
   } else if (tab.type === 'files') {
     body.appendChild(buildFilesPanel());
+  } else if (tab.type === 'menu') {
+    body.appendChild(buildMenuPanel());
   }
   return body;
+}
+
+function attachResize(grip, d, tab) {
+  grip.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    grip.setPointerCapture(e.pointerId);
+    dragging = true;
+    setOverUI(true);
+    const sx = e.clientX, sy = e.clientY, sw = d.offsetWidth, sh = d.offsetHeight;
+
+    const move = (ev) => {
+      const bounds = {
+        minW: 240, minH: 160,
+        maxW: window.innerWidth - 2 * MARGIN,
+        maxH: window.innerHeight - BAR_H - MARGIN,
+      };
+      const s = window.SSLayout.clampSize(sw + (ev.clientX - sx), sh + (ev.clientY - sy), bounds);
+      d.style.width = s.width + 'px';
+      d.style.height = s.height + 'px';
+      d.style.left = window.SSLayout.computeLeft(d.offsetLeft, s.width, window.innerWidth, MARGIN) + 'px';
+      reflowHeight();
+    };
+    const up = () => {
+      grip.releasePointerCapture(e.pointerId);
+      grip.removeEventListener('pointermove', move);
+      grip.removeEventListener('pointerup', up);
+      dragging = false;
+      Store.saveSize(tab.id, { width: d.offsetWidth, height: d.offsetHeight });
+    };
+    grip.addEventListener('pointermove', move);
+    grip.addEventListener('pointerup', up);
+  });
 }
 
 function createDrawer(tab) {
   const d = document.createElement('div');
   d.className = 'ss-drawer ss-interactive';
   d.dataset.id = tab.id;
-  d.style.width = tab.width + 'px';
-  d.style.height = drawerHeight() + 'px';
+  const saved = Store.getSize(tab.id);
+  d.style.width = ((saved && saved.width) || tab.width) + 'px';
+  d.style.height = ((saved && saved.height) || drawerHeight()) + 'px';
 
   const head = document.createElement('div');
   head.className = 'ss-drawer-head';
@@ -222,11 +281,16 @@ function createDrawer(tab) {
   close.title = '閉じる';
   head.append(title, spacer, pin, close);
 
-  d.append(head, buildBody(tab));
+  const grip = document.createElement('div');
+  grip.className = 'ss-resize';
+  grip.title = 'ドラッグでサイズ変更';
+
+  d.append(head, buildBody(tab), grip);
 
   pin.addEventListener('click', () => togglePin(tab.id));
   close.addEventListener('click', () => closeDrawer(tab.id));
   d.addEventListener('mousedown', () => bringToFront(d));
+  attachResize(grip, d, tab);
   return d;
 }
 
@@ -256,7 +320,7 @@ function openTab(tab, btn) {
 
   const d = createDrawer(tab);
   document.body.appendChild(d);
-  d.style.left = anchorLeft(btn, tab.width) + 'px';
+  d.style.left = anchorLeft(btn, d.offsetWidth) + 'px';
   bringToFront(d);
 
   open[tab.id] = { el: d, btn, pinned: false };
@@ -285,29 +349,184 @@ function togglePin(id) {
   o.el.querySelector('.ss-pin').classList.toggle('pinned', o.pinned);
 }
 
+function closeAll() {
+  Object.keys(open).forEach(closeDrawer);
+}
+
+// ---------------------------------------------------------------------------
+// Settings / Help menu (left-end hamburger)
+// ---------------------------------------------------------------------------
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function field(value, placeholder) {
+  const i = el('input', 'ss-set-input');
+  i.type = 'text';
+  i.value = value || '';
+  if (placeholder) i.placeholder = placeholder;
+  return i;
+}
+
+function buildSettings() {
+  const root = el('div', 'ss-settings');
+  const listEl = el('div', 'ss-set-list');
+  let working = JSON.parse(JSON.stringify(tabs)); // edit on a copy
+
+  function render() {
+    listEl.innerHTML = '';
+    working.forEach((t, idx) => {
+      const card = el('div', 'ss-set-card');
+
+      const top = el('div', 'ss-set-top');
+      const icon = field(t.icon, '絵文字');
+      icon.classList.add('ss-set-icon');
+      icon.oninput = () => { t.icon = icon.value; };
+      const label = field(t.label, 'ラベル');
+      label.oninput = () => { t.label = label.value; };
+      const upBtn = el('button', 'ss-set-mini', '▲');
+      const downBtn = el('button', 'ss-set-mini', '▼');
+      const delBtn = el('button', 'ss-set-mini', '🗑');
+      upBtn.onclick = () => { if (idx > 0) { [working[idx - 1], working[idx]] = [working[idx], working[idx - 1]]; render(); } };
+      downBtn.onclick = () => { if (idx < working.length - 1) { [working[idx + 1], working[idx]] = [working[idx], working[idx + 1]]; render(); } };
+      delBtn.onclick = () => { working.splice(idx, 1); render(); };
+      top.append(icon, label, upBtn, downBtn, delBtn);
+
+      const row2 = el('div', 'ss-set-row');
+      const type = el('select', 'ss-set-type');
+      ['page', 'files'].forEach((o) => { const op = el('option', null, o); op.value = o; type.appendChild(op); });
+      type.value = t.type === 'files' ? 'files' : 'page';
+      const mobileWrap = el('label', 'ss-set-check');
+      const mobile = document.createElement('input');
+      mobile.type = 'checkbox';
+      mobile.checked = !!t.mobile;
+      mobile.onchange = () => { t.mobile = mobile.checked; };
+      mobileWrap.append(mobile, document.createTextNode(' スマホ表示'));
+      const width = document.createElement('input');
+      width.type = 'number';
+      width.className = 'ss-set-w';
+      width.value = t.width || 420;
+      width.oninput = () => { t.width = Number(width.value) || 420; };
+      row2.append(type, mobileWrap, el('span', 'ss-set-wlabel', '幅'), width);
+
+      const url = field(t.url, 'https://…');
+      url.classList.add('ss-set-url');
+      url.oninput = () => { t.url = url.value; };
+
+      function syncType() {
+        t.type = type.value;
+        const isPage = t.type === 'page';
+        url.style.display = isPage ? '' : 'none';
+        mobileWrap.style.display = isPage ? '' : 'none';
+      }
+      type.onchange = syncType;
+      syncType();
+
+      card.append(top, row2, url);
+      listEl.appendChild(card);
+    });
+  }
+
+  const actions = el('div', 'ss-set-actions');
+  const addBtn = el('button', 'ss-set-btn', '＋ 項目を追加');
+  addBtn.onclick = () => {
+    working.push({ id: 'tab' + Date.now(), label: '新規', icon: '🔖', type: 'page', url: 'https://', mobile: true, width: 420 });
+    render();
+  };
+  const saveBtn = el('button', 'ss-set-btn ss-set-save', '保存');
+  saveBtn.onclick = () => {
+    const used = new Set();
+    for (const t of working) {
+      if (!t.id || used.has(t.id)) t.id = 'tab' + Math.random().toString(36).slice(2, 8);
+      used.add(t.id);
+      if (!t.width) t.width = 420;
+    }
+    Store.saveTabs(working);
+    tabs = loadTabs();
+    closeAll();
+    renderBar();
+  };
+  const resetBtn = el('button', 'ss-set-btn', '既定に戻す');
+  resetBtn.onclick = () => {
+    Store.clearTabs();
+    tabs = defaultTabs();
+    working = JSON.parse(JSON.stringify(tabs));
+    render();
+  };
+  actions.append(addBtn, saveBtn, resetBtn);
+
+  render();
+  root.append(listEl, actions);
+  return root;
+}
+
+function buildHelp() {
+  const root = el('div', 'ss-help');
+  root.innerHTML = `
+    <h3>SmartSuite.next</h3>
+    <ul>
+      <li>上端のボタンを押すと、その真下にドロワーが開きます。</li>
+      <li>同時に開くのは1枚。📌でピン留めすると複数並べられます。</li>
+      <li>ドロワー右下の角を<b>ドラッグでサイズ変更</b>。サイズは記憶されます。</li>
+      <li><b>設定</b>で項目（ボタン）の追加・削除・並べ替え・編集ができます。</li>
+      <li>My Documents はファイルブラウザ。右クリックで操作メニュー。</li>
+      <li>トレイ／メニューバーのアイコンでバーの表示／非表示。</li>
+    </ul>`;
+  return root;
+}
+
+function buildMenuPanel() {
+  const wrap = el('div', 'ss-menu-panel');
+  const tabsBar = el('div', 'ss-menu-tabs');
+  const bSettings = el('button', 'ss-menu-tab', '⚙ 設定');
+  const bHelp = el('button', 'ss-menu-tab', '❔ ヘルプ');
+  tabsBar.append(bSettings, bHelp);
+  const view = el('div', 'ss-menu-view');
+  wrap.append(tabsBar, view);
+
+  function show(which) {
+    view.innerHTML = '';
+    bSettings.classList.toggle('active', which === 's');
+    bHelp.classList.toggle('active', which === 'h');
+    view.appendChild(which === 's' ? buildSettings() : buildHelp());
+  }
+  bSettings.onclick = () => show('s');
+  bHelp.onclick = () => show('h');
+  show('s');
+  return wrap;
+}
+
 // ---------------------------------------------------------------------------
 // Build the bar
 // ---------------------------------------------------------------------------
-for (const tab of tabs) {
-  const btn = document.createElement('button');
-  btn.className = 'ss-btn';
-  btn.dataset.id = tab.id;
-  const ico = document.createElement('span');
-  ico.className = 'ss-ico';
-  ico.textContent = tab.icon;
-  const label = document.createElement('span');
-  label.textContent = tab.label;
-  btn.append(ico, label);
-  btn.addEventListener('click', () => openTab(tab, btn));
-  bar.appendChild(btn);
+function renderBar() {
+  bar.innerHTML = '';
+
+  const menuBtn = el('button', 'ss-btn ss-menu');
+  menuBtn.title = 'メニュー（設定・ヘルプ）';
+  menuBtn.append(el('span', 'ss-ico', MENU_TAB.icon));
+  menuBtn.addEventListener('click', () => openTab(MENU_TAB, menuBtn));
+  bar.appendChild(menuBtn);
+
+  for (const tab of tabs) {
+    const btn = el('button', 'ss-btn');
+    btn.dataset.id = tab.id;
+    btn.append(el('span', 'ss-ico', tab.icon), el('span', null, tab.label));
+    btn.addEventListener('click', () => openTab(tab, btn));
+    bar.appendChild(btn);
+  }
 }
 
-// Re-clamp open drawers if the display size changes.
+renderBar();
+
+// Re-clamp open drawers if the display size changes (keep user-set sizes).
 window.addEventListener('resize', () => {
   for (const id in open) {
     const o = open[id];
     o.el.style.left = anchorLeft(o.btn, o.el.offsetWidth) + 'px';
-    o.el.style.height = drawerHeight() + 'px';
   }
   reflowHeight();
 });

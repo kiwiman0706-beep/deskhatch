@@ -23,7 +23,20 @@
     return h;
   }
 
-  const api = { computeLeft, computeHeight };
+  // Clamp a drawer size to sensible min/max bounds (used while resizing).
+  function clampSize(width, height, bounds) {
+    const b = bounds || {};
+    const minW = b.minW == null ? 240 : b.minW;
+    const minH = b.minH == null ? 160 : b.minH;
+    const maxW = b.maxW == null ? Infinity : b.maxW;
+    const maxH = b.maxH == null ? Infinity : b.maxH;
+    return {
+      width: Math.max(minW, Math.min(width, maxW)),
+      height: Math.max(minH, Math.min(height, maxH)),
+    };
+  }
+
+  const api = { computeLeft, computeHeight, clampSize };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SSLayout = api;
 })(typeof window !== 'undefined' ? window : null);
