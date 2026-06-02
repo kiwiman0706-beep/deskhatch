@@ -88,6 +88,13 @@ function register(getWin) {
   });
 
   ipcMain.handle('files:icon', (_e, p) => getIcon(p));
+
+  // Resolve a well-known location ("@desktop", "@pc", ...) to a real path.
+  ipcMain.handle('files:special', (_e, key) => {
+    if (key === 'pc') return PC;
+    try { return app.getPath(key); } catch (_) { return PC; }
+  });
+
   ipcMain.handle('files:open', (_e, p) => shell.openPath(p));
   ipcMain.handle('files:reveal', (_e, p) => { shell.showItemInFolder(p); return true; });
   ipcMain.handle('files:copy-path', (_e, p) => { clipboard.writeText(p); return true; });

@@ -32,8 +32,12 @@ LINE WORKS, internal tools…) can be embedded as a drawer.
 - A **☰ menu button** at the left end opens **設定 / ヘルプ**. Settings let you
   **add / delete / reorder / edit** the drawers (icon, label, type, URL, mobile,
   width) — saved to localStorage; "既定に戻す" restores `config.js`.
-- Drawers are **resizable** (drag the bottom-right grip); each drawer's size is
-  **remembered per id**.
+- Drawers are **resizable** (drag the right edge, bottom edge, or corner); each
+  drawer's size is **remembered per id**. (Drawer height is based on the screen
+  size, not the collapsed bar.)
+- File access comes in two flavours: a **`files`** drawer (browse from *This PC*)
+  and **`folder`** drawers pinned to a specific path (`@desktop`, `@documents`,
+  … or any folder you pick) — add as many folder buttons as you like in 設定.
 - A **tray icon** (Windows) toggles the bar; on macOS this becomes a menu-bar item.
 
 ## Run

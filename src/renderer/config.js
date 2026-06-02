@@ -1,13 +1,17 @@
-// Drawer definitions. Edit this list to add/remove buttons.
+// Drawer definitions. Edit here, or use the in-app ☰ → 設定 (saved to
+// localStorage; "既定に戻す" restores this list).
 //
-//   type:  'page'  -> embeds a website in a <webview>
-//          'files' -> a local "folder" you can drop files onto
+//   type:  'page'   -> embeds a website in a <webview>
+//          'files'  -> file browser starting at "This PC" (drive list)
+//          'folder' -> file browser starting at a specific folder (`path`)
 //   url:    page URL (type 'page')
-//   mobile: true -> request the site's smartphone layout (mobile UA + narrow view)
+//   path:   folder path (type 'folder'); "@desktop"/"@documents"/"@downloads"/
+//           "@home"/"@pc" resolve to those well-known locations
+//   mobile: true -> request the site's smartphone layout (type 'page')
 //   width:  drawer width in px (independent of the button width)
 //
-// The drawer opens directly beneath its button, with their LEFT edges aligned.
-// If that would push the drawer off the right of the screen, it is clamped left.
+// The drawer opens directly beneath its button (left edges aligned, clamped
+// into view). Drag the drawer's right/bottom/corner to resize; size is remembered.
 window.SS_TABS = [
   { id: 'mail', label: 'メール', icon: '✉', type: 'page', mobile: true, width: 420,
     url: 'https://mail.google.com/' },
@@ -18,14 +22,16 @@ window.SS_TABS = [
   { id: 'talk', label: 'トーク', icon: '💬', type: 'page', mobile: true, width: 420,
     url: 'https://line.worksmobile.com/' },
 
-  // Calendar shows month + day side by side (two embedded views).
-  { id: 'cal', label: 'カレンダー', icon: '📅', type: 'split', width: 820, panes: [
-    { label: '月', url: 'https://calendar.google.com/calendar/u/0/r/month', mobile: false },
-    { label: '日', url: 'https://calendar.google.com/calendar/u/0/r/day', mobile: false },
-  ] },
+  { id: 'cal-month', label: '月', icon: '📅', type: 'page', mobile: false, width: 600,
+    url: 'https://calendar.google.com/calendar/u/0/r/month' },
+
+  { id: 'cal-day', label: '今日', icon: '📆', type: 'page', mobile: false, width: 460,
+    url: 'https://calendar.google.com/calendar/u/0/r/day' },
 
   { id: 'keep', label: 'メモ', icon: '📝', type: 'page', mobile: true, width: 400,
     url: 'https://keep.google.com/' },
 
-  { id: 'docs', label: 'My Documents', icon: '📁', type: 'files', width: 460 },
+  { id: 'desktop', label: 'Desktop', icon: '🖳', type: 'folder', path: '@desktop', width: 460 },
+
+  { id: 'pc', label: 'My Computer', icon: '💻', type: 'files', width: 460 },
 ];

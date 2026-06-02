@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('files', {
   list: (dir) => ipcRenderer.invoke('files:list', dir),
   places: () => ipcRenderer.invoke('files:places'),
   icon: (p) => ipcRenderer.invoke('files:icon', p),
+  special: (key) => ipcRenderer.invoke('files:special', key),
   open: (p) => ipcRenderer.invoke('files:open', p),
   reveal: (p) => ipcRenderer.invoke('files:reveal', p),
   copyPath: (p) => ipcRenderer.invoke('files:copy-path', p),

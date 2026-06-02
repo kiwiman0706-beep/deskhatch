@@ -9,7 +9,9 @@ const MOBILE_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) ' +
   'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 
-const drawerHeight = () => Math.min(640, Math.floor(window.innerHeight * 0.8));
+// Use the *screen* height, not the overlay window's (which is only the bar tall
+// until a drawer opens).
+const drawerHeight = () => Math.min(720, Math.floor(window.screen.availHeight * 0.8));
 
 // The "logo" menu pseudo-tab pinned to the left of the bar.
 const MENU_TAB = { id: '__menu', label: 'メニュー', icon: '☰', type: 'menu', width: 380 };
@@ -80,7 +82,13 @@ function reflowHeight() {
 // ---------------------------------------------------------------------------
 // Drawer construction
 // ---------------------------------------------------------------------------
-function buildFilesPanel() {
+async function resolveStart(startPath) {
+  if (!startPath) return '::pc';
+  if (startPath[0] === '@') return window.files.special(startPath.slice(1));
+  return startPath;
+}
+
+function buildFilesPanel(startPath) {
   const wrap = document.createElement('div');
   wrap.className = 'ss-fb';
 
@@ -208,7 +216,7 @@ function buildFilesPanel() {
   }
 
   initPlaces();
-  load('::pc', false);
+  resolveStart(startPath).then((p) => load(p, false));
   return wrap;
 }
 
@@ -237,17 +245,19 @@ function buildBody(tab) {
     }
     body.appendChild(split);
   } else if (tab.type === 'files') {
-    body.appendChild(buildFilesPanel());
+    body.appendChild(buildFilesPanel(tab.path));
+  } else if (tab.type === 'folder') {
+    body.appendChild(buildFilesPanel(tab.path || '@pc'));
   } else if (tab.type === 'menu') {
     body.appendChild(buildMenuPanel());
   }
   return body;
 }
 
-function attachResize(grip, d, tab) {
-  grip.addEventListener('pointerdown', (e) => {
+function attachResize(handle, d, tab, ax, ay) {
+  handle.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    grip.setPointerCapture(e.pointerId);
+    handle.setPointerCapture(e.pointerId);
     dragging = true;
     setOverUI(true);
     const sx = e.clientX, sy = e.clientY, sw = d.offsetWidth, sh = d.offsetHeight;
@@ -256,23 +266,25 @@ function attachResize(grip, d, tab) {
       const bounds = {
         minW: 240, minH: 160,
         maxW: window.innerWidth - 2 * MARGIN,
-        maxH: window.innerHeight - BAR_H - MARGIN,
+        maxH: window.screen.availHeight - BAR_H - MARGIN,
       };
-      const s = window.SSLayout.clampSize(sw + (ev.clientX - sx), sh + (ev.clientY - sy), bounds);
+      const w = ax ? sw + (ev.clientX - sx) : sw;
+      const h = ay ? sh + (ev.clientY - sy) : sh;
+      const s = window.SSLayout.clampSize(w, h, bounds);
       d.style.width = s.width + 'px';
       d.style.height = s.height + 'px';
       d.style.left = window.SSLayout.computeLeft(d.offsetLeft, s.width, window.innerWidth, MARGIN) + 'px';
       reflowHeight();
     };
     const up = () => {
-      grip.releasePointerCapture(e.pointerId);
-      grip.removeEventListener('pointermove', move);
-      grip.removeEventListener('pointerup', up);
+      handle.releasePointerCapture(e.pointerId);
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
       dragging = false;
       Store.saveSize(tab.id, { width: d.offsetWidth, height: d.offsetHeight });
     };
-    grip.addEventListener('pointermove', move);
-    grip.addEventListener('pointerup', up);
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
   });
 }
 
@@ -301,16 +313,19 @@ function createDrawer(tab) {
   close.title = '閉じる';
   head.append(title, spacer, pin, close);
 
-  const grip = document.createElement('div');
-  grip.className = 'ss-resize';
-  grip.title = 'ドラッグでサイズ変更';
+  const gripE = el('div', 'ss-resize-e');   // right edge: width
+  const gripS = el('div', 'ss-resize-s');   // bottom edge: height
+  const gripSE = el('div', 'ss-resize-se'); // corner: both
+  gripSE.title = 'ドラッグでサイズ変更';
 
-  d.append(head, buildBody(tab), grip);
+  d.append(head, buildBody(tab), gripE, gripS, gripSE);
 
   pin.addEventListener('click', () => togglePin(tab.id));
   close.addEventListener('click', () => closeDrawer(tab.id));
   d.addEventListener('mousedown', () => bringToFront(d));
-  attachResize(grip, d, tab);
+  attachResize(gripE, d, tab, true, false);
+  attachResize(gripS, d, tab, false, true);
+  attachResize(gripSE, d, tab, true, true);
   return d;
 }
 
@@ -415,7 +430,7 @@ function buildSettings() {
       delBtn.onclick = () => { working.splice(idx, 1); render(); };
       top.append(icon, label, upBtn, downBtn, delBtn);
 
-      const editable = t.type === 'page' || t.type === 'files';
+      const editable = t.type === 'page' || t.type === 'files' || t.type === 'folder';
 
       const width = document.createElement('input');
       width.type = 'number';
@@ -428,7 +443,9 @@ function buildSettings() {
 
       if (editable) {
         const type = el('select', 'ss-set-type');
-        ['page', 'files'].forEach((o) => { const op = el('option', null, o); op.value = o; type.appendChild(op); });
+        [['page', 'ページ'], ['files', 'PC全体'], ['folder', 'フォルダ']].forEach(([v, lbl]) => {
+          const op = el('option', null, lbl); op.value = v; type.appendChild(op);
+        });
         type.value = t.type;
         const mobileWrap = el('label', 'ss-set-check');
         const mobile = document.createElement('input');
@@ -442,16 +459,30 @@ function buildSettings() {
         url.classList.add('ss-set-url');
         url.oninput = () => { t.url = url.value; };
 
+        const pathInput = field(t.path, 'フォルダ未選択');
+        pathInput.classList.add('ss-set-url');
+        pathInput.readOnly = true;
+        const pickBtn = el('button', 'ss-set-mini', '📂');
+        pickBtn.title = 'フォルダを選択';
+        pickBtn.onclick = async () => {
+          const dir = await window.files.pickFolder();
+          if (dir) { t.path = dir; pathInput.value = dir; }
+        };
+        const pathRow = el('div', 'ss-set-row');
+        pathRow.append(pickBtn, pathInput);
+
         const syncType = () => {
           t.type = type.value;
           const isPage = t.type === 'page';
+          const isFolder = t.type === 'folder';
           url.style.display = isPage ? '' : 'none';
           mobileWrap.style.display = isPage ? '' : 'none';
+          pathRow.style.display = isFolder ? '' : 'none';
         };
         type.onchange = syncType;
         syncType();
 
-        card.append(top, row2, url);
+        card.append(top, row2, url, pathRow);
       } else {
         row2.append(el('span', 'ss-set-note', '特殊表示（編集不可）'), wlabel, width);
         card.append(top, row2);
