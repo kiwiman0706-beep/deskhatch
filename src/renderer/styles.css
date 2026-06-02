@@ -130,8 +130,9 @@ html, body {
   border-bottom: 2px solid #9bbcbc;
 }
 
-/* left-end hamburger button */
-.ss-btn.ss-menu { padding: 0 12px; font-size: 16px; }
+/* left-end logo/menu button */
+.ss-btn.ss-menu { padding: 0 10px; }
+.ss-btn.ss-menu svg { display: block; }
 
 /* --- Menu (settings / help) ------------------------------------------------ */
 .ss-menu-panel { display: flex; flex-direction: column; height: 100%; }

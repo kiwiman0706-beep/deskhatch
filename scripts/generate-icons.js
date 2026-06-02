@@ -56,21 +56,16 @@ function insideRounded(x, y, w, h, r) {
 }
 
 function draw(x, y, w, h) {
-  const r = Math.round(w * 0.18);
+  const r = Math.round(w * 0.2);
   if (!insideRounded(x, y, w, h, r)) return [0, 0, 0, 0];
-  // teal background, evoking the classic SmartCenter title bars
+  // teal background
   const bg = [0x1f, 0x6f, 0x6f, 255];
-  // three small white "app" tiles
-  const u = w / 8;
-  const tiles = [
-    [2 * u, 2 * u], [4.4 * u, 2 * u], [3.2 * u, 4.4 * u],
-  ];
-  const size = 1.4 * u;
-  for (const [tx, ty] of tiles) {
-    if (x >= tx && x < tx + size && y >= ty && y < ty + size) {
-      return [0xf2, 0xf2, 0xf2, 255];
-    }
-  }
+  const white = [0xf4, 0xf6, 0xf6, 255];
+  // the mark: a top bar with a drawer hanging beneath it (24-unit grid)
+  const u = w / 24;
+  const rect = (x0, y0, x1, y1) => x >= x0 * u && x < x1 * u && y >= y0 * u && y < y1 * u;
+  if (rect(4, 5, 20, 8.2)) return white;    // top bar
+  if (rect(7, 10.5, 17, 19)) return white;  // drawer
   return bg;
 }
 

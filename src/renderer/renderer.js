@@ -11,8 +11,15 @@ const MOBILE_UA =
 
 const drawerHeight = () => Math.min(640, Math.floor(window.innerHeight * 0.8));
 
-// The "hamburger" menu pseudo-tab pinned to the left of the bar.
+// The "logo" menu pseudo-tab pinned to the left of the bar.
 const MENU_TAB = { id: '__menu', label: 'メニュー', icon: '☰', type: 'menu', width: 380 };
+
+// Brand mark: a top bar with a drawer hanging beneath it. Inline SVG so it can
+// be tinted (white on the teal bar) and needs no external file / CSP allowance.
+const logoMark = (color) =>
+  '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">' +
+  `<rect x="3" y="4.2" width="18" height="3.2" rx="1.6" fill="${color}"/>` +
+  `<rect x="6.5" y="9.4" width="11" height="9" rx="2" fill="${color}"/></svg>`;
 
 // --- Persistence (localStorage) -------------------------------------------
 const Store = {
@@ -507,7 +514,7 @@ function renderBar() {
 
   const menuBtn = el('button', 'ss-btn ss-menu');
   menuBtn.title = 'メニュー（設定・ヘルプ）';
-  menuBtn.append(el('span', 'ss-ico', MENU_TAB.icon));
+  menuBtn.innerHTML = logoMark('#eafafa');
   menuBtn.addEventListener('click', () => openTab(MENU_TAB, menuBtn));
   bar.appendChild(menuBtn);
 
