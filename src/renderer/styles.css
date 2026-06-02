@@ -113,6 +113,15 @@ html, body {
 }
 .ss-webview { width: 100%; height: 100%; border: 0; }
 
+/* split view (e.g. calendar month + day) */
+.ss-split { display: flex; height: 100%; }
+.ss-split-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ss-split-col + .ss-split-col { border-left: 1px solid #cdd8d8; }
+.ss-split-label {
+  font-size: 11px; font-weight: 700; color: #456;
+  background: #eef4f4; padding: 3px 8px; border-bottom: 1px solid #dfe7e7;
+}
+
 /* resize grip (bottom-right corner) */
 .ss-resize {
   position: absolute;
@@ -168,6 +177,7 @@ html, body {
 .ss-set-type { border: 1px solid #cfdcdc; border-radius: 5px; padding: 3px; font-size: 12px; }
 .ss-set-check { font-size: 12px; color: #334; display: flex; align-items: center; gap: 3px; }
 .ss-set-wlabel { font-size: 12px; color: #334; }
+.ss-set-note { font-size: 12px; color: #8aa; flex: 1; }
 .ss-set-w { width: 64px; border: 1px solid #cfdcdc; border-radius: 5px; padding: 3px 5px; }
 .ss-set-url { width: 100%; }
 .ss-set-actions { display: flex; gap: 6px; flex-wrap: wrap; }

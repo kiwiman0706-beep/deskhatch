@@ -55,17 +55,37 @@ function insideRounded(x, y, w, h, r) {
   return true;
 }
 
+const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+
 function draw(x, y, w, h) {
-  const r = Math.round(w * 0.2);
+  const r = Math.round(w * 0.22); // soft squircle corners
   if (!insideRounded(x, y, w, h, r)) return [0, 0, 0, 0];
-  // teal background
-  const bg = [0x1f, 0x6f, 0x6f, 255];
-  const white = [0xf4, 0xf6, 0xf6, 255];
-  // the mark: a top bar with a drawer hanging beneath it (24-unit grid)
   const u = w / 24;
+  // cheerful diagonal gradient (teal -> blue)
+  const t = (x + y) / (w + h);
+  const c1 = [0x29, 0xc2, 0xc2];
+  const c2 = [0x5b, 0x8d, 0xef];
+  const bg = [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t), 255];
+  const white = [0xf7, 0xf9, 0xff, 255];
   const rect = (x0, y0, x1, y1) => x >= x0 * u && x < x1 * u && y >= y0 * u && y < y1 * u;
-  if (rect(4, 5, 20, 8.2)) return white;    // top bar
-  if (rect(7, 10.5, 17, 19)) return white;  // drawer
+
+  if (rect(4, 4.5, 20, 7.5)) return white; // top bar
+
+  // drawer with four Google-coloured dots
+  if (rect(6.5, 9.5, 17.5, 19.5)) {
+    const dots = [
+      [10, 13, [0x42, 0x85, 0xf4]],   // blue
+      [14, 13, [0xea, 0x43, 0x35]],   // red
+      [10, 16.5, [0xfb, 0xbc, 0x05]], // yellow
+      [14, 16.5, [0x34, 0xa8, 0x53]], // green
+    ];
+    const rr = 1.6 * u;
+    for (const [cx, cy, col] of dots) {
+      const dx = x - cx * u, dy = y - cy * u;
+      if (dx * dx + dy * dy <= rr * rr) return [col[0], col[1], col[2], 255];
+    }
+    return white;
+  }
   return bg;
 }
 

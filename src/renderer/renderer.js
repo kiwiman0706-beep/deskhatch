@@ -212,17 +212,30 @@ function buildFilesPanel() {
   return wrap;
 }
 
+function makeWebview(url, mobile) {
+  const wv = document.createElement('webview');
+  wv.className = 'ss-webview';
+  wv.setAttribute('partition', 'persist:smartsuite'); // share login cookies
+  wv.setAttribute('allowpopups', '');
+  if (mobile) wv.setAttribute('useragent', MOBILE_UA);
+  wv.setAttribute('src', url);
+  return wv;
+}
+
 function buildBody(tab) {
   const body = document.createElement('div');
   body.className = 'ss-drawer-body';
   if (tab.type === 'page') {
-    const wv = document.createElement('webview');
-    wv.className = 'ss-webview';
-    wv.setAttribute('partition', 'persist:smartsuite'); // share login cookies
-    wv.setAttribute('allowpopups', '');
-    if (tab.mobile) wv.setAttribute('useragent', MOBILE_UA);
-    wv.setAttribute('src', tab.url);
-    body.appendChild(wv);
+    body.appendChild(makeWebview(tab.url, tab.mobile));
+  } else if (tab.type === 'split') {
+    const split = el('div', 'ss-split');
+    for (const pane of tab.panes || []) {
+      const col = el('div', 'ss-split-col');
+      if (pane.label) col.appendChild(el('div', 'ss-split-label', pane.label));
+      col.appendChild(makeWebview(pane.url, pane.mobile));
+      split.appendChild(col);
+    }
+    body.appendChild(split);
   } else if (tab.type === 'files') {
     body.appendChild(buildFilesPanel());
   } else if (tab.type === 'menu') {
@@ -402,37 +415,47 @@ function buildSettings() {
       delBtn.onclick = () => { working.splice(idx, 1); render(); };
       top.append(icon, label, upBtn, downBtn, delBtn);
 
-      const row2 = el('div', 'ss-set-row');
-      const type = el('select', 'ss-set-type');
-      ['page', 'files'].forEach((o) => { const op = el('option', null, o); op.value = o; type.appendChild(op); });
-      type.value = t.type === 'files' ? 'files' : 'page';
-      const mobileWrap = el('label', 'ss-set-check');
-      const mobile = document.createElement('input');
-      mobile.type = 'checkbox';
-      mobile.checked = !!t.mobile;
-      mobile.onchange = () => { t.mobile = mobile.checked; };
-      mobileWrap.append(mobile, document.createTextNode(' スマホ表示'));
+      const editable = t.type === 'page' || t.type === 'files';
+
       const width = document.createElement('input');
       width.type = 'number';
       width.className = 'ss-set-w';
       width.value = t.width || 420;
       width.oninput = () => { t.width = Number(width.value) || 420; };
-      row2.append(type, mobileWrap, el('span', 'ss-set-wlabel', '幅'), width);
+      const wlabel = el('span', 'ss-set-wlabel', '幅');
 
-      const url = field(t.url, 'https://…');
-      url.classList.add('ss-set-url');
-      url.oninput = () => { t.url = url.value; };
+      const row2 = el('div', 'ss-set-row');
 
-      function syncType() {
-        t.type = type.value;
-        const isPage = t.type === 'page';
-        url.style.display = isPage ? '' : 'none';
-        mobileWrap.style.display = isPage ? '' : 'none';
+      if (editable) {
+        const type = el('select', 'ss-set-type');
+        ['page', 'files'].forEach((o) => { const op = el('option', null, o); op.value = o; type.appendChild(op); });
+        type.value = t.type;
+        const mobileWrap = el('label', 'ss-set-check');
+        const mobile = document.createElement('input');
+        mobile.type = 'checkbox';
+        mobile.checked = !!t.mobile;
+        mobile.onchange = () => { t.mobile = mobile.checked; };
+        mobileWrap.append(mobile, document.createTextNode(' スマホ表示'));
+        row2.append(type, mobileWrap, wlabel, width);
+
+        const url = field(t.url, 'https://…');
+        url.classList.add('ss-set-url');
+        url.oninput = () => { t.url = url.value; };
+
+        const syncType = () => {
+          t.type = type.value;
+          const isPage = t.type === 'page';
+          url.style.display = isPage ? '' : 'none';
+          mobileWrap.style.display = isPage ? '' : 'none';
+        };
+        type.onchange = syncType;
+        syncType();
+
+        card.append(top, row2, url);
+      } else {
+        row2.append(el('span', 'ss-set-note', '特殊表示（編集不可）'), wlabel, width);
+        card.append(top, row2);
       }
-      type.onchange = syncType;
-      syncType();
-
-      card.append(top, row2, url);
       listEl.appendChild(card);
     });
   }

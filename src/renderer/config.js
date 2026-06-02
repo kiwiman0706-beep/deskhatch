@@ -18,8 +18,11 @@ window.SS_TABS = [
   { id: 'talk', label: 'トーク', icon: '💬', type: 'page', mobile: true, width: 420,
     url: 'https://line.worksmobile.com/' },
 
-  { id: 'cal', label: 'カレンダー', icon: '📅', type: 'page', mobile: true, width: 480,
-    url: 'https://calendar.google.com/calendar/u/0/r' },
+  // Calendar shows month + day side by side (two embedded views).
+  { id: 'cal', label: 'カレンダー', icon: '📅', type: 'split', width: 820, panes: [
+    { label: '月', url: 'https://calendar.google.com/calendar/u/0/r/month', mobile: false },
+    { label: '日', url: 'https://calendar.google.com/calendar/u/0/r/day', mobile: false },
+  ] },
 
   { id: 'keep', label: 'メモ', icon: '📝', type: 'page', mobile: true, width: 400,
     url: 'https://keep.google.com/' },
