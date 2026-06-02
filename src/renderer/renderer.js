@@ -498,6 +498,7 @@ function buildHelp() {
   root.innerHTML = `
     <h3>SmartSuite.next</h3>
     <ul>
+      <li>まず上の<b>「Google にログイン」</b>で1回サインインすると、Gmail・カレンダー・Tasks・Keep などが全てログイン済みになります。</li>
       <li>上端のボタンを押すと、その真下にドロワーが開きます。</li>
       <li>同時に開くのは1枚。📌でピン留めすると複数並べられます。</li>
       <li>ドロワー右下の角を<b>ドラッグでサイズ変更</b>。サイズは記憶されます。</li>
@@ -510,12 +511,24 @@ function buildHelp() {
 
 function buildMenuPanel() {
   const wrap = el('div', 'ss-menu-panel');
+
+  const acct = el('div', 'ss-acct');
+  const loginBtn = el('button', 'ss-set-btn ss-set-save', 'Google にログイン');
+  loginBtn.onclick = () => window.auth.login();
+  const logoutBtn = el('button', 'ss-set-btn', 'ログアウト');
+  logoutBtn.onclick = async () => {
+    await window.auth.logout();
+    logoutBtn.textContent = 'ログアウト済み';
+    setTimeout(() => { logoutBtn.textContent = 'ログアウト'; }, 1500);
+  };
+  acct.append(el('span', 'ss-acct-label', 'Google アカウント'), loginBtn, logoutBtn);
+
   const tabsBar = el('div', 'ss-menu-tabs');
   const bSettings = el('button', 'ss-menu-tab', '⚙ 設定');
   const bHelp = el('button', 'ss-menu-tab', '❔ ヘルプ');
   tabsBar.append(bSettings, bHelp);
   const view = el('div', 'ss-menu-view');
-  wrap.append(tabsBar, view);
+  wrap.append(acct, tabsBar, view);
 
   function show(which) {
     view.innerHTML = '';

@@ -36,3 +36,9 @@ contextBridge.exposeInMainWorld('files', {
   trash: (p) => ipcRenderer.invoke('files:trash', p),
   contextMenu: (info) => ipcRenderer.invoke('files:context-menu', info),
 });
+
+// Google sign-in helper (shared session for all embedded pages).
+contextBridge.exposeInMainWorld('auth', {
+  login: () => ipcRenderer.invoke('auth:login'),
+  logout: () => ipcRenderer.invoke('auth:logout'),
+});

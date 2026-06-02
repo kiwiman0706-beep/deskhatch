@@ -4,6 +4,7 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage } = require
 const path = require('path');
 const appbar = require('./appbar');
 const files = require('./files');
+const auth = require('./auth');
 
 const BAR_HEIGHT = 44; // collapsed strip height (px)
 
@@ -74,6 +75,7 @@ function createTray() {
   tray.setToolTip('SmartSuite.next');
   const menu = Menu.buildFromTemplate([
     { label: '表示 / 非表示', click: toggleWindow },
+    { label: 'Google にログイン', click: () => auth.openLogin() },
     { type: 'separator' },
     { label: '終了', click: () => app.quit() },
   ]);
@@ -97,8 +99,10 @@ ipcMain.on('overlay:set-height', (_e, height) => {
 // --- App lifecycle ----------------------------------------------------------
 
 files.register(() => win);
+auth.register();
 
 app.whenReady().then(() => {
+  auth.setup();
   createWindow();
   createTray();
 

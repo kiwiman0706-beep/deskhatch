@@ -145,6 +145,11 @@ html, body {
 
 /* --- Menu (settings / help) ------------------------------------------------ */
 .ss-menu-panel { display: flex; flex-direction: column; height: 100%; }
+.ss-acct {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 10px; background: #f0f6f6; border-bottom: 1px solid #dfe7e7;
+}
+.ss-acct-label { font-size: 12px; font-weight: 700; color: #456; }
 .ss-menu-tabs { display: flex; border-bottom: 1px solid #dfe7e7; background: #eef4f4; }
 .ss-menu-tab {
   flex: 1; border: none; background: transparent; cursor: pointer;

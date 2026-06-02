@@ -124,8 +124,11 @@ Embedded pages use a shared `persist:smartsuite` session so you stay logged in.
 
 ## Known limitations / TODO
 
-- Embedded Google **login may be blocked** in some webviews ("this browser may not
-  be secure"). Workarounds: external-browser login, or a desktop Chrome UA.
+- **Google sign-in:** the shared `persist:smartsuite` session uses a desktop
+  Chrome user-agent, and "Google にログイン" (menu / tray) opens a dedicated login
+  window on that session, so signing in once authenticates every embedded page.
+  This sidesteps the "this browser may not be secure" wall; if Google still blocks
+  it, the robust fallback is the OAuth-API route.
 - **Google Keep / Tasks** have no consumer API; they're embedded as pages only.
 - The file browser embeds a **custom** Explorer-like UI (Node `fs` + Electron
   `shell`), not the native Windows Explorer control — this keeps it cross-platform
