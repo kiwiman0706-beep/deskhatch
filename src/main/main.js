@@ -55,6 +55,13 @@ function createWindow() {
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
+  win.webContents.once('did-finish-load', () => {
+    const b = win.getBounds();
+    const d = screen.getPrimaryDisplay();
+    console.info('[diag] win=' + JSON.stringify(b) + ' bounds=' + JSON.stringify(d.bounds) +
+      ' workArea=' + JSON.stringify(d.workArea) + ' sf=' + d.scaleFactor);
+  });
+
   win.on('closed', () => {
     win = null;
   });
@@ -67,6 +74,21 @@ function toggleWindow() {
   if (!win) return createWindow();
   if (win.isVisible()) win.hide();
   else win.show();
+}
+
+// Watch the global cursor so the bar can reveal at the top edge even over a
+// maximized window (DOM hover on the thin transparent strip is unreliable there).
+let edgeTimer = null;
+function startEdgeWatch() {
+  if (edgeTimer) return;
+  let last = null;
+  edgeTimer = setInterval(() => {
+    if (!win || win.isDestroyed() || !win.isVisible()) return;
+    const p = screen.getCursorScreenPoint();
+    const d = screen.getPrimaryDisplay().bounds;
+    const atTop = p.y <= d.y + 2 && p.x >= d.x && p.x < d.x + d.width;
+    if (atTop !== last) { last = atTop; win.webContents.send('overlay:edge', atTop); }
+  }, 120);
 }
 
 function createTray() {
@@ -119,6 +141,7 @@ app.whenReady().then(() => {
   auth.setup();
   createWindow();
   createTray();
+  startEdgeWatch();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

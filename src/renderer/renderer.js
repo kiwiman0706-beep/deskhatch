@@ -78,6 +78,7 @@ const PEEK = 4;
 let display = Store.getDisplay(); // { mode: 'always'|'autohide', reserve: bool }
 let tempHidden = false;           // one-shot "get out of my way"
 let hovering = false;             // pointer over bar/peek
+let atEdge = false;               // cursor at the very top edge (from main)
 let hideTimer = null;
 
 // ---------------------------------------------------------------------------
@@ -110,7 +111,7 @@ const isHiddenMode = () => display.mode === 'autohide' || tempHidden;
 function barShouldShow() {
   if (Object.keys(open).length) return true; // a drawer is open
   if (!isHiddenMode()) return true;           // always-show mode
-  return hovering;                            // hidden mode: only while hovering
+  return hovering || atEdge;                  // hidden mode: reveal at top edge
 }
 
 function reflowHeight() {
@@ -750,6 +751,14 @@ function toast(msg) {
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 5000);
 }
+
+// Reveal at the top edge (driven by the main process's global cursor watch),
+// which works even when a maximized window covers the thin transparent strip.
+window.overlay.onEdge((top) => {
+  atEdge = top;
+  if (top) { clearTimeout(hideTimer); reflowHeight(); }
+  else { scheduleHide(); }
+});
 
 // Surface why the top-edge reservation didn't take, if it was requested.
 window.overlay.onReserveStatus((status, requested) => {

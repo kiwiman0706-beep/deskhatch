@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('overlay', {
   // the main process reserves the top edge (AppBar).
   setDisplay: (d) => ipcRenderer.send('display:set', d),
   onReserveStatus: (cb) => ipcRenderer.on('display:reserve-status', (_e, status, requested) => cb(status, requested)),
+  onEdge: (cb) => ipcRenderer.on('overlay:edge', (_e, atTop) => cb(atTop)),
 
   // Resolve the absolute path of a dropped File (Electron removed File.path).
   getPathForFile: (file) => {
