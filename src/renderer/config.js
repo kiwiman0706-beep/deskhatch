@@ -37,6 +37,21 @@ window.SS_TABS = [
   { id: 'drive', label: 'ドライブ', icon: '🗂', type: 'page', mobile: true, width: 480,
     url: 'https://drive.google.com/' },
 
+  { id: 'maps', label: 'マップ', icon: '🗺', type: 'page', mobile: true, width: 480,
+    url: 'https://maps.google.com/' },
+
+  { id: 'translate', label: '翻訳', icon: '🌐', type: 'page', mobile: true, width: 420,
+    url: 'https://translate.google.com/' },
+
+  { id: 'photos', label: 'フォト', icon: '🖼', type: 'page', mobile: false, width: 560,
+    url: 'https://photos.google.com/' },
+
+  { id: 'messages', label: 'メッセージ', icon: '📱', type: 'page', mobile: false, width: 420,
+    url: 'https://messages.google.com/web' },
+
+  { id: 'meet', label: 'Meet', icon: '🎥', type: 'page', mobile: false, width: 480,
+    url: 'https://meet.google.com/' },
+
   { id: 'desktop', label: 'Desktop', icon: '🖳', type: 'folder', path: '@desktop', width: 460 },
 
   { id: 'pc', label: 'My Computer', icon: '💻', type: 'files', width: 460 },
