@@ -726,6 +726,7 @@ function renderBar() {
   hideBtn.onclick = () => {
     tempHidden = !tempHidden;
     hideBtn.classList.toggle('on', tempHidden);
+    if (tempHidden) { hovering = false; clearTimeout(hideTimer); } // hide right away
     reflowHeight();
   };
   bar.appendChild(hideBtn);
@@ -739,6 +740,20 @@ const onLeave = () => { hovering = false; scheduleHide(); };
 peek.addEventListener('mouseenter', onEnter);
 bar.addEventListener('mouseenter', onEnter);
 bar.addEventListener('mouseleave', onLeave);
+
+function toast(msg) {
+  const t = el('div', 'ss-toast', msg);
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 5000);
+}
+
+// Surface why the top-edge reservation didn't take, if it was requested.
+window.overlay.onReserveStatus((status, requested) => {
+  if (!requested || status === 'ok') return;
+  toast(status === 'no-koffi'
+    ? '「領域を予約」には koffi が必要です。PowerShell で「npm install」を実行してください。'
+    : '領域の予約に失敗しました（' + status + '）。');
+});
 
 applyDisplay(); // push the saved display mode to main and set initial visibility
 

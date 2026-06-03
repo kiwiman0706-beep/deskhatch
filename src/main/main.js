@@ -95,11 +95,12 @@ ipcMain.on('app:quit', () => app.quit());
 // the user picks "常に表示 + 領域を予約". Otherwise release it.
 ipcMain.on('display:set', (_e, d) => {
   if (!win) return;
-  if (d && d.mode === 'always' && d.reserve) {
-    appbar.register(win, { edge: 'top', height: BAR_HEIGHT });
-  } else {
-    appbar.unregister(win);
-  }
+  const wantReserve = !!(d && d.mode === 'always' && d.reserve);
+  let status = 'off';
+  if (wantReserve) status = appbar.register(win, { edge: 'top', height: BAR_HEIGHT });
+  else appbar.unregister(win);
+  console.info('[appbar] display:set reserve=' + wantReserve + ' status=' + status);
+  if (!win.isDestroyed()) win.webContents.send('display:reserve-status', status, wantReserve);
 });
 
 ipcMain.on('overlay:set-height', (_e, height) => {
