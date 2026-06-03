@@ -413,6 +413,40 @@ function buildBookmarks() {
   return wrap;
 }
 
+function buildCamera(tab) {
+  const wrap = el('div', 'ss-cam');
+  const barEl = el('div', 'ss-cam-bar');
+  const reload = el('button', 'ss-set-btn', '再接続');
+  barEl.append(reload);
+  const video = document.createElement('video');
+  video.className = 'ss-cam-video';
+  video.autoplay = true;
+  video.playsInline = true;
+  video.controls = true;
+  video.muted = !!tab.muted;
+  wrap.append(barEl, video);
+
+  function msg(text) {
+    const m = wrap.querySelector('.ss-cam-msg');
+    if (m) m.remove();
+    wrap.appendChild(el('div', 'ss-cam-msg', text));
+  }
+  async function start() {
+    if (!tab.rtsp) { msg('設定で RTSP URL を入力してください'); return; }
+    const r = await window.camera.url(tab.rtsp);
+    if (r.error) {
+      msg(r.error === 'no-ffmpeg' ? 'ffmpeg が見つかりません（npm install を実行）' : 'RTSP URL が不正です（rtsp://… 形式）');
+      return;
+    }
+    const m = wrap.querySelector('.ss-cam-msg'); if (m) m.remove();
+    video.src = r.url;
+    video.play().catch(() => {});
+  }
+  reload.onclick = start;
+  start();
+  return wrap;
+}
+
 function buildClipboard() {
   const wrap = el('div', 'ss-clip');
   const barEl = el('div', 'ss-clip-bar');
@@ -461,6 +495,8 @@ function buildBody(tab) {
     body.appendChild(buildFilesPanel(tab.path));
   } else if (tab.type === 'folder') {
     body.appendChild(buildFilesPanel(tab.path || '@pc'));
+  } else if (tab.type === 'camera') {
+    body.appendChild(buildCamera(tab));
   } else if (tab.type === 'tool') {
     if (tab.tool === 'editor') body.appendChild(buildEditor());
     else if (tab.tool === 'calc') body.appendChild(buildCalc());
@@ -738,7 +774,7 @@ function buildSettings() {
       delBtn.onclick = () => { working.splice(idx, 1); render(); };
       top.append(icon, label, upBtn, downBtn, delBtn);
 
-      const editable = ['page', 'tabs', 'files', 'folder', 'tool'].includes(t.type);
+      const editable = ['page', 'tabs', 'files', 'folder', 'tool', 'camera'].includes(t.type);
 
       const width = document.createElement('input');
       width.type = 'number';
@@ -751,7 +787,7 @@ function buildSettings() {
 
       if (editable) {
         const type = el('select', 'ss-set-type');
-        [['page', 'ページ'], ['tabs', 'タブ'], ['files', 'PC全体'], ['folder', 'フォルダ'], ['tool', 'ツール']].forEach(([v, lbl]) => {
+        [['page', 'ページ'], ['tabs', 'タブ'], ['files', 'PC全体'], ['folder', 'フォルダ'], ['tool', 'ツール'], ['camera', 'カメラ']].forEach(([v, lbl]) => {
           const op = el('option', null, lbl); op.value = v; type.appendChild(op);
         });
         type.value = t.type;
@@ -805,6 +841,11 @@ function buildSettings() {
         const pathRow = el('div', 'ss-set-row');
         pathRow.append(pickBtn, pathInput);
 
+        // RTSP url for the 'camera' type.
+        const rtsp = field(t.rtsp, 'rtsp://ユーザー:パス@IP:554/stream1');
+        rtsp.classList.add('ss-set-url');
+        rtsp.oninput = () => { t.rtsp = rtsp.value; };
+
         // Pane editor for the 'tabs' type (label + URL per tab).
         const paneBox = el('div', 'ss-panes');
         function renderPanes() {
@@ -829,18 +870,20 @@ function buildSettings() {
           const isFolder = t.type === 'folder';
           const isTabs = t.type === 'tabs';
           const isTool = t.type === 'tool';
+          const isCamera = t.type === 'camera';
           url.style.display = isPage ? '' : 'none';
           mobileWrap.style.display = isPage ? '' : 'none';
           acctWrap.style.display = (isPage || isTabs) ? '' : 'none';
           toolWrap.style.display = isTool ? '' : 'none';
-          keepWrap.style.display = (isPage || isTabs) ? '' : 'none';
+          keepWrap.style.display = (isPage || isTabs || isCamera) ? '' : 'none';
           pathRow.style.display = isFolder ? '' : 'none';
+          rtsp.style.display = isCamera ? '' : 'none';
           paneBox.style.display = isTabs ? '' : 'none';
         };
         type.onchange = syncType;
         syncType();
 
-        card.append(top, row2, url, pathRow, paneBox);
+        card.append(top, row2, url, pathRow, rtsp, paneBox);
       } else {
         row2.append(el('span', 'ss-set-note', '特殊表示（編集不可）'), wlabel, width);
         card.append(top, row2);

@@ -11,6 +11,9 @@
     "test:e2e": "playwright test"
   },
   "license": "MIT",
+  "dependencies": {
+    "ffmpeg-static": "^5.2.0"
+  },
   "devDependencies": {
     "@playwright/test": "^1.47.0",
     "electron": "^31.0.0",

@@ -60,6 +60,11 @@ contextBridge.exposeInMainWorld('system', {
   bookmarks: () => ipcRenderer.invoke('system:bookmarks'),
 });
 
+// Live camera (RTSP -> local fragmented-MP4 stream URL).
+contextBridge.exposeInMainWorld('camera', {
+  url: (rtsp) => ipcRenderer.invoke('camera:url', rtsp),
+});
+
 // Google sign-in helper (one session partition per account).
 contextBridge.exposeInMainWorld('auth', {
   login: (partition) => ipcRenderer.invoke('auth:login', partition),
