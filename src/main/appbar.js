@@ -63,30 +63,31 @@ function register(win, opts = {}) {
     const height = opts.height || 44;
     const b = win.getBounds();
 
+    // SHAppBarMessage works in PHYSICAL pixels, but Electron bounds are in DIPs.
+    // On a scaled display (e.g. 150%) we must multiply by the scale factor, or
+    // the reserved strip won't match the bar's real height.
+    const { screen } = require('electron');
+    const disp = screen.getDisplayMatching(b);
+    const sf = disp.scaleFactor || 1;
+    const px = (v) => Math.round(v * sf);
+
     const data = {
       cbSize: sizeof,
       hWnd: Number(hwndOf(win)),
       uCallbackMessage: 0,
       uEdge: ABE_TOP,
-      rc: { left: b.x, top: b.y, right: b.x + b.width, bottom: b.y + height },
+      rc: { left: px(b.x), top: px(b.y), right: px(b.x + b.width), bottom: px(b.y + height) },
       lParam: 0,
     };
 
     if (!state) SHAppBarMessage(ABM_NEW, data); // register once
     // Ask Windows where a top bar of this thickness may sit, then claim it.
     SHAppBarMessage(ABM_QUERYPOS, data);
-    data.rc.bottom = data.rc.top + height;
+    data.rc.bottom = data.rc.top + px(height);
     SHAppBarMessage(ABM_SETPOS, data);
 
-    win.setBounds({
-      x: data.rc.left,
-      y: data.rc.top,
-      width: data.rc.right - data.rc.left,
-      height: b.height, // keep current height (drawers may have grown it)
-    });
-
     state = { data };
-    console.info('[appbar] reserved top edge:', JSON.stringify(data.rc));
+    console.info('[appbar] reserved top edge sf=' + sf + ' rc=' + JSON.stringify(data.rc));
     return 'ok';
   } catch (err) {
     console.warn('[appbar] registration failed:', err && err.message);
