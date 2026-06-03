@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld('overlay', {
   // so the desktop below stays clickable where nothing is shown.
   setHeight: (height) => ipcRenderer.send('overlay:set-height', height),
 
+  // Quit the whole app (tray + bar).
+  quit: () => ipcRenderer.send('app:quit'),
+
   // Resolve the absolute path of a dropped File (Electron removed File.path).
   getPathForFile: (file) => {
     try {

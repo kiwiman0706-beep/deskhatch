@@ -154,6 +154,9 @@ html, body {
   padding: 8px 10px; background: #f0f6f6; border-bottom: 1px solid #dfe7e7;
 }
 .ss-acct-label { font-size: 12px; font-weight: 700; color: #456; }
+.ss-menu-foot { padding: 8px 10px; border-top: 1px solid #dfe7e7; background: #f0f6f6; }
+.ss-quit { background: #c0392b; color: #fff; border-color: #99281b; }
+.ss-quit:hover { background: #a93226; }
 .ss-menu-tabs { display: flex; border-bottom: 1px solid #dfe7e7; background: #eef4f4; }
 .ss-menu-tab {
   flex: 1; border: none; background: transparent; cursor: pointer;

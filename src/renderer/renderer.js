@@ -559,7 +559,13 @@ function buildMenuPanel() {
   const bHelp = el('button', 'ss-menu-tab', '❔ ヘルプ');
   tabsBar.append(bSettings, bHelp);
   const view = el('div', 'ss-menu-view');
-  wrap.append(acct, tabsBar, view);
+
+  const footer = el('div', 'ss-menu-foot');
+  const quitBtn = el('button', 'ss-set-btn ss-quit', '⏻ アプリを終了');
+  quitBtn.onclick = () => window.overlay.quit();
+  footer.append(quitBtn);
+
+  wrap.append(acct, tabsBar, view, footer);
 
   function show(which) {
     view.innerHTML = '';

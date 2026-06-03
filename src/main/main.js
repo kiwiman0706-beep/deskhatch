@@ -96,6 +96,8 @@ ipcMain.on('overlay:set-ignore-mouse', (_e, ignore) => {
   if (win) win.setIgnoreMouseEvents(!!ignore, { forward: true });
 });
 
+ipcMain.on('app:quit', () => app.quit());
+
 ipcMain.on('overlay:set-height', (_e, height) => {
   if (!win) return;
   const b = win.getBounds();
