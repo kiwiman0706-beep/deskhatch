@@ -15,7 +15,10 @@ let tray = null;
 
 function createWindow() {
   const display = screen.getPrimaryDisplay();
-  const { x, y, width } = display.workArea;
+  // Pin to the monitor's true top-left (display.bounds), NOT workArea — workArea
+  // is shrunk by the taskbar and by any (possibly leaked) AppBar reservations,
+  // which would push the bar down from the top edge.
+  const { x, y, width } = display.bounds;
 
   win = new BrowserWindow({
     x,
@@ -57,9 +60,13 @@ function createWindow() {
   });
 
   // Best-effort Windows AppBar registration (reserves the top edge so maximized
-  // windows don't sit underneath). Falls back to a plain top-pinned overlay.
+  // windows don't sit underneath). OFF by default: it leaks its reservation if
+  // the app is killed abruptly (e.g. Ctrl+C during dev), which pushes the bar
+  // down on later launches. Opt in with SMARTSUITE_APPBAR=1 once it's solid.
   win.webContents.once('did-finish-load', () => {
-    appbar.register(win, { edge: 'top', height: BAR_HEIGHT });
+    if (process.env.SMARTSUITE_APPBAR === '1') {
+      appbar.register(win, { edge: 'top', height: BAR_HEIGHT });
+    }
   });
 }
 
@@ -119,3 +126,13 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   if (win) appbar.unregister(win);
 });
+
+// Also release the AppBar reservation on abrupt termination (Ctrl+C, kill) so
+// it can't leak and push the bar down next time.
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(sig, () => {
+    if (win) appbar.unregister(win);
+    app.quit();
+    process.exit(0);
+  });
+}
