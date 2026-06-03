@@ -41,8 +41,9 @@ contextBridge.exposeInMainWorld('files', {
   contextMenu: (info) => ipcRenderer.invoke('files:context-menu', info),
 });
 
-// Google sign-in helper (shared session for all embedded pages).
+// Google sign-in helper (one session partition per account).
 contextBridge.exposeInMainWorld('auth', {
-  login: () => ipcRenderer.invoke('auth:login'),
-  logout: () => ipcRenderer.invoke('auth:logout'),
+  login: (partition) => ipcRenderer.invoke('auth:login', partition),
+  logout: (partition) => ipcRenderer.invoke('auth:logout', partition),
+  ensure: (partition) => ipcRenderer.send('auth:ensure', partition),
 });

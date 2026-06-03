@@ -31,6 +31,12 @@ window.SS_TABS = [
   { id: 'keep', label: 'メモ', icon: '📝', type: 'page', mobile: true, width: 400,
     url: 'https://keep.google.com/' },
 
+  { id: 'contacts', label: '連絡先', icon: '👤', type: 'page', mobile: true, width: 420,
+    url: 'https://contacts.google.com/' },
+
+  { id: 'drive', label: 'ドライブ', icon: '🗂', type: 'page', mobile: true, width: 480,
+    url: 'https://drive.google.com/' },
+
   { id: 'desktop', label: 'Desktop', icon: '🖳', type: 'folder', path: '@desktop', width: 460 },
 
   { id: 'pc', label: 'My Computer', icon: '💻', type: 'files', width: 460 },

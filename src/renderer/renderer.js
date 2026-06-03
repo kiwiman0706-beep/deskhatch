@@ -37,6 +37,24 @@ const Store = {
     try { return JSON.parse(localStorage.getItem('ss.size.' + id)) || null; } catch (_) { return null; }
   },
   saveSize(id, s) { localStorage.setItem('ss.size.' + id, JSON.stringify(s)); },
+  getAccounts() {
+    try { const a = JSON.parse(localStorage.getItem('ss.accounts')); return Array.isArray(a) ? a : []; } catch (_) { return []; }
+  },
+  saveAccounts(a) { localStorage.setItem('ss.accounts', JSON.stringify(a)); },
+};
+
+// Accounts: the built-in "default" (shared session) plus user-added ones, each
+// with its own isolated session partition.
+const partitionFor = (id) => (!id || id === 'default') ? 'persist:smartsuite' : 'persist:acct-' + id;
+const accountsFull = () => [{ id: 'default', name: '既定' }].concat(Store.getAccounts());
+const addAccount = (name) => {
+  const arr = Store.getAccounts();
+  arr.push({ id: 'a' + Date.now().toString(36), name });
+  Store.saveAccounts(arr);
+};
+const removeAccount = (id) => {
+  Store.saveAccounts(Store.getAccounts().filter((a) => a.id !== id));
+  window.auth.logout(partitionFor(id)); // clear its cookies too
 };
 
 const defaultTabs = () => JSON.parse(JSON.stringify(window.SS_TABS || []));
@@ -220,10 +238,12 @@ function buildFilesPanel(startPath) {
   return wrap;
 }
 
-function makeWebview(url, mobile) {
+function makeWebview(url, mobile, partition) {
   const wv = document.createElement('webview');
   wv.className = 'ss-webview';
-  wv.setAttribute('partition', 'persist:smartsuite'); // share login cookies
+  const part = partition || 'persist:smartsuite';
+  window.auth.ensure(part); // make sure this partition has the desktop Chrome UA
+  wv.setAttribute('partition', part);
   wv.setAttribute('allowpopups', '');
   if (mobile) wv.setAttribute('useragent', MOBILE_UA);
   wv.setAttribute('src', url);
@@ -233,14 +253,15 @@ function makeWebview(url, mobile) {
 function buildBody(tab) {
   const body = document.createElement('div');
   body.className = 'ss-drawer-body';
+  const part = partitionFor(tab.account);
   if (tab.type === 'page') {
-    body.appendChild(makeWebview(tab.url, tab.mobile));
+    body.appendChild(makeWebview(tab.url, tab.mobile, part));
   } else if (tab.type === 'split') {
     const split = el('div', 'ss-split');
     for (const pane of tab.panes || []) {
       const col = el('div', 'ss-split-col');
       if (pane.label) col.appendChild(el('div', 'ss-split-label', pane.label));
-      col.appendChild(makeWebview(pane.url, pane.mobile));
+      col.appendChild(makeWebview(pane.url, pane.mobile, part));
       split.appendChild(col);
     }
     body.appendChild(split);
@@ -453,7 +474,15 @@ function buildSettings() {
         mobile.checked = !!t.mobile;
         mobile.onchange = () => { t.mobile = mobile.checked; };
         mobileWrap.append(mobile, document.createTextNode(' スマホ表示'));
-        row2.append(type, mobileWrap, wlabel, width);
+
+        const acctWrap = el('label', 'ss-set-check');
+        const acctSel = el('select', 'ss-set-type');
+        accountsFull().forEach((a) => { const op = el('option', null, a.name); op.value = a.id; acctSel.appendChild(op); });
+        acctSel.value = t.account || 'default';
+        acctSel.onchange = () => { t.account = acctSel.value === 'default' ? undefined : acctSel.value; };
+        acctWrap.append(document.createTextNode('アカウント '), acctSel);
+
+        row2.append(type, mobileWrap, acctWrap, wlabel, width);
 
         const url = field(t.url, 'https://…');
         url.classList.add('ss-set-url');
@@ -477,6 +506,7 @@ function buildSettings() {
           const isFolder = t.type === 'folder';
           url.style.display = isPage ? '' : 'none';
           mobileWrap.style.display = isPage ? '' : 'none';
+          acctWrap.style.display = isPage ? '' : 'none';
           pathRow.style.display = isFolder ? '' : 'none';
         };
         type.onchange = syncType;
@@ -529,7 +559,8 @@ function buildHelp() {
   root.innerHTML = `
     <h3>SmartSuite.next</h3>
     <ul>
-      <li>まず上の<b>「Google にログイン」</b>で1回サインインすると、Gmail・カレンダー・Tasks・Keep などが全てログイン済みになります。</li>
+      <li>上の<b>Google アカウント</b>で「ログイン」して1回サインインすると、Gmail・カレンダー・Tasks・Keep などが全てログイン済みになります。</li>
+      <li><b>別アカウントも追加可能</b>：名前を入れて「＋追加」→そのアカウントで「ログイン」。設定で各項目に割り当てれば、個人用・仕事用を同時に開けます。</li>
       <li>上端のボタンを押すと、その真下にドロワーが開きます。</li>
       <li>同時に開くのは1枚。📌でピン留めすると複数並べられます。</li>
       <li>ドロワー右下の角を<b>ドラッグでサイズ変更</b>。サイズは記憶されます。</li>
@@ -544,15 +575,35 @@ function buildMenuPanel() {
   const wrap = el('div', 'ss-menu-panel');
 
   const acct = el('div', 'ss-acct');
-  const loginBtn = el('button', 'ss-set-btn ss-set-save', 'Google にログイン');
-  loginBtn.onclick = () => window.auth.login();
-  const logoutBtn = el('button', 'ss-set-btn', 'ログアウト');
-  logoutBtn.onclick = async () => {
-    await window.auth.logout();
-    logoutBtn.textContent = 'ログアウト済み';
-    setTimeout(() => { logoutBtn.textContent = 'ログアウト'; }, 1500);
-  };
-  acct.append(el('span', 'ss-acct-label', 'Google アカウント'), loginBtn, logoutBtn);
+  function renderAccounts() {
+    acct.innerHTML = '';
+    acct.append(el('span', 'ss-acct-label', 'Google アカウント'));
+    for (const a of accountsFull()) {
+      const chip = el('div', 'ss-acct-chip');
+      chip.append(el('span', 'ss-acct-name', a.name));
+      const inBtn = el('button', 'ss-acct-mini', 'ログイン');
+      inBtn.onclick = () => window.auth.login(partitionFor(a.id));
+      chip.append(inBtn);
+      if (a.id !== 'default') {
+        const del = el('button', 'ss-acct-mini', '✕');
+        del.title = 'このアカウントを削除';
+        del.onclick = () => { removeAccount(a.id); renderAccounts(); };
+        chip.append(del);
+      }
+      acct.append(chip);
+    }
+    const addName = el('input', 'ss-set-input');
+    addName.placeholder = '追加するアカウント名';
+    const addBtn = el('button', 'ss-set-btn', '＋ 追加');
+    addBtn.onclick = () => {
+      const name = addName.value.trim();
+      if (!name) return;
+      addAccount(name);
+      renderAccounts();
+    };
+    acct.append(addName, addBtn);
+  }
+  renderAccounts();
 
   const tabsBar = el('div', 'ss-menu-tabs');
   const bSettings = el('button', 'ss-menu-tab', '⚙ 設定');

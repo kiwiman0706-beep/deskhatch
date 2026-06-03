@@ -150,10 +150,20 @@ html, body {
 /* --- Menu (settings / help) ------------------------------------------------ */
 .ss-menu-panel { display: flex; flex-direction: column; height: 100%; }
 .ss-acct {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   padding: 8px 10px; background: #f0f6f6; border-bottom: 1px solid #dfe7e7;
 }
-.ss-acct-label { font-size: 12px; font-weight: 700; color: #456; }
+.ss-acct-label { font-size: 12px; font-weight: 700; color: #456; width: 100%; }
+.ss-acct-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid #cfdcdc; border-radius: 14px; padding: 2px 4px 2px 10px; background: #fff;
+}
+.ss-acct-name { font-size: 12px; color: var(--ink); }
+.ss-acct-mini {
+  border: none; background: #e8f3f3; border-radius: 12px;
+  font-size: 11px; padding: 2px 8px; cursor: pointer; color: #234;
+}
+.ss-acct-mini:hover { background: #d2e8e8; }
 .ss-menu-foot { padding: 8px 10px; border-top: 1px solid #dfe7e7; background: #f0f6f6; }
 .ss-quit { background: #c0392b; color: #fff; border-color: #99281b; }
 .ss-quit:hover { background: #a93226; }

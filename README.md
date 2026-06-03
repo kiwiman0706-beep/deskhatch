@@ -128,11 +128,12 @@ Embedded pages use a shared `persist:smartsuite` session so you stay logged in.
 
 ## Known limitations / TODO
 
-- **Google sign-in:** the shared `persist:smartsuite` session uses a desktop
-  Chrome user-agent, and "Google にログイン" (menu / tray) opens a dedicated login
-  window on that session, so signing in once authenticates every embedded page.
-  This sidesteps the "this browser may not be secure" wall; if Google still blocks
-  it, the robust fallback is the OAuth-API route.
+- **Google sign-in (multi-account):** each account gets its own session
+  partition (its own cookie jar), so two Gmail/Calendar accounts can be open side
+  by side. The default account uses `persist:smartsuite`; add more in 設定 → Google
+  アカウント, then assign each `page` drawer to an account. Every partition gets a
+  desktop Chrome UA and sign-in happens in a dedicated window, sidestepping the
+  "this browser may not be secure" wall.
 - **Google Keep / Tasks** have no consumer API; they're embedded as pages only.
 - The file browser embeds a **custom** Explorer-like UI (Node `fs` + Electron
   `shell`), not the native Windows Explorer control — this keeps it cross-platform
