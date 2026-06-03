@@ -38,7 +38,7 @@ const Store = {
   },
   saveSize(id, s) { localStorage.setItem('ss.size.' + id, JSON.stringify(s)); },
   getDisplay() {
-    try { const d = JSON.parse(localStorage.getItem('ss.display')); return d && d.mode ? d : { mode: 'always', reserve: false }; } catch (_) { return { mode: 'always', reserve: false }; }
+    try { const d = JSON.parse(localStorage.getItem('ss.display')); return d && d.mode ? d : { mode: 'autohide', reserve: false }; } catch (_) { return { mode: 'autohide', reserve: false }; }
   },
   saveDisplay(d) { localStorage.setItem('ss.display', JSON.stringify(d)); },
   getAccounts() {
@@ -481,8 +481,9 @@ function buildDisplaySettings() {
   const res = document.createElement('input');
   res.type = 'checkbox'; res.checked = !!display.reserve;
   res.onchange = () => { display = { ...display, reserve: res.checked }; applyDisplay(); };
-  resL.append(res, document.createTextNode(' 最大化ウィンドウと重ならない（領域を予約）'));
+  resL.append(res, document.createTextNode(' 領域を予約（実験的・効かない環境あり）'));
   root.append(resL);
+  root.append(el('div', 'ss-disp-note', '※「常に表示」は最大化ウィンドウに重なります。重なりを避けたい場合は「自動で隠す」を推奨。'));
   return root;
 }
 
@@ -603,6 +604,9 @@ function buildSettings() {
   const resetBtn = el('button', 'ss-set-btn', '既定に戻す');
   resetBtn.onclick = () => {
     Store.clearTabs();
+    localStorage.removeItem('ss.display'); // back to autohide + no reserve
+    display = Store.getDisplay();
+    applyDisplay();
     tabs = defaultTabs();
     working = JSON.parse(JSON.stringify(tabs));
     render();

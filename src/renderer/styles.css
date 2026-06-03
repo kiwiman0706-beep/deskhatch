@@ -229,6 +229,7 @@ html, body {
   display: flex; flex-direction: column; gap: 6px;
 }
 .ss-disp-title { font-weight: 700; color: var(--ink); font-size: 12.5px; }
+.ss-disp-note { font-size: 11px; color: #8090a0; line-height: 1.5; }
 .ss-set-list { display: flex; flex-direction: column; gap: 8px; }
 .ss-set-card {
   border: 1px solid #dbe6e6; border-radius: 8px; padding: 8px;
