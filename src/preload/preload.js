@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('overlay', {
   // Display mode: { mode: 'always'|'autohide', reserve: bool }. Drives whether
   // the main process reserves the top edge (AppBar).
   setDisplay: (d) => ipcRenderer.send('display:set', d),
+  getDisplays: () => ipcRenderer.invoke('overlay:get-displays'),
   onReserveStatus: (cb) => ipcRenderer.on('display:reserve-status', (_e, status, requested) => cb(status, requested)),
   onEdge: (cb) => ipcRenderer.on('overlay:edge', (_e, atTop) => cb(atTop)),
 

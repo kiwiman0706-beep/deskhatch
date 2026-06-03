@@ -71,6 +71,8 @@ let tabs = loadTabs();
 
 /** id -> { el, btn, pinned } */
 const open = {};
+/** id -> { el, btn, tab } : kept-alive drawers hidden off-screen (audio keeps playing) */
+const bg = {};
 let zCounter = 100;
 let dragging = false; // true while a drawer is being resized
 
@@ -587,12 +589,26 @@ function openTab(tab, btn) {
   if (action === 'close') { closeDrawer(tab.id); return; }
   toClose.forEach(closeDrawer);
 
+  // Revive a kept-alive drawer that was hidden in the background.
+  if (bg[tab.id]) {
+    const o = bg[tab.id];
+    delete bg[tab.id];
+    const d = o.el;
+    d.classList.remove('ss-bg');
+    d.style.left = anchorLeft(btn, d.offsetWidth) + 'px';
+    bringToFront(d);
+    open[tab.id] = { el: d, btn, pinned: false, keepAlive: !!tab.keepAlive, tab };
+    btn.classList.add('active');
+    reflowHeight();
+    return;
+  }
+
   const d = createDrawer(tab);
   document.body.appendChild(d);
   d.style.left = anchorLeft(btn, d.offsetWidth) + 'px';
   bringToFront(d);
 
-  open[tab.id] = { el: d, btn, pinned: false };
+  open[tab.id] = { el: d, btn, pinned: false, keepAlive: !!tab.keepAlive, tab };
   btn.classList.add('active');
   reflowHeight();
   requestAnimationFrame(() => d.classList.add('open'));
@@ -601,9 +617,18 @@ function openTab(tab, btn) {
 function closeDrawer(id) {
   const o = open[id];
   if (!o) return;
-  o.el.classList.remove('open');
   o.btn.classList.remove('active');
   delete open[id];
+
+  // Keep-alive: hide off-screen but keep the webview running (audio continues).
+  if (o.keepAlive) {
+    o.el.classList.add('ss-bg');
+    bg[id] = { el: o.el, btn: o.btn, tab: o.tab };
+    reflowHeight();
+    return;
+  }
+
+  o.el.classList.remove('open');
   const el = o.el;
   setTimeout(() => {
     el.remove();
@@ -672,6 +697,18 @@ function buildDisplaySettings() {
   repinWrap.append(document.createTextNode('予約の維持方式 '), repinSel);
   root.append(repinWrap);
 
+  // Target monitor (multi-display).
+  const monWrap = el('label', 'ss-set-check');
+  const monSel = el('select', 'ss-set-type');
+  const optP = el('option', null, 'プライマリ'); optP.value = ''; monSel.appendChild(optP);
+  monWrap.append(document.createTextNode('表示モニタ '), monSel);
+  root.append(monWrap);
+  window.overlay.getDisplays().then((list) => {
+    (list || []).forEach((dp) => { const op = el('option', null, dp.label); op.value = String(dp.id); monSel.appendChild(op); });
+    monSel.value = (display.monitor != null) ? String(display.monitor) : '';
+  });
+  monSel.onchange = () => { display = { ...display, monitor: monSel.value === '' ? undefined : Number(monSel.value) }; applyDisplay(); };
+
   root.append(el('div', 'ss-disp-note', '※「常に表示」で重なる場合は「領域を予約」をON。維持方式は通常「イベント駆動」でOK（うまく追従しない時だけ「ポーリング」へ）。'));
   return root;
 }
@@ -701,7 +738,7 @@ function buildSettings() {
       delBtn.onclick = () => { working.splice(idx, 1); render(); };
       top.append(icon, label, upBtn, downBtn, delBtn);
 
-      const editable = t.type === 'page' || t.type === 'files' || t.type === 'folder' || t.type === 'tabs';
+      const editable = ['page', 'tabs', 'files', 'folder', 'tool'].includes(t.type);
 
       const width = document.createElement('input');
       width.type = 'number';
@@ -714,7 +751,7 @@ function buildSettings() {
 
       if (editable) {
         const type = el('select', 'ss-set-type');
-        [['page', 'ページ'], ['tabs', 'タブ'], ['files', 'PC全体'], ['folder', 'フォルダ']].forEach(([v, lbl]) => {
+        [['page', 'ページ'], ['tabs', 'タブ'], ['files', 'PC全体'], ['folder', 'フォルダ'], ['tool', 'ツール']].forEach(([v, lbl]) => {
           const op = el('option', null, lbl); op.value = v; type.appendChild(op);
         });
         type.value = t.type;
@@ -725,6 +762,24 @@ function buildSettings() {
         mobile.onchange = () => { t.mobile = mobile.checked; };
         mobileWrap.append(mobile, document.createTextNode(' スマホ表示'));
 
+        // keep-alive (don't stop the page/audio when closed)
+        const keepWrap = el('label', 'ss-set-check');
+        const keep = document.createElement('input');
+        keep.type = 'checkbox';
+        keep.checked = !!t.keepAlive;
+        keep.onchange = () => { t.keepAlive = keep.checked; };
+        keepWrap.append(keep, document.createTextNode(' 閉じても止めない'));
+
+        // which built-in tool (type 'tool')
+        const toolWrap = el('label', 'ss-set-check');
+        const toolSel = el('select', 'ss-set-type');
+        [['editor', '簡易エディタ'], ['calc', '電卓'], ['clipboard', 'クリップボード'], ['bookmarks', 'ブックマーク']].forEach(([v, lbl]) => {
+          const op = el('option', null, lbl); op.value = v; toolSel.appendChild(op);
+        });
+        toolSel.value = t.tool || 'editor';
+        toolSel.onchange = () => { t.tool = toolSel.value; };
+        toolWrap.append(document.createTextNode('ツール '), toolSel);
+
         const acctWrap = el('label', 'ss-set-check');
         const acctSel = el('select', 'ss-set-type');
         accountsFull().forEach((a) => { const op = el('option', null, a.name); op.value = a.id; acctSel.appendChild(op); });
@@ -732,7 +787,7 @@ function buildSettings() {
         acctSel.onchange = () => { t.account = acctSel.value === 'default' ? undefined : acctSel.value; };
         acctWrap.append(document.createTextNode('アカウント '), acctSel);
 
-        row2.append(type, mobileWrap, acctWrap, wlabel, width);
+        row2.append(type, mobileWrap, acctWrap, toolWrap, keepWrap, wlabel, width);
 
         const url = field(t.url, 'https://…');
         url.classList.add('ss-set-url');
@@ -773,9 +828,12 @@ function buildSettings() {
           const isPage = t.type === 'page';
           const isFolder = t.type === 'folder';
           const isTabs = t.type === 'tabs';
+          const isTool = t.type === 'tool';
           url.style.display = isPage ? '' : 'none';
           mobileWrap.style.display = isPage ? '' : 'none';
           acctWrap.style.display = (isPage || isTabs) ? '' : 'none';
+          toolWrap.style.display = isTool ? '' : 'none';
+          keepWrap.style.display = (isPage || isTabs) ? '' : 'none';
           pathRow.style.display = isFolder ? '' : 'none';
           paneBox.style.display = isTabs ? '' : 'none';
         };

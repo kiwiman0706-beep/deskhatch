@@ -14,8 +14,17 @@ let win = null;
 /** @type {Tray | null} */
 let tray = null;
 
+let targetDisplayId = null; // null = primary; otherwise a specific monitor
+function getTargetDisplay() {
+  if (targetDisplayId != null) {
+    const found = screen.getAllDisplays().find((dp) => dp.id === targetDisplayId);
+    if (found) return found;
+  }
+  return screen.getPrimaryDisplay();
+}
+
 function createWindow() {
-  const display = screen.getPrimaryDisplay();
+  const display = getTargetDisplay();
   // Pin to the monitor's true top-left (display.bounds), NOT workArea — workArea
   // is shrunk by the taskbar and by any (possibly leaked) AppBar reservations,
   // which would push the bar down from the top edge.
@@ -88,7 +97,7 @@ function toggleWindow() {
 let spacerWin = null;
 function createSpacer() {
   if (spacerWin && !spacerWin.isDestroyed()) return spacerWin;
-  const d = screen.getPrimaryDisplay().bounds;
+  const d = getTargetDisplay().bounds;
   spacerWin = new BrowserWindow({
     x: d.x, y: d.y, width: d.width, height: BAR_HEIGHT,
     frame: false, transparent: false, backgroundColor: '#1f6f6f',
@@ -124,7 +133,7 @@ let pinning = false;     // guard so our own setBounds doesn't re-trigger
 // we can't answer ABN_POSCHANGED, so we re-assert our position here.
 function rePinBoth(reason) {
   if (!reserveActive || pinning || !win || win.isDestroyed()) return;
-  const d = screen.getPrimaryDisplay().bounds;
+  const d = getTargetDisplay().bounds;
   pinning = true;
   try {
     if (spacerWin && !spacerWin.isDestroyed()) {
@@ -145,7 +154,7 @@ function startEdgeWatch() {
   let last = null;
   edgeTimer = setInterval(() => {
     if (!win || win.isDestroyed() || !win.isVisible()) return;
-    const d = screen.getPrimaryDisplay().bounds;
+    const d = getTargetDisplay().bounds;
 
     if (reserveActive && repinMode === 'poll') rePinBoth('poll');
 
@@ -183,8 +192,21 @@ ipcMain.on('overlay:raise', () => {
 
 // Reserve the top edge (so maximized windows don't overlap the bar) only when
 // the user picks "常に表示 + 領域を予約". Otherwise release it.
+ipcMain.handle('overlay:get-displays', () => {
+  const prim = screen.getPrimaryDisplay().id;
+  return screen.getAllDisplays().map((dp, i) => ({
+    id: dp.id, label: 'モニタ' + (i + 1) + (dp.id === prim ? '（主）' : ''),
+  }));
+});
+
 ipcMain.on('display:set', (_e, d) => {
   if (!win) return;
+
+  // Target monitor: move the bar (and a fresh-width window) to the chosen display.
+  targetDisplayId = (d && typeof d.monitor === 'number') ? d.monitor : null;
+  const tb = getTargetDisplay().bounds;
+  win.setBounds({ x: tb.x, y: tb.y, width: tb.width, height: win.getBounds().height });
+
   const wantReserve = !!(d && d.mode === 'always' && d.reserve);
   reserveActive = wantReserve;
   repinMode = (d && d.repin === 'poll') ? 'poll' : 'event';
@@ -192,6 +214,7 @@ ipcMain.on('display:set', (_e, d) => {
   let status = 'off';
   if (wantReserve) {
     const sp = createSpacer();
+    sp.setBounds({ x: tb.x, y: tb.y, width: tb.width, height: BAR_HEIGHT }); // on the target display
     status = appbar.register(sp, { edge: 'top', height: BAR_HEIGHT });
     win.setAlwaysOnTop(true, 'screen-saver'); // keep the real bar above the spacer
     win.moveTop();

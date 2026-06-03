@@ -125,6 +125,12 @@ html, body {
   pointer-events: auto;
 }
 
+/* kept-alive but hidden: moved off-screen, still rendered so audio keeps playing */
+.ss-drawer.ss-bg {
+  left: -100000px !important;
+  pointer-events: none;
+}
+
 .ss-drawer-head {
   display: flex;
   align-items: center;
