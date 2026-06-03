@@ -38,7 +38,8 @@ const Store = {
   },
   saveSize(id, s) { localStorage.setItem('ss.size.' + id, JSON.stringify(s)); },
   getDisplay() {
-    try { const d = JSON.parse(localStorage.getItem('ss.display')); return d && d.mode ? d : { mode: 'autohide', reserve: false }; } catch (_) { return { mode: 'autohide', reserve: false }; }
+    const def = { mode: 'autohide', reserve: false, repin: 'event' };
+    try { const d = JSON.parse(localStorage.getItem('ss.display')); return d && d.mode ? { ...def, ...d } : def; } catch (_) { return def; }
   },
   saveDisplay(d) { localStorage.setItem('ss.display', JSON.stringify(d)); },
   getAccounts() {
@@ -482,9 +483,21 @@ function buildDisplaySettings() {
   const res = document.createElement('input');
   res.type = 'checkbox'; res.checked = !!display.reserve;
   res.onchange = () => { display = { ...display, reserve: res.checked }; applyDisplay(); };
-  resL.append(res, document.createTextNode(' 領域を予約（実験的・効かない環境あり）'));
+  resL.append(res, document.createTextNode(' 領域を予約（常に表示でも最大化ウィンドウと重ならない）'));
   root.append(resL);
-  root.append(el('div', 'ss-disp-note', '※「常に表示」は最大化ウィンドウに重なります。重なりを避けたい場合は「自動で隠す」を推奨。'));
+
+  // Re-pin strategy (only relevant while reserving).
+  const repinWrap = el('label', 'ss-set-check');
+  const repinSel = el('select', 'ss-set-type');
+  [['event', 'イベント駆動（推奨）'], ['poll', 'ポーリング（現行）']].forEach(([v, lbl]) => {
+    const op = el('option', null, lbl); op.value = v; repinSel.appendChild(op);
+  });
+  repinSel.value = display.repin || 'event';
+  repinSel.onchange = () => { display = { ...display, repin: repinSel.value }; applyDisplay(); };
+  repinWrap.append(document.createTextNode('予約の維持方式 '), repinSel);
+  root.append(repinWrap);
+
+  root.append(el('div', 'ss-disp-note', '※「常に表示」で重なる場合は「領域を予約」をON。維持方式は通常「イベント駆動」でOK（うまく追従しない時だけ「ポーリング」へ）。'));
   return root;
 }
 

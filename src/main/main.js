@@ -67,6 +67,9 @@ function createWindow() {
     win = null;
   });
 
+  // Event-driven re-pin: when Windows displaces the bar, it fires 'move'.
+  win.on('move', () => { if (repinMode === 'event') rePinBoth('move'); });
+
   // The renderer pushes the saved display mode after load (see 'display:set'),
   // which decides whether to reserve the top edge via the AppBar.
 }
@@ -96,6 +99,7 @@ function createSpacer() {
   spacerWin.setIgnoreMouseEvents(true); // never interactive; real bar is on top
   spacerWin.loadURL('data:text/html,<body style="margin:0;background:%231f6f6f"></body>');
   spacerWin.on('closed', () => { spacerWin = null; });
+  spacerWin.on('move', () => { if (repinMode === 'event') rePinBoth('spacer-move'); });
   return spacerWin;
 }
 function destroySpacer() {
@@ -108,11 +112,33 @@ function destroySpacer() {
 
 // Watch the global cursor so the bar can reveal at the top edge even over a
 // maximized window (DOM hover on the thin transparent strip is unreliable there).
-// Also re-pin the SPACER to the top when reserving, since Windows can displace an
-// AppBar window (which can't respond to ABN_POSCHANGED) below its reservation.
 let edgeTimer = null;
 let reserveActive = false;
 let rePinnedOnce = false;
+let repinMode = 'event'; // 'event' (move/display listeners) | 'poll' (timer)
+let pinning = false;     // guard so our own setBounds doesn't re-trigger
+
+// Pin the spacer + the real bar back to the very top of the display. Windows
+// displaces an AppBar window below its reservation, and (unlike a native appbar)
+// we can't answer ABN_POSCHANGED, so we re-assert our position here.
+function rePinBoth(reason) {
+  if (!reserveActive || pinning || !win || win.isDestroyed()) return;
+  const d = screen.getPrimaryDisplay().bounds;
+  pinning = true;
+  try {
+    if (spacerWin && !spacerWin.isDestroyed()) {
+      const sb = spacerWin.getBounds();
+      if (sb.x !== d.x || sb.y !== d.y) spacerWin.setBounds({ x: d.x, y: d.y, width: sb.width, height: sb.height });
+    }
+    const wb = win.getBounds();
+    if (wb.x !== d.x || wb.y !== d.y) {
+      if (!rePinnedOnce) { console.info('[appbar] re-pin (' + reason + ') from ' + JSON.stringify(wb) + ' to top'); rePinnedOnce = true; }
+      win.setBounds({ x: d.x, y: d.y, width: wb.width, height: wb.height });
+      win.moveTop();
+    }
+  } finally { pinning = false; }
+}
+
 function startEdgeWatch() {
   if (edgeTimer) return;
   let last = null;
@@ -120,23 +146,7 @@ function startEdgeWatch() {
     if (!win || win.isDestroyed() || !win.isVisible()) return;
     const d = screen.getPrimaryDisplay().bounds;
 
-    if (reserveActive) {
-      // Keep the opaque spacer pinned to the reserved top strip...
-      if (spacerWin && !spacerWin.isDestroyed()) {
-        const sb = spacerWin.getBounds();
-        if (sb.x !== d.x || sb.y !== d.y) {
-          spacerWin.setBounds({ x: d.x, y: d.y, width: sb.width, height: sb.height });
-        }
-      }
-      // ...and the real (transparent) bar on top of it. Windows displaces both
-      // below the reservation; pin them back to the very top.
-      const wb = win.getBounds();
-      if (wb.x !== d.x || wb.y !== d.y) {
-        if (!rePinnedOnce) { console.info('[appbar] re-pin bar from ' + JSON.stringify(wb) + ' to top'); rePinnedOnce = true; }
-        win.setBounds({ x: d.x, y: d.y, width: wb.width, height: wb.height });
-        win.moveTop();
-      }
-    }
+    if (reserveActive && repinMode === 'poll') rePinBoth('poll');
 
     const p = screen.getCursorScreenPoint();
     const atTop = p.y <= d.y + 2 && p.x >= d.x && p.x < d.x + d.width;
@@ -176,6 +186,7 @@ ipcMain.on('display:set', (_e, d) => {
   if (!win) return;
   const wantReserve = !!(d && d.mode === 'always' && d.reserve);
   reserveActive = wantReserve;
+  repinMode = (d && d.repin === 'poll') ? 'poll' : 'event';
   rePinnedOnce = false;
   let status = 'off';
   if (wantReserve) {
@@ -183,6 +194,7 @@ ipcMain.on('display:set', (_e, d) => {
     status = appbar.register(sp, { edge: 'top', height: BAR_HEIGHT });
     win.setAlwaysOnTop(true, 'screen-saver'); // keep the real bar above the spacer
     win.moveTop();
+    rePinBoth('init');
   } else {
     destroySpacer();
   }
@@ -207,6 +219,7 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   startEdgeWatch();
+  screen.on('display-metrics-changed', () => { if (repinMode === 'event') rePinBoth('metrics'); });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
