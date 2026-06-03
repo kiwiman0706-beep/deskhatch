@@ -13,6 +13,10 @@ let win = null;
 /** @type {Tray | null} */
 let tray = null;
 
+// Experiment flag: SMARTSUITE_OPAQUE=1 makes the overlay non-transparent, to
+// test whether a non-layered window gets its AppBar space reservation honored.
+const OPAQUE = process.env.SMARTSUITE_OPAQUE === '1';
+
 function createWindow() {
   const display = screen.getPrimaryDisplay();
   // Pin to the monitor's true top-left (display.bounds), NOT workArea — workArea
@@ -26,7 +30,8 @@ function createWindow() {
     width,
     height: BAR_HEIGHT,
     frame: false,
-    transparent: true,
+    transparent: !OPAQUE,
+    backgroundColor: OPAQUE ? '#1f6f6f' : undefined,
     resizable: false,
     movable: false,
     minimizable: false,
