@@ -157,6 +157,40 @@ html, body {
 }
 .ss-webview { width: 100%; height: 100%; border: 0; }
 
+/* tabbed drawer */
+.ss-tabs { display: flex; flex-direction: column; height: 100%; }
+.ss-tabs-bar { display: flex; gap: 2px; overflow-x: auto; background: #eef4f4; border-bottom: 1px solid #dfe7e7; padding: 3px 4px; }
+.ss-tabs-tab { border: 1px solid #cfdcdc; background: #fff; border-radius: 5px; padding: 3px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; color: var(--ink); }
+.ss-tabs-tab.active { background: var(--teal); color: #fff; border-color: var(--teal-dark); }
+.ss-tabs-view { flex: 1; position: relative; }
+.ss-tabs-view .ss-webview { position: absolute; inset: 0; }
+
+/* built-in tools */
+.ss-editor { display: flex; flex-direction: column; height: 100%; }
+.ss-editor-bar { display: flex; gap: 6px; padding: 6px; border-bottom: 1px solid #dfe7e7; background: #f0f6f6; }
+.ss-editor-area { flex: 1; border: 0; outline: none; resize: none; padding: 10px; font: 13px/1.6 "Consolas", monospace; }
+
+.ss-calc { display: flex; flex-direction: column; height: 100%; padding: 8px; gap: 8px; background: #f4f6f6; outline: none; }
+.ss-calc-disp { font-size: 22px; text-align: right; padding: 10px; border: 1px solid #cfdcdc; border-radius: 6px; background: #fff; }
+.ss-calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; flex: 1; }
+.ss-calc-key { font-size: 16px; border: 1px solid #cfdcdc; border-radius: 8px; background: #fff; cursor: pointer; }
+.ss-calc-key:hover { background: #e8f3f3; }
+
+.ss-clip { display: flex; flex-direction: column; height: 100%; }
+.ss-clip-bar { padding: 6px; border-bottom: 1px solid #dfe7e7; background: #f0f6f6; }
+.ss-clip-content { flex: 1; overflow: auto; padding: 10px; }
+.ss-clip-text { margin: 0; white-space: pre-wrap; word-break: break-word; font: 12.5px/1.6 monospace; color: var(--ink); }
+.ss-clip-img { max-width: 100%; }
+
+/* tools menu tab */
+.ss-tools { display: flex; flex-direction: column; gap: 12px; }
+.ss-tools-sec { display: flex; flex-wrap: wrap; gap: 6px; }
+.ss-tools-title { width: 100%; font-weight: 700; font-size: 12.5px; color: var(--ink); }
+
+/* tabs pane editor */
+.ss-panes { display: flex; flex-direction: column; gap: 5px; padding: 6px; border: 1px dashed #cfdcdc; border-radius: 6px; }
+.ss-pane-label { flex: 0 0 96px; }
+
 /* split view (e.g. calendar month + day) */
 .ss-split { display: flex; height: 100%; }
 .ss-split-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }

@@ -47,7 +47,14 @@ contextBridge.exposeInMainWorld('files', {
   pickFolder: () => ipcRenderer.invoke('files:pick-folder'),
   copyTo: (src, dir) => ipcRenderer.invoke('files:copy-to', src, dir),
   trash: (p) => ipcRenderer.invoke('files:trash', p),
+  saveText: (text) => ipcRenderer.invoke('files:save-text', text),
   contextMenu: (info) => ipcRenderer.invoke('files:context-menu', info),
+});
+
+// System launchers + clipboard.
+contextBridge.exposeInMainWorld('system', {
+  open: (key) => ipcRenderer.invoke('system:open', key),
+  clipboard: () => ipcRenderer.invoke('system:clipboard'),
 });
 
 // Google sign-in helper (one session partition per account).

@@ -112,6 +112,15 @@ function register(getWin) {
 
   ipcMain.handle('files:trash', async (_e, p) => { await shell.trashItem(p); return true; });
 
+  ipcMain.handle('files:save-text', async (_e, text) => {
+    const r = await dialog.showSaveDialog(getWin(), {
+      filters: [{ name: 'テキスト', extensions: ['txt'] }, { name: 'すべて', extensions: ['*'] }],
+    });
+    if (r.canceled) return null;
+    await fsp.writeFile(r.filePath, text, 'utf8');
+    return r.filePath;
+  });
+
   // Native right-click menu. Returns the chosen action string (or null); the
   // renderer then awaits the matching operation so it can refresh afterwards.
   ipcMain.handle('files:context-menu', (_e, info) => new Promise((resolve) => {

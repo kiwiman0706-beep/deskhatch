@@ -288,6 +288,129 @@ function makeWebview(url, mobile, partition) {
   return wv;
 }
 
+// Tabbed drawer: switch between several pages in one drawer (lazy-loaded).
+function buildTabsPanel(tab, partition) {
+  const wrap = el('div', 'ss-tabs');
+  const tabbar = el('div', 'ss-tabs-bar');
+  const view = el('div', 'ss-tabs-view');
+  wrap.append(tabbar, view);
+  const panes = tab.panes || [];
+  const made = [];
+
+  function show(i) {
+    [...tabbar.children].forEach((b, idx) => b.classList.toggle('active', idx === i));
+    if (!made[i]) {
+      const wv = makeWebview(panes[i].url, panes[i].mobile, partition);
+      wv.style.display = 'none';
+      view.appendChild(wv);
+      made[i] = wv;
+    }
+    made.forEach((wv, idx) => { if (wv) wv.style.display = idx === i ? '' : 'none'; });
+  }
+
+  panes.forEach((p, i) => {
+    const b = el('button', 'ss-tabs-tab', p.label || ('タブ' + (i + 1)));
+    b.onclick = () => show(i);
+    tabbar.appendChild(b);
+  });
+  if (panes.length) show(0);
+  return wrap;
+}
+
+// --- Built-in tools --------------------------------------------------------
+function buildEditor() {
+  const wrap = el('div', 'ss-editor');
+  const barEl = el('div', 'ss-editor-bar');
+  const ta = document.createElement('textarea');
+  ta.className = 'ss-editor-area';
+  ta.value = localStorage.getItem('ss.editor') || '';
+  ta.oninput = () => localStorage.setItem('ss.editor', ta.value);
+  const save = el('button', 'ss-set-btn', 'ファイルに保存');
+  save.onclick = () => window.files.saveText(ta.value);
+  const clear = el('button', 'ss-set-btn', 'クリア');
+  clear.onclick = () => { ta.value = ''; localStorage.setItem('ss.editor', ''); };
+  barEl.append(save, clear);
+  wrap.append(barEl, ta);
+  return wrap;
+}
+
+// Small shunting-yard evaluator (CSP-safe; no eval/Function).
+function calcEval(expr) {
+  const toks = expr.match(/(\d+\.?\d*|\.\d+|[+\-*/()])/g);
+  if (!toks) return '';
+  const prec = { '+': 1, '-': 1, '*': 2, '/': 2 };
+  const out = [], ops = [];
+  for (const t of toks) {
+    if (/^[\d.]/.test(t)) out.push(Number(t));
+    else if (t === '(') ops.push(t);
+    else if (t === ')') { while (ops.length && ops[ops.length - 1] !== '(') out.push(ops.pop()); ops.pop(); }
+    else { while (ops.length && prec[ops[ops.length - 1]] >= prec[t]) out.push(ops.pop()); ops.push(t); }
+  }
+  while (ops.length) out.push(ops.pop());
+  const st = [];
+  for (const t of out) {
+    if (typeof t === 'number') { st.push(t); continue; }
+    const b = st.pop(), a = st.pop();
+    st.push(t === '+' ? a + b : t === '-' ? a - b : t === '*' ? a * b : a / b);
+  }
+  const r = st.pop();
+  return (r === undefined || !isFinite(r)) ? 'Error' : String(r);
+}
+
+function buildCalc() {
+  const wrap = el('div', 'ss-calc');
+  wrap.tabIndex = 0;
+  const disp = document.createElement('input');
+  disp.className = 'ss-calc-disp';
+  disp.readOnly = true;
+  const grid = el('div', 'ss-calc-grid');
+  const press = (k) => {
+    if (k === 'C') { disp.value = ''; return; }
+    if (k === '←') { disp.value = disp.value.slice(0, -1); return; }
+    if (k === '=') { disp.value = calcEval(disp.value); return; }
+    if (disp.value === 'Error') disp.value = '';
+    disp.value += k;
+  };
+  ['C', '←', '(', ')', '7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', '0', '.', '=', '+']
+    .forEach((k) => { const b = el('button', 'ss-calc-key', k); b.onclick = () => press(k); grid.appendChild(b); });
+  wrap.addEventListener('keydown', (e) => {
+    const k = e.key;
+    if ('0123456789+-*/.()'.includes(k)) press(k);
+    else if (k === 'Enter' || k === '=') press('=');
+    else if (k === 'Backspace') press('←');
+    else if (k === 'Escape') press('C');
+  });
+  wrap.append(disp, grid);
+  return wrap;
+}
+
+function buildClipboard() {
+  const wrap = el('div', 'ss-clip');
+  const barEl = el('div', 'ss-clip-bar');
+  const refresh = el('button', 'ss-set-btn', '更新');
+  const content = el('div', 'ss-clip-content');
+  async function load() {
+    const data = await window.system.clipboard();
+    content.innerHTML = '';
+    if (data.image) {
+      const img = document.createElement('img');
+      img.className = 'ss-clip-img';
+      img.src = data.image;
+      content.appendChild(img);
+    } else {
+      const pre = document.createElement('pre');
+      pre.className = 'ss-clip-text';
+      pre.textContent = data.text || '（クリップボードは空です）';
+      content.appendChild(pre);
+    }
+  }
+  refresh.onclick = load;
+  barEl.append(refresh);
+  wrap.append(barEl, content);
+  load();
+  return wrap;
+}
+
 function buildBody(tab) {
   const body = document.createElement('div');
   body.className = 'ss-drawer-body';
@@ -303,10 +426,16 @@ function buildBody(tab) {
       split.appendChild(col);
     }
     body.appendChild(split);
+  } else if (tab.type === 'tabs') {
+    body.appendChild(buildTabsPanel(tab, part));
   } else if (tab.type === 'files') {
     body.appendChild(buildFilesPanel(tab.path));
   } else if (tab.type === 'folder') {
     body.appendChild(buildFilesPanel(tab.path || '@pc'));
+  } else if (tab.type === 'tool') {
+    if (tab.tool === 'editor') body.appendChild(buildEditor());
+    else if (tab.tool === 'calc') body.appendChild(buildCalc());
+    else if (tab.tool === 'clipboard') body.appendChild(buildClipboard());
   } else if (tab.type === 'menu') {
     body.appendChild(buildMenuPanel());
   }
@@ -526,7 +655,7 @@ function buildSettings() {
       delBtn.onclick = () => { working.splice(idx, 1); render(); };
       top.append(icon, label, upBtn, downBtn, delBtn);
 
-      const editable = t.type === 'page' || t.type === 'files' || t.type === 'folder';
+      const editable = t.type === 'page' || t.type === 'files' || t.type === 'folder' || t.type === 'tabs';
 
       const width = document.createElement('input');
       width.type = 'number';
@@ -539,7 +668,7 @@ function buildSettings() {
 
       if (editable) {
         const type = el('select', 'ss-set-type');
-        [['page', 'ページ'], ['files', 'PC全体'], ['folder', 'フォルダ']].forEach(([v, lbl]) => {
+        [['page', 'ページ'], ['tabs', 'タブ'], ['files', 'PC全体'], ['folder', 'フォルダ']].forEach(([v, lbl]) => {
           const op = el('option', null, lbl); op.value = v; type.appendChild(op);
         });
         type.value = t.type;
@@ -575,19 +704,39 @@ function buildSettings() {
         const pathRow = el('div', 'ss-set-row');
         pathRow.append(pickBtn, pathInput);
 
+        // Pane editor for the 'tabs' type (label + URL per tab).
+        const paneBox = el('div', 'ss-panes');
+        function renderPanes() {
+          paneBox.innerHTML = '';
+          (t.panes || []).forEach((pane, pi) => {
+            const r = el('div', 'ss-set-row');
+            const lbl = field(pane.label, 'タブ名'); lbl.classList.add('ss-pane-label'); lbl.oninput = () => { pane.label = lbl.value; };
+            const u = field(pane.url, 'https://…'); u.classList.add('ss-set-url'); u.oninput = () => { pane.url = u.value; };
+            const del = el('button', 'ss-set-mini', '🗑'); del.onclick = () => { t.panes.splice(pi, 1); renderPanes(); };
+            r.append(lbl, u, del);
+            paneBox.appendChild(r);
+          });
+          const add = el('button', 'ss-set-btn', '＋ タブ追加');
+          add.onclick = () => { if (!t.panes) t.panes = []; t.panes.push({ label: 'タブ' + (t.panes.length + 1), url: 'https://', mobile: true }); renderPanes(); };
+          paneBox.appendChild(add);
+        }
+        renderPanes();
+
         const syncType = () => {
           t.type = type.value;
           const isPage = t.type === 'page';
           const isFolder = t.type === 'folder';
+          const isTabs = t.type === 'tabs';
           url.style.display = isPage ? '' : 'none';
           mobileWrap.style.display = isPage ? '' : 'none';
-          acctWrap.style.display = isPage ? '' : 'none';
+          acctWrap.style.display = (isPage || isTabs) ? '' : 'none';
           pathRow.style.display = isFolder ? '' : 'none';
+          paneBox.style.display = isTabs ? '' : 'none';
         };
         type.onchange = syncType;
         syncType();
 
-        card.append(top, row2, url, pathRow);
+        card.append(top, row2, url, pathRow, paneBox);
       } else {
         row2.append(el('span', 'ss-set-note', '特殊表示（編集不可）'), wlabel, width);
         card.append(top, row2);
@@ -652,6 +801,27 @@ function buildHelp() {
   return root;
 }
 
+function buildTools() {
+  const root = el('div', 'ss-tools');
+  const anchor = () => document.querySelector('.ss-menu') || document.getElementById('bar');
+
+  const sys = el('div', 'ss-tools-sec');
+  sys.append(el('div', 'ss-tools-title', 'システム / デバイス'));
+  [['Windows 設定', 'settings'], ['コントロールパネル', 'control'], ['デバイスマネージャー', 'devmgr'],
+    ['God Mode', 'godmode'], ['プリンター', 'printers'], ['スキャナー', 'scanners']]
+    .forEach(([label, key]) => { const b = el('button', 'ss-set-btn', label); b.onclick = () => window.system.open(key); sys.appendChild(b); });
+
+  const tools = el('div', 'ss-tools-sec');
+  tools.append(el('div', 'ss-tools-title', 'ツール'));
+  [['📝 簡易エディタ', { id: 'tool-editor', label: 'エディタ', icon: '📝', type: 'tool', tool: 'editor', width: 480 }],
+    ['🧮 電卓', { id: 'tool-calc', label: '電卓', icon: '🧮', type: 'tool', tool: 'calc', width: 280 }],
+    ['📋 クリップボード', { id: 'tool-clip', label: 'クリップボード', icon: '📋', type: 'tool', tool: 'clipboard', width: 420 }]]
+    .forEach(([label, t]) => { const b = el('button', 'ss-set-btn', label); b.onclick = () => openTab(t, anchor()); tools.appendChild(b); });
+
+  root.append(sys, tools);
+  return root;
+}
+
 function buildMenuPanel() {
   const wrap = el('div', 'ss-menu-panel');
 
@@ -688,8 +858,9 @@ function buildMenuPanel() {
 
   const tabsBar = el('div', 'ss-menu-tabs');
   const bSettings = el('button', 'ss-menu-tab', '⚙ 設定');
+  const bTools = el('button', 'ss-menu-tab', '🧰 ツール');
   const bHelp = el('button', 'ss-menu-tab', '❔ ヘルプ');
-  tabsBar.append(bSettings, bHelp);
+  tabsBar.append(bSettings, bTools, bHelp);
   const view = el('div', 'ss-menu-view');
 
   const footer = el('div', 'ss-menu-foot');
@@ -702,10 +873,12 @@ function buildMenuPanel() {
   function show(which) {
     view.innerHTML = '';
     bSettings.classList.toggle('active', which === 's');
+    bTools.classList.toggle('active', which === 't');
     bHelp.classList.toggle('active', which === 'h');
-    view.appendChild(which === 's' ? buildSettings() : buildHelp());
+    view.appendChild(which === 's' ? buildSettings() : which === 't' ? buildTools() : buildHelp());
   }
   bSettings.onclick = () => show('s');
+  bTools.onclick = () => show('t');
   bHelp.onclick = () => show('h');
   show('s');
   return wrap;

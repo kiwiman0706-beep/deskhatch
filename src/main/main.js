@@ -5,6 +5,7 @@ const path = require('path');
 const appbar = require('./appbar');
 const files = require('./files');
 const auth = require('./auth');
+const system = require('./system');
 
 const BAR_HEIGHT = 44; // collapsed strip height (px)
 
@@ -213,6 +214,7 @@ ipcMain.on('overlay:set-height', (_e, height) => {
 
 files.register(() => win);
 auth.register();
+system.register();
 
 app.whenReady().then(() => {
   auth.setup();

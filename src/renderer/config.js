@@ -52,6 +52,9 @@ window.SS_TABS = [
   { id: 'meet', label: 'Meet', icon: '🎥', type: 'page', mobile: false, width: 480,
     url: 'https://meet.google.com/' },
 
+  { id: 'wikipedia', label: 'Wikipedia', icon: '📖', type: 'page', mobile: true, width: 460,
+    url: 'https://ja.m.wikipedia.org/' },
+
   { id: 'desktop', label: 'Desktop', icon: '🖳', type: 'folder', path: '@desktop', width: 460 },
 
   { id: 'pc', label: 'My Computer', icon: '💻', type: 'files', width: 460 },
