@@ -54,7 +54,9 @@ contextBridge.exposeInMainWorld('files', {
 // System launchers + clipboard.
 contextBridge.exposeInMainWorld('system', {
   open: (key) => ipcRenderer.invoke('system:open', key),
+  external: (url) => ipcRenderer.invoke('system:external', url),
   clipboard: () => ipcRenderer.invoke('system:clipboard'),
+  bookmarks: () => ipcRenderer.invoke('system:bookmarks'),
 });
 
 // Google sign-in helper (one session partition per account).

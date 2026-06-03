@@ -299,6 +299,7 @@ function buildTabsPanel(tab, partition) {
 
   function show(i) {
     [...tabbar.children].forEach((b, idx) => b.classList.toggle('active', idx === i));
+    wrap.dataset.activeUrl = (panes[i] && panes[i].url) || '';
     if (!made[i]) {
       const wv = makeWebview(panes[i].url, panes[i].mobile, partition);
       wv.style.display = 'none';
@@ -384,6 +385,32 @@ function buildCalc() {
   return wrap;
 }
 
+function buildBookmarks() {
+  const wrap = el('div', 'ss-bm');
+  const search = document.createElement('input');
+  search.className = 'ss-bm-search';
+  search.placeholder = 'ブックマークを絞り込み…';
+  const list = el('ul', 'ss-bm-list');
+  wrap.append(search, list);
+  let all = [];
+  function render(q) {
+    list.innerHTML = '';
+    const ql = (q || '').toLowerCase();
+    const f = all.filter((b) => !ql || (b.title + ' ' + b.url + ' ' + b.folder).toLowerCase().includes(ql));
+    if (!f.length) { list.innerHTML = '<li class="ss-bm-empty">（ブックマークが見つかりません）</li>'; return; }
+    for (const b of f) {
+      const li = el('li', 'ss-bm-item');
+      li.title = b.url + '  [' + b.browser + '] ' + b.folder;
+      li.append(el('span', 'ss-bm-title', b.title || b.url), el('span', 'ss-bm-folder', b.folder));
+      li.onclick = () => window.system.external(b.url);
+      list.appendChild(li);
+    }
+  }
+  search.oninput = () => render(search.value);
+  window.system.bookmarks().then((b) => { all = b || []; render(''); });
+  return wrap;
+}
+
 function buildClipboard() {
   const wrap = el('div', 'ss-clip');
   const barEl = el('div', 'ss-clip-bar');
@@ -436,6 +463,7 @@ function buildBody(tab) {
     if (tab.tool === 'editor') body.appendChild(buildEditor());
     else if (tab.tool === 'calc') body.appendChild(buildCalc());
     else if (tab.tool === 'clipboard') body.appendChild(buildClipboard());
+    else if (tab.tool === 'bookmarks') body.appendChild(buildBookmarks());
   } else if (tab.type === 'menu') {
     body.appendChild(buildMenuPanel());
   }
@@ -499,7 +527,16 @@ function createDrawer(tab) {
   close.className = 'ss-head-btn ss-close';
   close.textContent = '✕';
   close.title = '閉じる';
-  head.append(title, spacer, pin, close);
+  head.append(title, spacer);
+  if (tab.type === 'page' || tab.type === 'tabs' || tab.type === 'split') {
+    const ext = document.createElement('button');
+    ext.className = 'ss-head-btn';
+    ext.textContent = '↗';
+    ext.title = '標準ブラウザで開く';
+    ext.addEventListener('click', () => openExternalFor(tab, d));
+    head.append(ext);
+  }
+  head.append(pin, close);
 
   const gripE = el('div', 'ss-resize-e');   // right edge: width
   const gripS = el('div', 'ss-resize-s');   // bottom edge: height
@@ -522,6 +559,15 @@ function createDrawer(tab) {
 // ---------------------------------------------------------------------------
 function bringToFront(el) {
   el.style.zIndex = String(++zCounter);
+}
+
+function openExternalFor(tab, d) {
+  if (tab.type === 'page' && tab.url) window.system.external(tab.url);
+  else if (tab.type === 'split') (tab.panes || []).forEach((p) => p.url && window.system.external(p.url));
+  else if (tab.type === 'tabs') {
+    const w = d.querySelector('.ss-tabs');
+    if (w && w.dataset.activeUrl) window.system.external(w.dataset.activeUrl);
+  }
 }
 
 function anchorLeft(btn, width) {
@@ -815,7 +861,8 @@ function buildTools() {
   tools.append(el('div', 'ss-tools-title', 'ツール'));
   [['📝 簡易エディタ', { id: 'tool-editor', label: 'エディタ', icon: '📝', type: 'tool', tool: 'editor', width: 480 }],
     ['🧮 電卓', { id: 'tool-calc', label: '電卓', icon: '🧮', type: 'tool', tool: 'calc', width: 280 }],
-    ['📋 クリップボード', { id: 'tool-clip', label: 'クリップボード', icon: '📋', type: 'tool', tool: 'clipboard', width: 420 }]]
+    ['📋 クリップボード', { id: 'tool-clip', label: 'クリップボード', icon: '📋', type: 'tool', tool: 'clipboard', width: 420 }],
+    ['🔖 ブックマーク', { id: 'tool-bm', label: 'ブックマーク', icon: '🔖', type: 'tool', tool: 'bookmarks', width: 440 }]]
     .forEach(([label, t]) => { const b = el('button', 'ss-set-btn', label); b.onclick = () => openTab(t, anchor()); tools.appendChild(b); });
 
   root.append(sys, tools);

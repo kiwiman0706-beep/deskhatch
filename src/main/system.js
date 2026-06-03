@@ -5,6 +5,8 @@
 
 const { ipcMain, shell, clipboard } = require('electron');
 const { exec } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 function run(cmd) {
   exec(cmd, { windowsHide: true }, () => {}); // best-effort; cmd.exe handles `start`/shell verbs
@@ -19,6 +21,29 @@ const TARGETS = {
   scanners: () => shell.openExternal('ms-settings:printers'),
 };
 
+// Read Chromium-based browser bookmarks (Chrome / Edge) from their JSON file.
+function readBookmarks() {
+  const la = process.env.LOCALAPPDATA || '';
+  const sources = [
+    ['Chrome', path.join(la, 'Google', 'Chrome', 'User Data', 'Default', 'Bookmarks')],
+    ['Edge', path.join(la, 'Microsoft', 'Edge', 'User Data', 'Default', 'Bookmarks')],
+  ];
+  const out = [];
+  for (const [browser, file] of sources) {
+    try {
+      const json = JSON.parse(fs.readFileSync(file, 'utf8'));
+      const walk = (node, trail) => {
+        if (!node) return;
+        if (node.type === 'url') out.push({ browser, title: node.name, url: node.url, folder: trail.join(' / ') });
+        else if (node.type === 'folder' && node.children) node.children.forEach((c) => walk(c, node.name ? trail.concat(node.name) : trail));
+      };
+      const roots = (json && json.roots) || {};
+      ['bookmark_bar', 'other', 'synced'].forEach((k) => roots[k] && walk(roots[k], []));
+    } catch (_) { /* browser not installed / no file */ }
+  }
+  return out;
+}
+
 function register() {
   ipcMain.handle('system:open', (_e, key) => {
     if (process.platform !== 'win32') return false;
@@ -27,10 +52,17 @@ function register() {
     try { fn(); return true; } catch (_) { return false; }
   });
 
+  ipcMain.handle('system:external', (_e, url) => {
+    if (/^https?:\/\//i.test(url || '')) shell.openExternal(url);
+    return true;
+  });
+
   ipcMain.handle('system:clipboard', () => {
     const img = clipboard.readImage();
     return { text: clipboard.readText(), image: img.isEmpty() ? null : img.toDataURL() };
   });
+
+  ipcMain.handle('system:bookmarks', () => readBookmarks());
 }
 
 module.exports = { register };
