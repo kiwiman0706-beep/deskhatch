@@ -120,12 +120,21 @@ function startEdgeWatch() {
     if (!win || win.isDestroyed() || !win.isVisible()) return;
     const d = screen.getPrimaryDisplay().bounds;
 
-    if (reserveActive && spacerWin && !spacerWin.isDestroyed()) {
-      const b = spacerWin.getBounds();
-      if (b.x !== d.x || b.y !== d.y) {
-        if (!rePinnedOnce) { console.info('[appbar] re-pin spacer from ' + JSON.stringify(b) + ' to top'); rePinnedOnce = true; }
-        spacerWin.setBounds({ x: d.x, y: d.y, width: b.width, height: b.height });
-        win.moveTop(); // keep the real bar above the spacer
+    if (reserveActive) {
+      // Keep the opaque spacer pinned to the reserved top strip...
+      if (spacerWin && !spacerWin.isDestroyed()) {
+        const sb = spacerWin.getBounds();
+        if (sb.x !== d.x || sb.y !== d.y) {
+          spacerWin.setBounds({ x: d.x, y: d.y, width: sb.width, height: sb.height });
+        }
+      }
+      // ...and the real (transparent) bar on top of it. Windows displaces both
+      // below the reservation; pin them back to the very top.
+      const wb = win.getBounds();
+      if (wb.x !== d.x || wb.y !== d.y) {
+        if (!rePinnedOnce) { console.info('[appbar] re-pin bar from ' + JSON.stringify(wb) + ' to top'); rePinnedOnce = true; }
+        win.setBounds({ x: d.x, y: d.y, width: wb.width, height: wb.height });
+        win.moveTop();
       }
     }
 
