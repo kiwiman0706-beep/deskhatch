@@ -13,10 +13,6 @@ let win = null;
 /** @type {Tray | null} */
 let tray = null;
 
-// Experiment flag: SMARTSUITE_OPAQUE=1 makes the overlay non-transparent, to
-// test whether a non-layered window gets its AppBar space reservation honored.
-const OPAQUE = process.env.SMARTSUITE_OPAQUE === '1';
-
 function createWindow() {
   const display = screen.getPrimaryDisplay();
   // Pin to the monitor's true top-left (display.bounds), NOT workArea — workArea
@@ -30,8 +26,7 @@ function createWindow() {
     width,
     height: BAR_HEIGHT,
     frame: false,
-    transparent: !OPAQUE,
-    backgroundColor: OPAQUE ? '#1f6f6f' : undefined,
+    transparent: true,
     resizable: false,
     movable: false,
     minimizable: false,
@@ -82,9 +77,38 @@ function toggleWindow() {
   else win.show();
 }
 
+// A small NON-transparent "spacer" window dedicated to the AppBar reservation.
+// (A transparent/layered window's reservation isn't honored by Windows.) It sits
+// behind the real, transparent bar, so the visible bar and drawers stay
+// transparent (no opaque fill) while the spacer holds the reserved top strip.
+let spacerWin = null;
+function createSpacer() {
+  if (spacerWin && !spacerWin.isDestroyed()) return spacerWin;
+  const d = screen.getPrimaryDisplay().bounds;
+  spacerWin = new BrowserWindow({
+    x: d.x, y: d.y, width: d.width, height: BAR_HEIGHT,
+    frame: false, transparent: false, backgroundColor: '#1f6f6f',
+    resizable: false, movable: false, minimizable: false, maximizable: false,
+    fullscreenable: false, skipTaskbar: true, focusable: false, hasShadow: false,
+    alwaysOnTop: true, webPreferences: { backgroundThrottling: false },
+  });
+  spacerWin.setAlwaysOnTop(true, 'floating');
+  spacerWin.setIgnoreMouseEvents(true); // never interactive; real bar is on top
+  spacerWin.loadURL('data:text/html,<body style="margin:0;background:%231f6f6f"></body>');
+  spacerWin.on('closed', () => { spacerWin = null; });
+  return spacerWin;
+}
+function destroySpacer() {
+  if (spacerWin && !spacerWin.isDestroyed()) {
+    appbar.unregister(spacerWin);
+    spacerWin.close();
+  }
+  spacerWin = null;
+}
+
 // Watch the global cursor so the bar can reveal at the top edge even over a
 // maximized window (DOM hover on the thin transparent strip is unreliable there).
-// Also re-pin the bar to the top when reserving, since Windows can displace an
+// Also re-pin the SPACER to the top when reserving, since Windows can displace an
 // AppBar window (which can't respond to ABN_POSCHANGED) below its reservation.
 let edgeTimer = null;
 let reserveActive = false;
@@ -96,11 +120,12 @@ function startEdgeWatch() {
     if (!win || win.isDestroyed() || !win.isVisible()) return;
     const d = screen.getPrimaryDisplay().bounds;
 
-    if (reserveActive) {
-      const b = win.getBounds();
+    if (reserveActive && spacerWin && !spacerWin.isDestroyed()) {
+      const b = spacerWin.getBounds();
       if (b.x !== d.x || b.y !== d.y) {
-        if (!rePinnedOnce) { console.info('[appbar] re-pin bar from ' + JSON.stringify(b) + ' to top'); rePinnedOnce = true; }
-        win.setBounds({ x: d.x, y: d.y, width: b.width, height: b.height });
+        if (!rePinnedOnce) { console.info('[appbar] re-pin spacer from ' + JSON.stringify(b) + ' to top'); rePinnedOnce = true; }
+        spacerWin.setBounds({ x: d.x, y: d.y, width: b.width, height: b.height });
+        win.moveTop(); // keep the real bar above the spacer
       }
     }
 
@@ -144,8 +169,14 @@ ipcMain.on('display:set', (_e, d) => {
   reserveActive = wantReserve;
   rePinnedOnce = false;
   let status = 'off';
-  if (wantReserve) status = appbar.register(win, { edge: 'top', height: BAR_HEIGHT });
-  else appbar.unregister(win);
+  if (wantReserve) {
+    const sp = createSpacer();
+    status = appbar.register(sp, { edge: 'top', height: BAR_HEIGHT });
+    win.setAlwaysOnTop(true, 'screen-saver'); // keep the real bar above the spacer
+    win.moveTop();
+  } else {
+    destroySpacer();
+  }
   console.info('[appbar] display:set reserve=' + wantReserve + ' status=' + status);
   if (!win.isDestroyed()) win.webContents.send('display:reserve-status', status, wantReserve);
 });
@@ -179,14 +210,14 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
-  if (win) appbar.unregister(win);
+  destroySpacer();
 });
 
 // Also release the AppBar reservation on abrupt termination (Ctrl+C, kill) so
 // it can't leak and push the bar down next time.
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.on(sig, () => {
-    if (win) appbar.unregister(win);
+    destroySpacer();
     app.quit();
     process.exit(0);
   });
