@@ -86,8 +86,18 @@ function register(win, opts = {}) {
     data.rc.bottom = data.rc.top + px(height);
     SHAppBarMessage(ABM_SETPOS, data);
 
+    // Occupy the reserved rectangle (convert physical -> DIP for Electron).
+    const toDip = (v) => Math.round(v / sf);
+    win.setBounds({
+      x: toDip(data.rc.left),
+      y: toDip(data.rc.top),
+      width: toDip(data.rc.right - data.rc.left),
+      height: win.getBounds().height,
+    });
+
     state = { data };
-    console.info('[appbar] reserved top edge sf=' + sf + ' rc=' + JSON.stringify(data.rc));
+    console.info('[appbar] reserved top edge sf=' + sf + ' rc=' + JSON.stringify(data.rc) +
+      ' win=' + JSON.stringify(win.getBounds()));
     return 'ok';
   } catch (err) {
     console.warn('[appbar] registration failed:', err && err.message);

@@ -84,14 +84,27 @@ function toggleWindow() {
 
 // Watch the global cursor so the bar can reveal at the top edge even over a
 // maximized window (DOM hover on the thin transparent strip is unreliable there).
+// Also re-pin the bar to the top when reserving, since Windows can displace an
+// AppBar window (which can't respond to ABN_POSCHANGED) below its reservation.
 let edgeTimer = null;
+let reserveActive = false;
+let rePinnedOnce = false;
 function startEdgeWatch() {
   if (edgeTimer) return;
   let last = null;
   edgeTimer = setInterval(() => {
     if (!win || win.isDestroyed() || !win.isVisible()) return;
-    const p = screen.getCursorScreenPoint();
     const d = screen.getPrimaryDisplay().bounds;
+
+    if (reserveActive) {
+      const b = win.getBounds();
+      if (b.x !== d.x || b.y !== d.y) {
+        if (!rePinnedOnce) { console.info('[appbar] re-pin bar from ' + JSON.stringify(b) + ' to top'); rePinnedOnce = true; }
+        win.setBounds({ x: d.x, y: d.y, width: b.width, height: b.height });
+      }
+    }
+
+    const p = screen.getCursorScreenPoint();
     const atTop = p.y <= d.y + 2 && p.x >= d.x && p.x < d.x + d.width;
     if (atTop !== last) { last = atTop; win.webContents.send('overlay:edge', atTop); }
   }, 120);
@@ -128,6 +141,8 @@ ipcMain.on('overlay:raise', () => {
 ipcMain.on('display:set', (_e, d) => {
   if (!win) return;
   const wantReserve = !!(d && d.mode === 'always' && d.reserve);
+  reserveActive = wantReserve;
+  rePinnedOnce = false;
   let status = 'off';
   if (wantReserve) status = appbar.register(win, { edge: 'top', height: BAR_HEIGHT });
   else appbar.unregister(win);
