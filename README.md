@@ -38,6 +38,11 @@ LINE WORKS, internal tools…) can be embedded as a drawer.
 - File access comes in two flavours: a **`files`** drawer (browse from *This PC*)
   and **`folder`** drawers pinned to a specific path (`@desktop`, `@documents`,
   … or any folder you pick) — add as many folder buttons as you like in 設定.
+- **Display modes** (設定 → 表示): *常に表示* (optionally **領域を予約** so maximized
+  windows don't overlap the bar, via the AppBar) or *自動で隠す* (reveal by moving
+  the cursor to the top edge). A **▲ temp-hide** button is on the right of the bar.
+- The tab area **scrolls horizontally** (mouse wheel) when items overflow; the
+  logo and temp-hide buttons stay pinned.
 - A **tray icon** (Windows) toggles the bar; on macOS this becomes a menu-bar item.
 
 ## Run

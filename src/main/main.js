@@ -59,15 +59,8 @@ function createWindow() {
     win = null;
   });
 
-  // Best-effort Windows AppBar registration (reserves the top edge so maximized
-  // windows don't sit underneath). OFF by default: it leaks its reservation if
-  // the app is killed abruptly (e.g. Ctrl+C during dev), which pushes the bar
-  // down on later launches. Opt in with SMARTSUITE_APPBAR=1 once it's solid.
-  win.webContents.once('did-finish-load', () => {
-    if (process.env.SMARTSUITE_APPBAR === '1') {
-      appbar.register(win, { edge: 'top', height: BAR_HEIGHT });
-    }
-  });
+  // The renderer pushes the saved display mode after load (see 'display:set'),
+  // which decides whether to reserve the top edge via the AppBar.
 }
 
 function toggleWindow() {
@@ -97,6 +90,17 @@ ipcMain.on('overlay:set-ignore-mouse', (_e, ignore) => {
 });
 
 ipcMain.on('app:quit', () => app.quit());
+
+// Reserve the top edge (so maximized windows don't overlap the bar) only when
+// the user picks "常に表示 + 領域を予約". Otherwise release it.
+ipcMain.on('display:set', (_e, d) => {
+  if (!win) return;
+  if (d && d.mode === 'always' && d.reserve) {
+    appbar.register(win, { edge: 'top', height: BAR_HEIGHT });
+  } else {
+    appbar.unregister(win);
+  }
+});
 
 ipcMain.on('overlay:set-height', (_e, height) => {
   if (!win) return;

@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld('overlay', {
   // Quit the whole app (tray + bar).
   quit: () => ipcRenderer.send('app:quit'),
 
+  // Display mode: { mode: 'always'|'autohide', reserve: bool }. Drives whether
+  // the main process reserves the top edge (AppBar).
+  setDisplay: (d) => ipcRenderer.send('display:set', d),
+
   // Resolve the absolute path of a dropped File (Electron removed File.path).
   getPathForFile: (file) => {
     try {

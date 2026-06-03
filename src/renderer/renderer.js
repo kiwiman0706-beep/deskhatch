@@ -37,6 +37,10 @@ const Store = {
     try { return JSON.parse(localStorage.getItem('ss.size.' + id)) || null; } catch (_) { return null; }
   },
   saveSize(id, s) { localStorage.setItem('ss.size.' + id, JSON.stringify(s)); },
+  getDisplay() {
+    try { const d = JSON.parse(localStorage.getItem('ss.display')); return d && d.mode ? d : { mode: 'always', reserve: false }; } catch (_) { return { mode: 'always', reserve: false }; }
+  },
+  saveDisplay(d) { localStorage.setItem('ss.display', JSON.stringify(d)); },
   getAccounts() {
     try { const a = JSON.parse(localStorage.getItem('ss.accounts')); return Array.isArray(a) ? a : []; } catch (_) { return []; }
   },
@@ -61,12 +65,20 @@ const defaultTabs = () => JSON.parse(JSON.stringify(window.SS_TABS || []));
 const loadTabs = () => Store.getTabs() || defaultTabs();
 
 const bar = document.getElementById('bar');
+const peek = document.getElementById('peek');
 let tabs = loadTabs();
 
 /** id -> { el, btn, pinned } */
 const open = {};
 let zCounter = 100;
 let dragging = false; // true while a drawer is being resized
+
+// Bar visibility state
+const PEEK = 4;
+let display = Store.getDisplay(); // { mode: 'always'|'autohide', reserve: bool }
+let tempHidden = false;           // one-shot "get out of my way"
+let hovering = false;             // pointer over bar/peek
+let hideTimer = null;
 
 // ---------------------------------------------------------------------------
 // Mouse pass-through: capture only while the pointer is over the bar/drawers.
@@ -90,11 +102,35 @@ document.addEventListener('mouseleave', () => setOverUI(false));
 window.addEventListener('blur', () => setOverUI(false));
 
 // ---------------------------------------------------------------------------
-// Window height: shrink to the bar when idle, grow to fit open drawers.
+// Bar visibility + window height. Shrinks to a 4px peek when hidden, to the bar
+// when idle, and grows to fit open drawers when any are open.
 // ---------------------------------------------------------------------------
+const isHiddenMode = () => display.mode === 'autohide' || tempHidden;
+
+function barShouldShow() {
+  if (Object.keys(open).length) return true; // a drawer is open
+  if (!isHiddenMode()) return true;           // always-show mode
+  return hovering;                            // hidden mode: only while hovering
+}
+
 function reflowHeight() {
+  const shown = barShouldShow();
+  bar.classList.toggle('hidden', !shown);
+  peek.classList.toggle('on', !shown);
+  if (!shown) { window.overlay.setHeight(PEEK); return; }
   const heights = Object.keys(open).map((id) => open[id].el.offsetHeight);
   window.overlay.setHeight(window.SSLayout.computeHeight(BAR_H, heights));
+}
+
+function scheduleHide() {
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(reflowHeight, 350);
+}
+
+function applyDisplay() {
+  Store.saveDisplay(display);
+  window.overlay.setDisplay(display); // main toggles the AppBar reservation
+  reflowHeight();
 }
 
 // ---------------------------------------------------------------------------
@@ -427,8 +463,32 @@ function field(value, placeholder) {
   return i;
 }
 
+function buildDisplaySettings() {
+  const root = el('div', 'ss-disp');
+  root.append(el('div', 'ss-disp-title', '表示'));
+
+  const mk = (val, label) => {
+    const l = el('label', 'ss-set-check');
+    const r = document.createElement('input');
+    r.type = 'radio'; r.name = 'ss-mode'; r.checked = display.mode === val;
+    r.onchange = () => { if (r.checked) { display = { ...display, mode: val }; applyDisplay(); } };
+    l.append(r, document.createTextNode(' ' + label));
+    return l;
+  };
+  root.append(mk('always', '常に表示'), mk('autohide', '自動で隠す'));
+
+  const resL = el('label', 'ss-set-check');
+  const res = document.createElement('input');
+  res.type = 'checkbox'; res.checked = !!display.reserve;
+  res.onchange = () => { display = { ...display, reserve: res.checked }; applyDisplay(); };
+  resL.append(res, document.createTextNode(' 最大化ウィンドウと重ならない（領域を予約）'));
+  root.append(resL);
+  return root;
+}
+
 function buildSettings() {
   const root = el('div', 'ss-settings');
+  root.append(buildDisplaySettings());
   const listEl = el('div', 'ss-set-list');
   let working = JSON.parse(JSON.stringify(tabs)); // edit on a copy
 
@@ -566,6 +626,9 @@ function buildHelp() {
       <li>ドロワー右下の角を<b>ドラッグでサイズ変更</b>。サイズは記憶されます。</li>
       <li><b>設定</b>で項目（ボタン）の追加・削除・並べ替え・編集ができます。</li>
       <li>My Documents はファイルブラウザ。右クリックで操作メニュー。</li>
+      <li><b>表示</b>（設定）：「常に表示＋領域を予約」にすると、最大化ウィンドウがバーの下に潜らず重なりません。「自動で隠す」も選べます。</li>
+      <li>バー右端の <b>▲</b> で一時的に隠せます（画面上端にカーソルを当てると再表示）。</li>
+      <li>項目が増えてバーが画面幅を超えたら、横スクロール（マウスホイール）で送れます。</li>
       <li>トレイ／メニューバーのアイコンでバーの表示／非表示。</li>
     </ul>`;
   return root;
@@ -636,22 +699,48 @@ function buildMenuPanel() {
 function renderBar() {
   bar.innerHTML = '';
 
+  // logo / menu button — stays fixed at the left, doesn't scroll away
   const menuBtn = el('button', 'ss-btn ss-menu');
   menuBtn.title = 'メニュー（設定・ヘルプ）';
   menuBtn.innerHTML = logoMark('#eafafa');
   menuBtn.addEventListener('click', () => openTab(MENU_TAB, menuBtn));
   bar.appendChild(menuBtn);
 
+  // scrollable tab area (horizontal scroll when items overflow)
+  const scroll = el('div', 'ss-bar-scroll');
   for (const tab of tabs) {
     const btn = el('button', 'ss-btn');
     btn.dataset.id = tab.id;
     btn.append(el('span', 'ss-ico', tab.icon), el('span', null, tab.label));
     btn.addEventListener('click', () => openTab(tab, btn));
-    bar.appendChild(btn);
+    scroll.appendChild(btn);
   }
+  scroll.addEventListener('wheel', (e) => {
+    if (e.deltaY) { scroll.scrollLeft += e.deltaY; e.preventDefault(); }
+  }, { passive: false });
+  bar.appendChild(scroll);
+
+  // temporary hide button — stays fixed at the right
+  const hideBtn = el('button', 'ss-btn ss-hide', '▲');
+  hideBtn.title = '一時的に隠す（画面上端にカーソルを当てると再表示）';
+  hideBtn.onclick = () => {
+    tempHidden = !tempHidden;
+    hideBtn.classList.toggle('on', tempHidden);
+    reflowHeight();
+  };
+  bar.appendChild(hideBtn);
 }
 
 renderBar();
+
+// Reveal on hover at the top edge; hide again shortly after leaving.
+const onEnter = () => { hovering = true; clearTimeout(hideTimer); reflowHeight(); };
+const onLeave = () => { hovering = false; scheduleHide(); };
+peek.addEventListener('mouseenter', onEnter);
+bar.addEventListener('mouseenter', onEnter);
+bar.addEventListener('mouseleave', onLeave);
+
+applyDisplay(); // push the saved display mode to main and set initial visibility
 
 // Re-clamp open drawers if the display size changes (keep user-set sizes).
 window.addEventListener('resize', () => {

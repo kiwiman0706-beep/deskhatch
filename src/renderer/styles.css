@@ -32,7 +32,35 @@ html, body {
   background: linear-gradient(var(--teal-light), var(--teal));
   border-bottom: 2px solid var(--teal-dark);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease;
 }
+.ss-bar.hidden { transform: translateY(-100%); }
+
+/* horizontal-scrolling area for the tab buttons */
+.ss-bar-scroll {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.ss-bar-scroll::-webkit-scrollbar { height: 6px; }
+.ss-bar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3); border-radius: 3px;
+}
+.ss-hide { padding: 0 10px; }
+.ss-hide.on { background: var(--paper); color: var(--ink); }
+
+/* hover strip when the bar is hidden */
+.ss-peek {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(var(--teal-light), var(--teal));
+  display: none;
+}
+.ss-peek.on { display: block; }
 
 .ss-btn {
   display: inline-flex;
@@ -180,6 +208,11 @@ html, body {
 
 /* settings editor */
 .ss-settings { display: flex; flex-direction: column; gap: 10px; }
+.ss-disp {
+  border: 1px solid #dbe6e6; border-radius: 8px; padding: 8px; background: #fafcfc;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.ss-disp-title { font-weight: 700; color: var(--ink); font-size: 12.5px; }
 .ss-set-list { display: flex; flex-direction: column; gap: 8px; }
 .ss-set-card {
   border: 1px solid #dbe6e6; border-radius: 8px; padding: 8px;
