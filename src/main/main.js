@@ -43,6 +43,7 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false,
       webviewTag: true,
+      backgroundThrottling: false, // keep painting even when occluded/hidden
     },
   });
 
@@ -112,6 +113,10 @@ ipcMain.on('overlay:set-ignore-mouse', (_e, ignore) => {
 });
 
 ipcMain.on('app:quit', () => app.quit());
+
+ipcMain.on('overlay:raise', () => {
+  if (win && !win.isDestroyed()) { win.setAlwaysOnTop(true, 'screen-saver'); win.moveTop(); }
+});
 
 // Reserve the top edge (so maximized windows don't overlap the bar) only when
 // the user picks "常に表示 + 領域を予約". Otherwise release it.

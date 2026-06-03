@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('overlay', {
   onReserveStatus: (cb) => ipcRenderer.on('display:reserve-status', (_e, status, requested) => cb(status, requested)),
   onEdge: (cb) => ipcRenderer.on('overlay:edge', (_e, atTop) => cb(atTop)),
 
+  // Force the overlay to the very front (e.g. when revealing over a maximized window).
+  raise: () => ipcRenderer.send('overlay:raise'),
+
   // Resolve the absolute path of a dropped File (Electron removed File.path).
   getPathForFile: (file) => {
     try {

@@ -756,7 +756,7 @@ function toast(msg) {
 // which works even when a maximized window covers the thin transparent strip.
 window.overlay.onEdge((top) => {
   atEdge = top;
-  if (top) { clearTimeout(hideTimer); reflowHeight(); }
+  if (top) { clearTimeout(hideTimer); window.overlay.raise(); reflowHeight(); }
   else { scheduleHide(); }
 });
 
