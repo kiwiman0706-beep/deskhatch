@@ -56,17 +56,28 @@ function makeOverlay(display) {
 
 function makeSpacer(display) {
   const { x, y, width } = display.bounds;
+  const col = cfg.barColor || '#1f6f6f';
   const s = new BrowserWindow({
     x, y, width, height: BAR_HEIGHT,
-    frame: false, transparent: false, backgroundColor: cfg.barColor || '#1f6f6f',
+    frame: false, transparent: false, backgroundColor: col,
     resizable: false, movable: false, minimizable: false, maximizable: false,
     fullscreenable: false, skipTaskbar: true, focusable: false, hasShadow: false,
     alwaysOnTop: true, webPreferences: { backgroundThrottling: false },
   });
   s.setAlwaysOnTop(true, 'floating');
   s.setIgnoreMouseEvents(true);
-  s.loadURL('data:text/html,<body style="margin:0;background:transparent"></body>'); // window bg shows
+  s.loadURL('data:text/html,<body style="margin:0;background:' + col.replace('#', '%23') + '"></body>');
   return s;
+}
+
+function paintSpacer(entry) {
+  if (!entry.spacer || entry.spacer.isDestroyed()) return;
+  const col = cfg.barColor || '#1f6f6f';
+  try { entry.spacer.setBackgroundColor(col); } catch (_) { /* ignore */ }
+  // setBackgroundColor often won't repaint an already-loaded page; set the body too.
+  entry.spacer.webContents.executeJavaScript(
+    'document.body && (document.body.style.background = ' + JSON.stringify(col) + ')'
+  ).catch(() => {});
 }
 
 // --- re-pin (keep the bar/spacer at the reserved top edge) ------------------
@@ -100,8 +111,9 @@ function applyReserve(entry) {
     if (!entry.spacer || entry.spacer.isDestroyed()) {
       entry.spacer = makeSpacer(displayObj(entry.displayId));
       entry.spacer.on('move', () => { if (entry.repinMode === 'event') rePin(entry, 'spacer-move'); });
+      entry.spacer.webContents.once('dom-ready', () => paintSpacer(entry));
     }
-    try { entry.spacer.setBackgroundColor(cfg.barColor || '#1f6f6f'); } catch (_) { /* ignore */ }
+    paintSpacer(entry);
     status = appbar.register(entry.spacer, { edge: 'top', height: BAR_HEIGHT, display: displayObj(entry.displayId) });
     entry.win.setAlwaysOnTop(true, 'screen-saver');
     entry.win.moveTop();
