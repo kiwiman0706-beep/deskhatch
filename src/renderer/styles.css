@@ -3,6 +3,7 @@
   --teal: #1f6f6f;
   --teal-dark: #145252;
   --teal-light: #2e8b8b;
+  --bar-fg: #eafafa;       /* text/icons on the bar (themeable) */
   --ink: #14302f;
   --paper: #f4f6f6;
 }
@@ -87,7 +88,7 @@ html, body {
   padding: 0 14px;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.06);
-  color: #eafafa;
+  color: var(--bar-fg);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -139,7 +140,7 @@ html, body {
   height: 30px;
   padding: 0 6px 0 10px;
   background: linear-gradient(var(--teal-light), var(--teal));
-  color: #fff;
+  color: var(--bar-fg);
   font-size: 12px;
   font-weight: 700;
 }
@@ -148,7 +149,7 @@ html, body {
 .ss-head-btn {
   border: none;
   background: transparent;
-  color: #eafafa;
+  color: var(--bar-fg);
   font-size: 13px;
   width: 24px; height: 24px;
   border-radius: 4px;
@@ -169,7 +170,7 @@ html, body {
 .ss-tabs { display: flex; flex-direction: column; height: 100%; }
 .ss-tabs-bar { display: flex; gap: 2px; overflow-x: auto; background: #eef4f4; border-bottom: 1px solid #dfe7e7; padding: 3px 4px; }
 .ss-tabs-tab { border: 1px solid #cfdcdc; background: #fff; border-radius: 5px; padding: 3px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; color: var(--ink); }
-.ss-tabs-tab.active { background: var(--teal); color: #fff; border-color: var(--teal-dark); }
+.ss-tabs-tab.active { background: var(--teal); color: var(--bar-fg); border-color: var(--teal-dark); }
 .ss-tabs-view { flex: 1; position: relative; }
 .ss-tabs-view .ss-webview { position: absolute; inset: 0; }
 
@@ -350,7 +351,7 @@ html, body {
   padding: 6px 12px; font-size: 12.5px; cursor: pointer; color: var(--ink);
 }
 .ss-set-btn:hover { background: #e8f3f3; }
-.ss-set-save { background: var(--teal); color: #fff; border-color: var(--teal-dark); }
+.ss-set-save { background: var(--teal); color: var(--bar-fg); border-color: var(--teal-dark); }
 .ss-set-save:hover { background: var(--teal-dark); }
 
 /* --- Files browser drawer -------------------------------------------------- */

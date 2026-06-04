@@ -56,7 +56,7 @@ const Store = {
   },
   saveSize(id, s) { localStorage.setItem('ss.size.' + id, JSON.stringify(s)); },
   getDisplay() {
-    const def = { mode: 'autohide', reserve: false, repin: 'event' };
+    const def = { mode: 'autohide', reserve: false, repin: 'event', theme: 'teal' };
     try { const d = JSON.parse(localStorage.getItem('ss.display')); return d && d.mode ? { ...def, ...d } : def; } catch (_) { return def; }
   },
   saveDisplay(d) { localStorage.setItem('ss.display', JSON.stringify(d)); },
@@ -83,6 +83,26 @@ const removeAccount = (id) => {
   Store.saveAccounts(Store.getAccounts().filter((a) => a.id !== id));
   window.auth.logout(partitionFor(id)); // clear its cookies too
 };
+
+// Color themes (CSS variables). --bar-fg flips to dark for the light theme.
+const THEMES = {
+  teal: { '--teal-light': '#2e8b8b', '--teal': '#1f6f6f', '--teal-dark': '#145252', '--bar-fg': '#eafafa' },
+  graphite: { '--teal-light': '#4a4f57', '--teal': '#2c3038', '--teal-dark': '#14171c', '--bar-fg': '#eef1f4' },
+  ocean: { '--teal-light': '#2f7fd6', '--teal': '#1f63ad', '--teal-dark': '#154a85', '--bar-fg': '#eaf2fb' },
+  forest: { '--teal-light': '#3f9d5a', '--teal': '#2c7d44', '--teal-dark': '#1d5a30', '--bar-fg': '#eafaef' },
+  plum: { '--teal-light': '#8a5cc0', '--teal': '#6a3fa0', '--teal-dark': '#4c2a78', '--bar-fg': '#f3ecfb' },
+  sunset: { '--teal-light': '#e0913c', '--teal': '#d4682f', '--teal-dark': '#a8481b', '--bar-fg': '#fff1e6' },
+  rose: { '--teal-light': '#e06aa0', '--teal': '#c24683', '--teal-dark': '#933063', '--bar-fg': '#fdeef5' },
+  light: { '--teal-light': '#eef2f6', '--teal': '#d7dee6', '--teal-dark': '#aeb9c6', '--bar-fg': '#2a3340' },
+};
+const THEME_LABELS = [
+  ['teal', 'Teal（既定）'], ['graphite', 'Graphite（ダーク）'], ['ocean', 'Ocean'],
+  ['forest', 'Forest'], ['plum', 'Plum'], ['sunset', 'Sunset'], ['rose', 'Rose'], ['light', 'Light'],
+];
+function applyTheme(key) {
+  const t = THEMES[key] || THEMES.teal;
+  for (const k in t) document.documentElement.style.setProperty(k, t[k]);
+}
 
 const defaultTabs = () => JSON.parse(JSON.stringify(window.SS_TABS || []));
 const loadTabs = () => Store.getTabs() || defaultTabs();
@@ -168,6 +188,7 @@ function scheduleHide() {
 
 function applyDisplay() {
   Store.saveDisplay(display);
+  applyTheme(display.theme);
   window.overlay.setDisplay(display); // main toggles the AppBar reservation
   reflowHeight();
 }
@@ -983,6 +1004,15 @@ function buildDisplaySettings() {
   });
   monSel.onchange = () => { display = { ...display, monitor: monSel.value === '' ? undefined : Number(monSel.value) }; applyDisplay(); };
 
+  // Theme / colour
+  const themeWrap = el('label', 'ss-set-check');
+  const themeSel = el('select', 'ss-set-type');
+  THEME_LABELS.forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; themeSel.appendChild(op); });
+  themeSel.value = display.theme || 'teal';
+  themeSel.onchange = () => { display = { ...display, theme: themeSel.value }; applyDisplay(); };
+  themeWrap.append(document.createTextNode('テーマ '), themeSel);
+  root.append(themeWrap);
+
   root.append(el('div', 'ss-disp-note', '※「常に表示」で重なる場合は「領域を予約」をON。維持方式は通常「イベント駆動」でOK（うまく追従しない時だけ「ポーリング」へ）。'));
   return root;
 }
@@ -1398,7 +1428,7 @@ function renderBar() {
   // logo / menu button — stays fixed at the left, doesn't scroll away
   const menuBtn = el('button', 'ss-btn ss-menu');
   menuBtn.title = 'メニュー（設定・ヘルプ）';
-  menuBtn.innerHTML = logoMark('#eafafa');
+  menuBtn.innerHTML = logoMark('currentColor');
   menuBtn.addEventListener('click', () => openTab(MENU_TAB, menuBtn));
   bar.appendChild(menuBtn);
 
