@@ -529,19 +529,29 @@ function renderClipList(list) {
   if (!clips.length) { list.innerHTML = '<li class="ss-clip-empty">（空です）ここやバーにドラッグ＆ドロップ</li>'; return; }
   for (const it of clips) {
     const li = el('li', 'ss-clip-row');
-    const icon = it.kind === 'url' ? '🔗' : it.kind === 'folder' ? '📁' : it.kind === 'text' ? '✂' : (it.viewer ? viewerIcon(it.viewer) : '📦');
-    li.append(el('span', 'ss-clip-ico', icon), el('span', 'ss-clip-name', it.label));
-    li.title = it.url || it.path || '';
+    const emoji = it.kind === 'url' ? '🔗' : it.kind === 'folder' ? '📁' : it.kind === 'text' ? '✂' : (it.viewer ? viewerIcon(it.viewer) : '📦');
+    const ico = el('span', 'ss-clip-ico', emoji);
+    li.append(ico, el('span', 'ss-clip-name', it.label));
+    li.title = it.url || it.path || (it.text ? it.text.slice(0, 80) : '');
     li.addEventListener('click', () => openClipItem(it));
-    // drag a (non-displayable) file back out to the OS
     if (it.kind === 'file') {
       li.draggable = true;
       li.addEventListener('dragstart', (ev) => { ev.preventDefault(); window.files.startDrag(it.path); });
+      window.files.icon(it.path).then((url) => {
+        if (!url) return;
+        const img = document.createElement('img');
+        img.className = 'ss-clip-iconimg';
+        img.src = url;
+        ico.replaceWith(img);
+      });
     }
+    const pin = el('button', 'ss-clip-pin', '📌');
+    pin.title = 'バーに固定（常設ボタンにする）';
+    pin.onclick = (ev) => { ev.stopPropagation(); promoteClip(it); };
     const del = el('button', 'ss-clip-x', '×');
     del.title = '削除';
     del.onclick = (ev) => { ev.stopPropagation(); Store.saveClips(Store.getClips().filter((c) => c.id !== it.id)); renderClipList(list); };
-    li.append(del);
+    li.append(pin, del);
     list.appendChild(li);
   }
 }
@@ -556,6 +566,28 @@ function openClipItem(it) {
     if (it.viewer) openTab({ id, label: it.label, icon: viewerIcon(it.viewer), type: 'viewer', viewer: it.viewer, path: it.path, width: 560 }, anchor);
     else window.files.open(it.path);
   }
+}
+
+// Promote a clip item to a permanent bar button (added to the saved tabs).
+function promoteClip(it) {
+  const id = 'p' + Date.now().toString(36);
+  let tab = null;
+  if (it.kind === 'url') tab = { id, label: it.label.slice(0, 16), icon: '🔗', type: 'page', url: it.url, mobile: false, width: 540 };
+  else if (it.kind === 'folder') tab = { id, label: it.label, icon: '📁', type: 'folder', path: it.path, width: 460 };
+  else if (it.kind === 'text') tab = { id, label: (it.label || 'メモ').slice(0, 16), icon: '✂', type: 'snippet', text: it.text, width: 420 };
+  else if (it.kind === 'file') {
+    tab = it.viewer
+      ? { id, label: it.label, icon: viewerIcon(it.viewer), type: 'viewer', viewer: it.viewer, path: it.path, width: 560 }
+      : { id, label: it.label, icon: '📦', type: 'launch', path: it.path, width: 320 };
+  }
+  if (!tab) return;
+  const cur = JSON.parse(JSON.stringify(tabs));
+  cur.push(tab);
+  Store.saveTabs(cur);
+  tabs = cur;
+  Store.saveClips(Store.getClips().filter((c) => c.id !== it.id)); // move out of the clip
+  renderBar();
+  refreshClipUI();
 }
 
 function buildClipPanel() {
@@ -1217,7 +1249,10 @@ function renderBar() {
     const btn = el('button', 'ss-btn');
     btn.dataset.id = tab.id;
     btn.append(el('span', 'ss-ico', tab.icon), el('span', null, tab.label));
-    btn.addEventListener('click', () => openTab(tab, btn));
+    btn.addEventListener('click', () => {
+      if (tab.type === 'launch') window.files.open(tab.path); // open with default app
+      else openTab(tab, btn);
+    });
     scroll.appendChild(btn);
   }
   scroll.addEventListener('wheel', (e) => {
