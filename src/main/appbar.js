@@ -61,43 +61,39 @@ function register(win, opts = {}) {
     initApi(koffi);
     const { SHAppBarMessage, sizeof } = api;
     const height = opts.height || 44;
+    const { screen } = require('electron');
     const b = win.getBounds();
 
-    // SHAppBarMessage works in PHYSICAL pixels, but Electron bounds are in DIPs.
-    // On a scaled display (e.g. 150%) we must multiply by the scale factor, or
-    // the reserved strip won't match the bar's real height.
-    const { screen } = require('electron');
-    const disp = screen.getDisplayMatching(b);
-    const sf = disp.scaleFactor || 1;
-    const px = (v) => Math.round(v * sf);
+    // SHAppBarMessage uses PHYSICAL pixels in virtual-desktop coordinates.
+    // Electron's dipToScreenRect does the correct DIP->physical conversion,
+    // which (unlike a per-monitor scale multiply) is right on secondary /
+    // mixed-DPI displays too.
+    const phys = screen.dipToScreenRect(win, { x: b.x, y: b.y, width: b.width, height });
 
     const data = {
       cbSize: sizeof,
       hWnd: Number(hwndOf(win)),
       uCallbackMessage: 0,
       uEdge: ABE_TOP,
-      rc: { left: px(b.x), top: px(b.y), right: px(b.x + b.width), bottom: px(b.y + height) },
+      rc: { left: phys.x, top: phys.y, right: phys.x + phys.width, bottom: phys.y + phys.height },
       lParam: 0,
     };
 
     if (!regs.has(win.id)) SHAppBarMessage(ABM_NEW, data); // register once per window
     // Ask Windows where a top bar of this thickness may sit, then claim it.
     SHAppBarMessage(ABM_QUERYPOS, data);
-    data.rc.bottom = data.rc.top + px(height);
+    data.rc.bottom = data.rc.top + phys.height;
     SHAppBarMessage(ABM_SETPOS, data);
 
-    // Occupy the reserved rectangle (convert physical -> DIP for Electron).
-    const toDip = (v) => Math.round(v / sf);
-    win.setBounds({
-      x: toDip(data.rc.left),
-      y: toDip(data.rc.top),
-      width: toDip(data.rc.right - data.rc.left),
-      height: win.getBounds().height,
+    // Occupy the granted rectangle (convert physical -> DIP for Electron).
+    const dip = screen.screenToDipRect(win, {
+      x: data.rc.left, y: data.rc.top,
+      width: data.rc.right - data.rc.left, height: data.rc.bottom - data.rc.top,
     });
+    win.setBounds({ x: dip.x, y: dip.y, width: dip.width, height: win.getBounds().height });
 
     regs.set(win.id, data);
-    console.info('[appbar] reserved top edge sf=' + sf + ' rc=' + JSON.stringify(data.rc) +
-      ' win=' + JSON.stringify(win.getBounds()));
+    console.info('[appbar] reserved rc=' + JSON.stringify(data.rc) + ' -> win=' + JSON.stringify(win.getBounds()));
     return 'ok';
   } catch (err) {
     console.warn('[appbar] registration failed:', err && err.message);
