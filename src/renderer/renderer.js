@@ -527,33 +527,60 @@ function renderClipList(list) {
   list.innerHTML = '';
   const clips = Store.getClips();
   if (!clips.length) { list.innerHTML = '<li class="ss-clip-empty">（空です）ここやバーにドラッグ＆ドロップ</li>'; return; }
-  for (const it of clips) {
-    const li = el('li', 'ss-clip-row');
-    const emoji = it.kind === 'url' ? '🔗' : it.kind === 'folder' ? '📁' : it.kind === 'text' ? '✂' : (it.viewer ? viewerIcon(it.viewer) : '📦');
-    const ico = el('span', 'ss-clip-ico', emoji);
+  clips.forEach((it, idx) => {
+    const li = el('li', 'ss-clip-row' + (it.temp ? ' temp' : ''));
+
+    let ico;
+    if (it.kind === 'file' && it.viewer === 'image') {
+      ico = document.createElement('img');
+      ico.className = 'ss-clip-thumb';
+      window.files.serve(it.path).then((u) => { ico.src = u; });
+    } else {
+      const emoji = it.kind === 'url' ? '🔗' : it.kind === 'folder' ? '📁' : it.kind === 'text' ? '✂' : (it.viewer ? viewerIcon(it.viewer) : '📦');
+      ico = el('span', 'ss-clip-ico', emoji);
+      if (it.kind === 'file') window.files.icon(it.path).then((u) => {
+        if (!u) return;
+        const img = document.createElement('img');
+        img.className = 'ss-clip-iconimg';
+        img.src = u;
+        ico.replaceWith(img);
+      });
+    }
     li.append(ico, el('span', 'ss-clip-name', it.label));
     li.title = it.url || it.path || (it.text ? it.text.slice(0, 80) : '');
     li.addEventListener('click', () => openClipItem(it));
     if (it.kind === 'file') {
       li.draggable = true;
       li.addEventListener('dragstart', (ev) => { ev.preventDefault(); window.files.startDrag(it.path); });
-      window.files.icon(it.path).then((url) => {
-        if (!url) return;
-        const img = document.createElement('img');
-        img.className = 'ss-clip-iconimg';
-        img.src = url;
-        ico.replaceWith(img);
-      });
     }
-    const pin = el('button', 'ss-clip-pin', '📌');
-    pin.title = 'バーに固定（常設ボタンにする）';
-    pin.onclick = (ev) => { ev.stopPropagation(); promoteClip(it); };
-    const del = el('button', 'ss-clip-x', '×');
-    del.title = '削除';
-    del.onclick = (ev) => { ev.stopPropagation(); Store.saveClips(Store.getClips().filter((c) => c.id !== it.id)); renderClipList(list); };
-    li.append(pin, del);
+
+    const acts = el('span', 'ss-clip-actions');
+    const mk = (label, title, fn, cls) => { const b = el('button', 'ss-clip-act' + (cls || ''), label); b.title = title; b.onclick = (ev) => { ev.stopPropagation(); fn(); }; return b; };
+    acts.append(
+      mk('▲', '上へ', () => moveClip(idx, -1, list)),
+      mk('▼', '下へ', () => moveClip(idx, 1, list)),
+      mk('⏱', '一時的（再起動で消す）', () => toggleTemp(it.id, list), it.temp ? ' on' : ''),
+      mk('📌', 'バーに固定', () => promoteClip(it)),
+      mk('×', '削除', () => { Store.saveClips(Store.getClips().filter((c) => c.id !== it.id)); renderClipList(list); }, ' ss-clip-x'),
+    );
+    li.append(acts);
     list.appendChild(li);
-  }
+  });
+}
+
+function moveClip(idx, dir, list) {
+  const clips = Store.getClips();
+  const j = idx + dir;
+  if (j < 0 || j >= clips.length) return;
+  [clips[idx], clips[j]] = [clips[j], clips[idx]];
+  Store.saveClips(clips);
+  renderClipList(list);
+}
+
+function toggleTemp(id, list) {
+  const clips = Store.getClips();
+  const c = clips.find((x) => x.id === id);
+  if (c) { c.temp = !c.temp; Store.saveClips(clips); renderClipList(list); }
 }
 
 function openClipItem(it) {
@@ -593,7 +620,11 @@ function promoteClip(it) {
 function buildClipPanel() {
   const wrap = el('div', 'ss-clip-bin');
   const list = el('ul', 'ss-clip-list');
-  wrap.append(list);
+  const head = el('div', 'ss-clip-head');
+  const clear = el('button', 'ss-set-btn', '全クリア');
+  clear.onclick = () => { if (Store.getClips().length) { Store.saveClips([]); renderClipList(list); } };
+  head.append(el('span', 'ss-clip-hint', 'ドラッグ＆ドロップで追加'), clear);
+  wrap.append(head, list);
   const stop = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
   ['dragenter', 'dragover'].forEach((ev) => wrap.addEventListener(ev, (e) => { stop(e); wrap.classList.add('over'); }));
   ['dragleave', 'dragend'].forEach((ev) => wrap.addEventListener(ev, (e) => { stop(e); wrap.classList.remove('over'); }));
@@ -1278,6 +1309,9 @@ function renderBar() {
   };
   bar.appendChild(hideBtn);
 }
+
+// Drop last session's temporary clip items (the rest persist).
+Store.saveClips(Store.getClips().filter((c) => !c.temp));
 
 renderBar();
 
