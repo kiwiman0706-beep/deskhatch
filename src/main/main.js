@@ -19,7 +19,7 @@ let tray = null;
 // displayId -> { displayId, win, spacer, reserveActive, repinMode, rePinnedOnce, pinning, lastEdge }
 const bars = new Map();
 // Last display config pushed from a renderer (shared across windows in Phase 1).
-let cfg = { mode: 'autohide', reserve: false, repin: 'event', monitors: null };
+let cfg = { mode: 'autohide', reserve: false, repin: 'event', monitors: null, barColor: '#1f6f6f' };
 let edgeTimer = null;
 let metricsTimer = null;
 let suppressMetricsUntil = 0; // ignore metrics events caused by our own reservation
@@ -58,14 +58,14 @@ function makeSpacer(display) {
   const { x, y, width } = display.bounds;
   const s = new BrowserWindow({
     x, y, width, height: BAR_HEIGHT,
-    frame: false, transparent: false, backgroundColor: '#1f6f6f',
+    frame: false, transparent: false, backgroundColor: cfg.barColor || '#1f6f6f',
     resizable: false, movable: false, minimizable: false, maximizable: false,
     fullscreenable: false, skipTaskbar: true, focusable: false, hasShadow: false,
     alwaysOnTop: true, webPreferences: { backgroundThrottling: false },
   });
   s.setAlwaysOnTop(true, 'floating');
   s.setIgnoreMouseEvents(true);
-  s.loadURL('data:text/html,<body style="margin:0;background:%231f6f6f"></body>');
+  s.loadURL('data:text/html,<body style="margin:0;background:transparent"></body>'); // window bg shows
   return s;
 }
 
@@ -77,12 +77,14 @@ function rePin(entry, reason) {
   try {
     if (entry.spacer && !entry.spacer.isDestroyed()) {
       const sb = entry.spacer.getBounds();
-      if (sb.x !== d.x || sb.y !== d.y) entry.spacer.setBounds({ x: d.x, y: d.y, width: sb.width, height: sb.height });
+      if (sb.x !== d.x || sb.y !== d.y || sb.width !== d.width || sb.height !== BAR_HEIGHT) {
+        entry.spacer.setBounds({ x: d.x, y: d.y, width: d.width, height: BAR_HEIGHT });
+      }
     }
     const wb = entry.win.getBounds();
-    if (wb.x !== d.x || wb.y !== d.y) {
+    if (wb.x !== d.x || wb.y !== d.y || wb.width !== d.width) {
       if (!entry.rePinnedOnce) { console.info('[appbar] re-pin (' + reason + ') display ' + entry.displayId); entry.rePinnedOnce = true; }
-      entry.win.setBounds({ x: d.x, y: d.y, width: wb.width, height: wb.height });
+      entry.win.setBounds({ x: d.x, y: d.y, width: d.width, height: wb.height });
       entry.win.moveTop();
     }
   } finally { entry.pinning = false; }
@@ -99,6 +101,7 @@ function applyReserve(entry) {
       entry.spacer = makeSpacer(displayObj(entry.displayId));
       entry.spacer.on('move', () => { if (entry.repinMode === 'event') rePin(entry, 'spacer-move'); });
     }
+    try { entry.spacer.setBackgroundColor(cfg.barColor || '#1f6f6f'); } catch (_) { /* ignore */ }
     status = appbar.register(entry.spacer, { edge: 'top', height: BAR_HEIGHT, display: displayObj(entry.displayId) });
     entry.win.setAlwaysOnTop(true, 'screen-saver');
     entry.win.moveTop();
@@ -217,6 +220,7 @@ ipcMain.on('display:set', (_e, d) => {
     reserve: !!(d && d.reserve),
     repin: (d && d.repin) || 'event',
     monitors: Array.isArray(d && d.monitors) ? d.monitors : null,
+    barColor: (d && d.barColor) || '#1f6f6f',
   };
   reconcile();
 });

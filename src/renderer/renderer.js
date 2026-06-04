@@ -189,7 +189,8 @@ function scheduleHide() {
 function applyDisplay() {
   Store.saveDisplay(display);
   applyTheme(display.theme);
-  window.overlay.setDisplay(display); // main toggles the AppBar reservation
+  const barColor = (THEMES[display.theme] || THEMES.teal)['--teal'];
+  window.overlay.setDisplay({ ...display, barColor }); // main toggles AppBar reservation + spacer color
   reflowHeight();
 }
 
