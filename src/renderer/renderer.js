@@ -494,6 +494,7 @@ async function handleDrop(e) {
   e.preventDefault();
   e.stopPropagation();
   const dt = e.dataTransfer;
+  if ([...(dt.types || [])].includes('ss-tab')) return; // internal reorder, not intake
   let added = 0;
 
   const uriList = (dt.getData('text/uri-list') || '').split('\n').map((s) => s.trim()).filter(Boolean);
@@ -1264,6 +1265,69 @@ function buildMenuPanel() {
 // ---------------------------------------------------------------------------
 // Build the bar
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Direct bar editing: reorder (drag) + right-click menu (add/dup/move/delete)
+// ---------------------------------------------------------------------------
+function commitTabs(arr) { Store.saveTabs(arr); tabs = arr; renderBar(); }
+
+function reorderTabs(id, beforeId) {
+  const arr = JSON.parse(JSON.stringify(tabs));
+  const i = arr.findIndex((t) => t.id === id);
+  if (i < 0) return;
+  const [item] = arr.splice(i, 1);
+  let j = beforeId ? arr.findIndex((t) => t.id === beforeId) : arr.length;
+  if (j < 0) j = arr.length;
+  arr.splice(j, 0, item);
+  commitTabs(arr);
+}
+
+function moveTab(id, dir) {
+  const arr = JSON.parse(JSON.stringify(tabs));
+  const i = arr.findIndex((t) => t.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= arr.length) return;
+  [arr[i], arr[j]] = [arr[j], arr[i]];
+  commitTabs(arr);
+}
+
+function duplicateTab(id) {
+  const arr = JSON.parse(JSON.stringify(tabs));
+  const i = arr.findIndex((t) => t.id === id);
+  if (i < 0) return;
+  const copy = JSON.parse(JSON.stringify(arr[i]));
+  copy.id = 'tab' + Date.now().toString(36);
+  arr.splice(i + 1, 0, copy);
+  commitTabs(arr);
+}
+
+function deleteTab(id) {
+  closeDrawer(id);
+  commitTabs(tabs.filter((t) => t.id !== id));
+}
+
+function addNewTab() {
+  const arr = JSON.parse(JSON.stringify(tabs));
+  arr.push({ id: 'tab' + Date.now().toString(36), label: '新規', icon: '🔖', type: 'page', url: 'https://', mobile: true, width: 460 });
+  commitTabs(arr);
+}
+
+async function tabContextMenu(tab) {
+  const action = await window.system.menu([
+    { id: 'add', label: '新規項目を追加' },
+    { id: 'dup', label: 'この項目を複製' },
+    { separator: true },
+    { id: 'left', label: '← 左へ移動' },
+    { id: 'right', label: '右へ移動 →' },
+    { separator: true },
+    { id: 'del', label: '削除' },
+  ]);
+  if (action === 'add') addNewTab();
+  else if (action === 'dup') duplicateTab(tab.id);
+  else if (action === 'left') moveTab(tab.id, -1);
+  else if (action === 'right') moveTab(tab.id, 1);
+  else if (action === 'del') deleteTab(tab.id);
+}
+
 function renderBar() {
   bar.innerHTML = '';
 
@@ -1284,11 +1348,28 @@ function renderBar() {
       if (tab.type === 'launch') window.files.open(tab.path); // open with default app
       else openTab(tab, btn);
     });
+    btn.addEventListener('contextmenu', (e) => { e.preventDefault(); tabContextMenu(tab); });
+    btn.draggable = true;
+    btn.addEventListener('dragstart', (e) => { e.dataTransfer.setData('ss-tab', tab.id); e.dataTransfer.effectAllowed = 'move'; btn.classList.add('dragging'); });
+    btn.addEventListener('dragend', () => btn.classList.remove('dragging'));
     scroll.appendChild(btn);
   }
   scroll.addEventListener('wheel', (e) => {
     if (e.deltaY) { scroll.scrollLeft += e.deltaY; e.preventDefault(); }
   }, { passive: false });
+  // drag-reorder within the bar
+  scroll.addEventListener('dragover', (e) => { if ([...e.dataTransfer.types].includes('ss-tab')) e.preventDefault(); });
+  scroll.addEventListener('drop', (e) => {
+    if (![...e.dataTransfer.types].includes('ss-tab')) return;
+    e.preventDefault(); e.stopPropagation();
+    const id = e.dataTransfer.getData('ss-tab');
+    let beforeId = null;
+    for (const b of scroll.querySelectorAll('.ss-btn')) {
+      const r = b.getBoundingClientRect();
+      if (e.clientX < r.left + r.width / 2) { beforeId = b.dataset.id; break; }
+    }
+    reorderTabs(id, beforeId);
+  });
   bar.appendChild(scroll);
 
   // clip (temporary holding) button — also the drop target
@@ -1308,6 +1389,14 @@ function renderBar() {
     reflowHeight();
   };
   bar.appendChild(hideBtn);
+
+  // Re-link any open drawers to their freshly-created buttons.
+  for (const id in open) {
+    let b = bar.querySelector('.ss-btn[data-id="' + id + '"]');
+    if (!b && id === '__menu') b = bar.querySelector('.ss-menu');
+    if (!b && id === '__clip') b = bar.querySelector('.ss-clip-btn');
+    if (b) { open[id].btn = b; b.classList.add('active'); }
+  }
 }
 
 // Drop last session's temporary clip items (the rest persist).

@@ -3,7 +3,7 @@
 // Launchers for Windows system locations + a clipboard reader. All targets are
 // a fixed whitelist (no arbitrary commands from the renderer).
 
-const { ipcMain, shell, clipboard } = require('electron');
+const { ipcMain, shell, clipboard, Menu, BrowserWindow } = require('electron');
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -63,6 +63,17 @@ function register() {
   });
 
   ipcMain.handle('system:bookmarks', () => readBookmarks());
+
+  // Generic native context menu: items = [{id,label}|{separator:true}]; returns
+  // the picked id (or null).
+  ipcMain.handle('menu:popup', (e, items) => new Promise((resolve) => {
+    let picked = null;
+    const tmpl = (items || []).map((it) => it.separator
+      ? { type: 'separator' }
+      : { label: it.label, enabled: it.enabled !== false, click: () => { picked = it.id; } });
+    const menu = Menu.buildFromTemplate(tmpl);
+    menu.popup({ window: BrowserWindow.fromWebContents(e.sender), callback: () => resolve(picked) });
+  }));
 }
 
 module.exports = { register };

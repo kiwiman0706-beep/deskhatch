@@ -62,6 +62,7 @@ contextBridge.exposeInMainWorld('system', {
   external: (url) => ipcRenderer.invoke('system:external', url),
   clipboard: () => ipcRenderer.invoke('system:clipboard'),
   bookmarks: () => ipcRenderer.invoke('system:bookmarks'),
+  menu: (items) => ipcRenderer.invoke('menu:popup', items),
 });
 
 // Live camera (RTSP -> local fragmented-MP4 stream URL).
