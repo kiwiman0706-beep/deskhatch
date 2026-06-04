@@ -21,6 +21,8 @@ const bars = new Map();
 // Last display config pushed from a renderer (shared across windows in Phase 1).
 let cfg = { mode: 'autohide', reserve: false, repin: 'event', monitors: null };
 let edgeTimer = null;
+let metricsTimer = null;
+let suppressMetricsUntil = 0; // ignore metrics events caused by our own reservation
 
 const allDisplays = () => screen.getAllDisplays();
 const displayObj = (id) => allDisplays().find((d) => d.id === id) || screen.getPrimaryDisplay();
@@ -97,7 +99,7 @@ function applyReserve(entry) {
       entry.spacer = makeSpacer(displayObj(entry.displayId));
       entry.spacer.on('move', () => { if (entry.repinMode === 'event') rePin(entry, 'spacer-move'); });
     }
-    status = appbar.register(entry.spacer, { edge: 'top', height: BAR_HEIGHT });
+    status = appbar.register(entry.spacer, { edge: 'top', height: BAR_HEIGHT, display: displayObj(entry.displayId) });
     entry.win.setAlwaysOnTop(true, 'screen-saver');
     entry.win.moveTop();
     rePin(entry, 'init');
@@ -137,6 +139,9 @@ function reconcile() {
   for (const id of [...bars.keys()]) if (!wantIds.includes(id)) destroyBar(id);
   for (const d of want) if (!bars.has(d.id)) createBar(d);
   for (const e of bars.values()) applyReserve(e);
+  // Reserving changes the work area, which fires display-metrics-changed.
+  // Ignore those for a moment so we don't re-reconcile in a runaway loop.
+  suppressMetricsUntil = Date.now() + 2000;
 }
 
 function anyWin() {
@@ -229,11 +234,17 @@ app.whenReady().then(() => {
   createTray();
   startEdgeWatch();
   screen.on('display-metrics-changed', () => {
-    for (const e of bars.values()) {
-      const d = displayObj(e.displayId).bounds;
-      if (e.win && !e.win.isDestroyed()) { const b = e.win.getBounds(); e.win.setBounds({ x: d.x, y: d.y, width: d.width, height: b.height }); }
-    }
-    reconcile();
+    if (Date.now() < suppressMetricsUntil) return; // our own reservation; ignore
+    clearTimeout(metricsTimer);
+    metricsTimer = setTimeout(() => {
+      for (const e of bars.values()) {
+        if (!e.win || e.win.isDestroyed()) continue;
+        const d = displayObj(e.displayId).bounds;
+        const b = e.win.getBounds();
+        if (b.x !== d.x || b.y !== d.y || b.width !== d.width) e.win.setBounds({ x: d.x, y: d.y, width: d.width, height: b.height });
+      }
+      reconcile();
+    }, 400);
   });
 
   app.on('activate', () => { if (!bars.size) reconcile(); });

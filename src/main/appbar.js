@@ -62,13 +62,11 @@ function register(win, opts = {}) {
     const { SHAppBarMessage, sizeof } = api;
     const height = opts.height || 44;
     const { screen } = require('electron');
-    const b = win.getBounds();
-
-    // SHAppBarMessage uses PHYSICAL pixels in virtual-desktop coordinates.
-    // Electron's dipToScreenRect does the correct DIP->physical conversion,
-    // which (unlike a per-monitor scale multiply) is right on secondary /
-    // mixed-DPI displays too.
-    const phys = screen.dipToScreenRect(win, { x: b.x, y: b.y, width: b.width, height });
+    // Always reserve the DISPLAY's top edge (not the window's current, possibly
+    // drifted, position). dipToScreenRect handles DIP->physical correctly across
+    // secondary / mixed-DPI displays.
+    const db = (opts.display && opts.display.bounds) || screen.getDisplayMatching(win.getBounds()).bounds;
+    const phys = screen.dipToScreenRect(win, { x: db.x, y: db.y, width: db.width, height });
 
     const data = {
       cbSize: sizeof,
@@ -80,20 +78,13 @@ function register(win, opts = {}) {
     };
 
     if (!regs.has(win.id)) SHAppBarMessage(ABM_NEW, data); // register once per window
-    // Ask Windows where a top bar of this thickness may sit, then claim it.
     SHAppBarMessage(ABM_QUERYPOS, data);
     data.rc.bottom = data.rc.top + phys.height;
     SHAppBarMessage(ABM_SETPOS, data);
-
-    // Occupy the granted rectangle (convert physical -> DIP for Electron).
-    const dip = screen.screenToDipRect(win, {
-      x: data.rc.left, y: data.rc.top,
-      width: data.rc.right - data.rc.left, height: data.rc.bottom - data.rc.top,
-    });
-    win.setBounds({ x: dip.x, y: dip.y, width: dip.width, height: win.getBounds().height });
+    // NOTE: do NOT move the window here; main's rePin positions it in clean DIP.
 
     regs.set(win.id, data);
-    console.info('[appbar] reserved rc=' + JSON.stringify(data.rc) + ' -> win=' + JSON.stringify(win.getBounds()));
+    console.info('[appbar] reserved rc=' + JSON.stringify(data.rc));
     return 'ok';
   } catch (err) {
     console.warn('[appbar] registration failed:', err && err.message);
