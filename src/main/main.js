@@ -10,6 +10,9 @@ const camera = require('./camera');
 const fileserver = require('./fileserver');
 
 const BAR_HEIGHT = 44; // collapsed strip height (px)
+const SPACER_H = BAR_HEIGHT - 10; // spacer window a bit shorter than the bar so the
+                                  // opaque bar always covers it (no peek); reservation
+                                  // height is still BAR_HEIGHT (set from display bounds).
 const INDEX = path.join(__dirname, '..', 'renderer', 'index.html');
 
 /** @type {Tray | null} */
@@ -58,7 +61,7 @@ function makeSpacer(display) {
   const { x, y, width } = display.bounds;
   const col = cfg.barColor || '#1f6f6f';
   const s = new BrowserWindow({
-    x, y, width, height: BAR_HEIGHT,
+    x, y, width, height: SPACER_H,
     frame: false, transparent: false, backgroundColor: col,
     resizable: false, movable: false, minimizable: false, maximizable: false,
     fullscreenable: false, skipTaskbar: true, focusable: false, hasShadow: false,
@@ -88,8 +91,8 @@ function rePin(entry, reason) {
   try {
     if (entry.spacer && !entry.spacer.isDestroyed()) {
       const sb = entry.spacer.getBounds();
-      if (sb.x !== d.x || sb.y !== d.y || sb.width !== d.width || sb.height !== BAR_HEIGHT) {
-        entry.spacer.setBounds({ x: d.x, y: d.y, width: d.width, height: BAR_HEIGHT });
+      if (sb.x !== d.x || sb.y !== d.y || sb.width !== d.width || sb.height !== SPACER_H) {
+        entry.spacer.setBounds({ x: d.x, y: d.y, width: d.width, height: SPACER_H });
       }
     }
     const wb = entry.win.getBounds();
