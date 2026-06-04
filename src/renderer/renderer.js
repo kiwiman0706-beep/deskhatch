@@ -325,8 +325,10 @@ function makeWebview(url, mobile, partition) {
   return wv;
 }
 
-// Tabbed drawer: switch between several pages in one drawer (lazy-loaded).
-function buildTabsPanel(tab, partition) {
+// Tabbed drawer: switch between several panes in one drawer (lazy-loaded).
+// Each pane is a mini tab-config of any type (page/folder/viewer/tool/...),
+// rendered via buildBody, so a tab group can mix kinds.
+function buildTabsPanel(tab) {
   const wrap = el('div', 'ss-tabs');
   const tabbar = el('div', 'ss-tabs-bar');
   const view = el('div', 'ss-tabs-view');
@@ -338,12 +340,16 @@ function buildTabsPanel(tab, partition) {
     [...tabbar.children].forEach((b, idx) => b.classList.toggle('active', idx === i));
     wrap.dataset.activeUrl = (panes[i] && panes[i].url) || '';
     if (!made[i]) {
-      const wv = makeWebview(panes[i].url, panes[i].mobile, partition);
-      wv.style.display = 'none';
-      view.appendChild(wv);
-      made[i] = wv;
+      const sub = Object.assign({ type: 'page' }, panes[i]);
+      if (tab.account && !sub.account) sub.account = tab.account; // inherit account
+      const node = buildBody(sub);
+      node.style.position = 'absolute';
+      node.style.inset = '0';
+      node.style.display = 'none';
+      view.appendChild(node);
+      made[i] = node;
     }
-    made.forEach((wv, idx) => { if (wv) wv.style.display = idx === i ? '' : 'none'; });
+    made.forEach((n, idx) => { if (n) n.style.display = idx === i ? '' : 'none'; });
   }
 
   panes.forEach((p, i) => {
@@ -714,7 +720,7 @@ function buildBody(tab) {
     }
     body.appendChild(split);
   } else if (tab.type === 'tabs') {
-    body.appendChild(buildTabsPanel(tab, part));
+    body.appendChild(buildTabsPanel(tab));
   } else if (tab.type === 'files') {
     body.appendChild(buildFilesPanel(tab.path));
   } else if (tab.type === 'folder') {
@@ -1240,7 +1246,38 @@ function buildMenuPanel() {
 // ---------------------------------------------------------------------------
 // Direct bar editing: reorder (drag) + right-click menu (add/dup/move/delete)
 // ---------------------------------------------------------------------------
+let dragMergeTarget = null; // button id when hovering a button's center (merge)
+
 function commitTabs(arr) { Store.saveTabs(arr); tabs = arr; renderBar(); }
+
+// Merge two bar items into a tabbed drawer (drop one button onto another).
+function tabToPane(t) {
+  const p = { label: t.label, type: t.type };
+  ['url', 'mobile', 'account', 'path', 'tool', 'viewer', 'rtsp', 'text'].forEach((k) => { if (t[k] !== undefined) p[k] = t[k]; });
+  return p;
+}
+const panesOf = (t) => (t.type === 'tabs' ? (t.panes || []) : [tabToPane(t)]);
+
+function mergeTabs(draggedId, targetId) {
+  if (draggedId === targetId) return;
+  const arr = JSON.parse(JSON.stringify(tabs));
+  const target = arr.find((t) => t.id === targetId);
+  const dragged = arr.find((t) => t.id === draggedId);
+  if (!target || !dragged) return;
+  const panes = panesOf(target).concat(panesOf(dragged));
+  target.type = 'tabs';
+  target.panes = panes;
+  target.icon = target.icon || '🗂';
+  ['url', 'path', 'tool', 'viewer', 'rtsp', 'mobile', 'text'].forEach((k) => delete target[k]);
+  arr.splice(arr.findIndex((t) => t.id === draggedId), 1);
+  commitTabs(arr);
+}
+
+function clearDragFx() {
+  bar.classList.remove('drop');
+  bar.querySelectorAll('.ss-btn.merge, .ss-btn.dragging').forEach((b) => b.classList.remove('merge', 'dragging'));
+  dragMergeTarget = null;
+}
 
 function reorderTabs(id, beforeId) {
   const arr = JSON.parse(JSON.stringify(tabs));
@@ -1325,7 +1362,18 @@ function renderBar() {
     btn.addEventListener('contextmenu', (e) => { e.preventDefault(); tabContextMenu(tab, btn); });
     btn.draggable = true;
     btn.addEventListener('dragstart', (e) => { e.dataTransfer.setData('ss-tab', tab.id); e.dataTransfer.effectAllowed = 'move'; btn.classList.add('dragging'); });
-    btn.addEventListener('dragend', () => btn.classList.remove('dragging'));
+    btn.addEventListener('dragend', clearDragFx);
+    // hovering a button's center = merge into a tab group; edges = reorder
+    btn.addEventListener('dragover', (e) => {
+      if (![...e.dataTransfer.types].includes('ss-tab')) return;
+      e.preventDefault();
+      const r = btn.getBoundingClientRect();
+      const frac = (e.clientX - r.left) / r.width;
+      const merge = frac > 0.3 && frac < 0.7 && !btn.classList.contains('dragging');
+      btn.classList.toggle('merge', merge);
+      dragMergeTarget = merge ? tab.id : (dragMergeTarget === tab.id ? null : dragMergeTarget);
+    });
+    btn.addEventListener('dragleave', () => { btn.classList.remove('merge'); if (dragMergeTarget === tab.id) dragMergeTarget = null; });
     scroll.appendChild(btn);
   }
   scroll.addEventListener('wheel', (e) => {
@@ -1337,6 +1385,9 @@ function renderBar() {
     if (![...e.dataTransfer.types].includes('ss-tab')) return;
     e.preventDefault(); e.stopPropagation();
     const id = e.dataTransfer.getData('ss-tab');
+    const mt = dragMergeTarget;
+    clearDragFx();
+    if (mt && mt !== id) { mergeTabs(id, mt); return; } // dropped on a button's center
     let beforeId = null;
     for (const b of scroll.querySelectorAll('.ss-btn')) {
       const r = b.getBoundingClientRect();
@@ -1381,9 +1432,10 @@ renderBar();
 // Drag & drop intake. Prevent the window from navigating to dropped files, and
 // let the bar (which captures while it's the only thing showing) receive drops.
 document.addEventListener('dragover', (e) => { e.preventDefault(); });
-document.addEventListener('drop', (e) => { e.preventDefault(); });
+document.addEventListener('drop', (e) => { e.preventDefault(); clearDragFx(); });
+document.addEventListener('dragend', clearDragFx);
 bar.addEventListener('dragover', (e) => { e.preventDefault(); bar.classList.add('drop'); });
-bar.addEventListener('dragleave', () => bar.classList.remove('drop'));
+bar.addEventListener('dragleave', (e) => { if (e.target === bar) bar.classList.remove('drop'); });
 bar.addEventListener('drop', (e) => { bar.classList.remove('drop'); handleDrop(e); });
 
 // Reveal on hover at the top edge; hide again shortly after leaving.

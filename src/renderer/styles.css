@@ -102,6 +102,7 @@ html, body {
 }
 .ss-btn .ss-ico { font-size: 15px; }
 .ss-btn.dragging { opacity: 0.4; }
+.ss-btn.merge { outline: 2px solid #ffd86b; outline-offset: -2px; background: rgba(255, 216, 107, 0.25); }
 
 /* --- Drawer ---------------------------------------------------------------- */
 .ss-drawer {
