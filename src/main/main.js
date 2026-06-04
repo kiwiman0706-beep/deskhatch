@@ -7,6 +7,7 @@ const files = require('./files');
 const auth = require('./auth');
 const system = require('./system');
 const camera = require('./camera');
+const fileserver = require('./fileserver');
 
 const BAR_HEIGHT = 44; // collapsed strip height (px)
 
@@ -240,6 +241,7 @@ files.register(() => win);
 auth.register();
 system.register();
 camera.register();
+fileserver.register();
 
 app.whenReady().then(() => {
   auth.setup();

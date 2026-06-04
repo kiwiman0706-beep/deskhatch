@@ -49,6 +49,10 @@ contextBridge.exposeInMainWorld('files', {
   copyTo: (src, dir) => ipcRenderer.invoke('files:copy-to', src, dir),
   trash: (p) => ipcRenderer.invoke('files:trash', p),
   saveText: (text) => ipcRenderer.invoke('files:save-text', text),
+  stat: (p) => ipcRenderer.invoke('files:stat', p),
+  readText: (p) => ipcRenderer.invoke('files:read-text', p),
+  serve: (p) => ipcRenderer.invoke('file:serve', p),
+  startDrag: (p) => ipcRenderer.send('files:start-drag', p),
   contextMenu: (info) => ipcRenderer.invoke('files:context-menu', info),
 });
 

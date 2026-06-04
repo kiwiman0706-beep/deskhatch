@@ -16,6 +16,24 @@ const drawerHeight = () => Math.min(720, Math.floor(window.screen.availHeight * 
 // The "logo" menu pseudo-tab pinned to the left of the bar.
 const MENU_TAB = { id: '__menu', label: 'メニュー', icon: '☰', type: 'menu', width: 380 };
 
+// The "clip" (temporary holding) pseudo-tab — a drop target / bin.
+const CLIP_TAB = { id: '__clip', label: 'クリップ', icon: '📎', type: 'clip', width: 380 };
+
+// File viewers by extension (others open with the default app).
+const VIEWER_EXT = {
+  image: ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.ico'],
+  video: ['.mp4', '.webm', '.ogg', '.mov', '.m4v'],
+  audio: ['.mp3', '.wav', '.m4a', '.aac', '.flac', '.oga'],
+  pdf: ['.pdf'],
+  html: ['.html', '.htm'],
+  text: ['.txt', '.md', '.log', '.json', '.csv', '.xml', '.js', '.css', '.ini', '.yml', '.yaml'],
+};
+function viewerForExt(ext) {
+  for (const k in VIEWER_EXT) if (VIEWER_EXT[k].includes(ext)) return k;
+  return null;
+}
+const viewerIcon = (v) => ({ image: '🖼', video: '🎬', audio: '🎵', pdf: '📄', html: '🌐', text: '📃' }[v] || '📦');
+
 // Brand mark: a top bar with a drawer hanging beneath it. Inline SVG so it can
 // be tinted (white on the teal bar) and needs no external file / CSP allowance.
 const logoMark = (color) =>
@@ -46,6 +64,10 @@ const Store = {
     try { const a = JSON.parse(localStorage.getItem('ss.accounts')); return Array.isArray(a) ? a : []; } catch (_) { return []; }
   },
   saveAccounts(a) { localStorage.setItem('ss.accounts', JSON.stringify(a)); },
+  getClips() {
+    try { const c = JSON.parse(localStorage.getItem('ss.clips')); return Array.isArray(c) ? c : []; } catch (_) { return []; }
+  },
+  saveClips(c) { localStorage.setItem('ss.clips', JSON.stringify(c)); },
 };
 
 // Accounts: the built-in "default" (shared session) plus user-added ones, each
@@ -85,22 +107,33 @@ let atEdge = false;               // cursor at the very top edge (from main)
 let hideTimer = null;
 
 // ---------------------------------------------------------------------------
-// Mouse pass-through: capture only while the pointer is over the bar/drawers.
+// Mouse pass-through: capture over the bar/drawers, pass through elsewhere.
+// When only the bar is showing, capture the whole (44px) window so it reliably
+// receives clicks AND file drops; pass through when hidden; cursor-based when a
+// drawer is open (transparent areas beside it must stay click-through).
 // ---------------------------------------------------------------------------
 let ignoring = true;
+let dndActive = false; // a file/link is being dragged over us
 window.overlay.setIgnoreMouse(true);
 
-function setOverUI(over) {
-  const want = !over; // want to ignore (pass through) when NOT over UI
-  if (want === ignoring) return;
-  ignoring = want;
-  window.overlay.setIgnoreMouse(want);
+function setIgnore(v) {
+  if (v === ignoring) return;
+  ignoring = v;
+  window.overlay.setIgnoreMouse(v);
 }
 
+function wantIgnore(overUI) {
+  if (dndActive) return false;            // capture during drag so drops land
+  if (!barShouldShow()) return true;      // hidden: pass through
+  if (Object.keys(open).length === 0) return false; // bar only: capture all
+  return !overUI;                         // drawer open: capture over UI only
+}
+
+function setOverUI(over) { setIgnore(wantIgnore(over)); }
+
 document.addEventListener('mousemove', (e) => {
-  if (dragging) return; // keep capturing while resizing
-  const overUI = !!(e.target.closest && e.target.closest('.ss-interactive'));
-  setOverUI(overUI);
+  if (dragging || dndActive) return;
+  setOverUI(!!(e.target.closest && e.target.closest('.ss-interactive')));
 });
 document.addEventListener('mouseleave', () => setOverUI(false));
 window.addEventListener('blur', () => setOverUI(false));
@@ -121,9 +154,13 @@ function reflowHeight() {
   const shown = barShouldShow();
   bar.classList.toggle('hidden', !shown);
   peek.classList.toggle('on', !shown);
-  if (!shown) { window.overlay.setHeight(PEEK); return; }
-  const heights = Object.keys(open).map((id) => open[id].el.offsetHeight);
-  window.overlay.setHeight(window.SSLayout.computeHeight(BAR_H, heights));
+  if (!shown) { window.overlay.setHeight(PEEK); }
+  else {
+    const heights = Object.keys(open).map((id) => open[id].el.offsetHeight);
+    window.overlay.setHeight(window.SSLayout.computeHeight(BAR_H, heights));
+  }
+  // keep the bar capturing when it's the only thing shown (reliable drop target)
+  if (!shown || Object.keys(open).length === 0) setIgnore(wantIgnore(false));
 }
 
 function scheduleHide() {
@@ -447,6 +484,110 @@ function buildCamera(tab) {
   return wrap;
 }
 
+// --- Clip (temporary holding) ----------------------------------------------
+function addClip(item) {
+  const clips = Store.getClips();
+  item.id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  clips.push(item);
+  Store.saveClips(clips);
+}
+
+async function handleDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const dt = e.dataTransfer;
+  let added = 0;
+
+  const uriList = (dt.getData('text/uri-list') || '').split('\n').map((s) => s.trim()).filter(Boolean);
+  const plain = (dt.getData('text/plain') || '').trim();
+  const url = uriList.find((l) => /^https?:\/\//i.test(l)) || (/^https?:\/\//i.test(plain) ? plain : '');
+  if (url && (!dt.files || !dt.files.length)) { addClip({ kind: 'url', url, label: url }); added++; }
+
+  for (const f of (dt.files || [])) {
+    const p = window.overlay.getPathForFile(f);
+    if (!p) continue;
+    const st = await window.files.stat(p);
+    if (st.error) continue;
+    if (st.isDir) addClip({ kind: 'folder', path: p, label: st.name });
+    else addClip({ kind: 'file', path: p, label: st.name, viewer: viewerForExt(st.ext) });
+    added++;
+  }
+  if (added) refreshClipUI();
+}
+
+let clipListEl = null; // the currently-open clip list, if any
+function refreshClipUI() { if (clipListEl) renderClipList(clipListEl); }
+
+function renderClipList(list) {
+  list.innerHTML = '';
+  const clips = Store.getClips();
+  if (!clips.length) { list.innerHTML = '<li class="ss-clip-empty">（空です）ここやバーにドラッグ＆ドロップ</li>'; return; }
+  for (const it of clips) {
+    const li = el('li', 'ss-clip-row');
+    const icon = it.kind === 'url' ? '🔗' : it.kind === 'folder' ? '📁' : (it.viewer ? viewerIcon(it.viewer) : '📦');
+    li.append(el('span', 'ss-clip-ico', icon), el('span', 'ss-clip-name', it.label));
+    li.title = it.url || it.path || '';
+    li.addEventListener('click', () => openClipItem(it));
+    // drag a (non-displayable) file back out to the OS
+    if (it.kind === 'file') {
+      li.draggable = true;
+      li.addEventListener('dragstart', (ev) => { ev.preventDefault(); window.files.startDrag(it.path); });
+    }
+    const del = el('button', 'ss-clip-x', '×');
+    del.title = '削除';
+    del.onclick = (ev) => { ev.stopPropagation(); Store.saveClips(Store.getClips().filter((c) => c.id !== it.id)); renderClipList(list); };
+    li.append(del);
+    list.appendChild(li);
+  }
+}
+
+function openClipItem(it) {
+  const anchor = document.querySelector('.ss-clip-btn') || document.getElementById('bar');
+  const id = 'clip-' + it.id;
+  if (it.kind === 'url') openTab({ id, label: it.label.slice(0, 18), icon: '🔗', type: 'page', url: it.url, mobile: false, width: 540 }, anchor);
+  else if (it.kind === 'folder') openTab({ id, label: it.label, icon: '📁', type: 'folder', path: it.path, width: 460 }, anchor);
+  else if (it.kind === 'file') {
+    if (it.viewer) openTab({ id, label: it.label, icon: viewerIcon(it.viewer), type: 'viewer', viewer: it.viewer, path: it.path, width: 560 }, anchor);
+    else window.files.open(it.path);
+  }
+}
+
+function buildClipPanel() {
+  const wrap = el('div', 'ss-clip-bin');
+  const list = el('ul', 'ss-clip-list');
+  wrap.append(list);
+  const stop = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+  ['dragenter', 'dragover'].forEach((ev) => wrap.addEventListener(ev, (e) => { stop(e); wrap.classList.add('over'); }));
+  ['dragleave', 'dragend'].forEach((ev) => wrap.addEventListener(ev, (e) => { stop(e); wrap.classList.remove('over'); }));
+  wrap.addEventListener('drop', (e) => { wrap.classList.remove('over'); handleDrop(e); });
+  clipListEl = list;
+  renderClipList(list);
+  return wrap;
+}
+
+// --- File viewer drawer ----------------------------------------------------
+function buildViewer(tab) {
+  const wrap = el('div', 'ss-viewer');
+  if (!tab.path) { wrap.append(el('div', 'ss-viewer-msg', 'ファイルがありません')); return wrap; }
+  if (tab.viewer === 'text') {
+    const pre = document.createElement('pre');
+    pre.className = 'ss-viewer-text';
+    wrap.appendChild(pre);
+    window.files.readText(tab.path).then((t) => { pre.textContent = t; });
+    return wrap;
+  }
+  window.files.serve(tab.path).then((url) => {
+    let node;
+    if (tab.viewer === 'image') { node = document.createElement('img'); node.className = 'ss-viewer-img'; node.src = url; }
+    else if (tab.viewer === 'video') { node = document.createElement('video'); node.className = 'ss-viewer-media'; node.src = url; node.controls = true; }
+    else if (tab.viewer === 'audio') { node = document.createElement('audio'); node.className = 'ss-viewer-audio'; node.src = url; node.controls = true; }
+    else if (tab.viewer === 'pdf') { node = document.createElement('iframe'); node.className = 'ss-viewer-frame'; node.src = url; }
+    else if (tab.viewer === 'html') { node = makeWebview(url, false, 'persist:smartsuite'); }
+    if (node) wrap.appendChild(node);
+  });
+  return wrap;
+}
+
 function buildClipboard() {
   const wrap = el('div', 'ss-clip');
   const barEl = el('div', 'ss-clip-bar');
@@ -497,6 +638,10 @@ function buildBody(tab) {
     body.appendChild(buildFilesPanel(tab.path || '@pc'));
   } else if (tab.type === 'camera') {
     body.appendChild(buildCamera(tab));
+  } else if (tab.type === 'viewer') {
+    body.appendChild(buildViewer(tab));
+  } else if (tab.type === 'clip') {
+    body.appendChild(buildClipPanel());
   } else if (tab.type === 'tool') {
     if (tab.tool === 'editor') body.appendChild(buildEditor());
     else if (tab.tool === 'calc') body.appendChild(buildCalc());
@@ -1059,6 +1204,13 @@ function renderBar() {
   }, { passive: false });
   bar.appendChild(scroll);
 
+  // clip (temporary holding) button — also the drop target
+  const clipBtn = el('button', 'ss-btn ss-clip-btn');
+  clipBtn.title = 'クリップ（一時置き）— ここにドロップ';
+  clipBtn.append(el('span', 'ss-ico', CLIP_TAB.icon));
+  clipBtn.addEventListener('click', () => openTab(CLIP_TAB, clipBtn));
+  bar.appendChild(clipBtn);
+
   // temporary hide button — stays fixed at the right
   const hideBtn = el('button', 'ss-btn ss-hide', '▲');
   hideBtn.title = '一時的に隠す（画面上端にカーソルを当てると再表示）';
@@ -1072,6 +1224,17 @@ function renderBar() {
 }
 
 renderBar();
+
+// Drag & drop intake. Capture during a drag so drops land on us (not pass
+// through / navigate). The bar itself is the drop target; the clip drawer has
+// its own handler too.
+document.addEventListener('dragenter', () => { dndActive = true; setIgnore(false); });
+document.addEventListener('dragover', (e) => { e.preventDefault(); });
+document.addEventListener('dragend', () => { dndActive = false; setOverUI(false); });
+document.addEventListener('drop', (e) => { e.preventDefault(); dndActive = false; setOverUI(false); });
+bar.addEventListener('dragover', (e) => { e.preventDefault(); bar.classList.add('drop'); });
+bar.addEventListener('dragleave', () => bar.classList.remove('drop'));
+bar.addEventListener('drop', (e) => { bar.classList.remove('drop'); handleDrop(e); });
 
 // Reveal on hover at the top edge; hide again shortly after leaving.
 const onEnter = () => { hovering = true; clearTimeout(hideTimer); reflowHeight(); };

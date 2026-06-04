@@ -4,7 +4,7 @@
 // operations live here in the main process; the renderer talks to them through
 // the `files` bridge in preload.js (contextIsolation stays on).
 
-const { ipcMain, shell, clipboard, dialog, Menu, app } = require('electron');
+const { ipcMain, shell, clipboard, dialog, Menu, app, nativeImage } = require('electron');
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
@@ -95,6 +95,24 @@ function register(getWin) {
     try { return app.getPath(key); } catch (_) { return PC; }
   });
 
+  ipcMain.handle('files:stat', (_e, p) => {
+    try {
+      const st = fs.statSync(p);
+      return { isDir: st.isDirectory(), isFile: st.isFile(), name: path.basename(p), ext: path.extname(p).toLowerCase() };
+    } catch (_) {
+      return { error: true, name: path.basename(p || '') };
+    }
+  });
+
+  ipcMain.handle('files:read-text', async (_e, p) => {
+    try {
+      const buf = await fsp.readFile(p);
+      return buf.slice(0, 1024 * 1024).toString('utf8'); // up to 1MB
+    } catch (e) {
+      return '（読み込めません: ' + (e && e.message) + '）';
+    }
+  });
+
   ipcMain.handle('files:open', (_e, p) => shell.openPath(p));
   ipcMain.handle('files:reveal', (_e, p) => { shell.showItemInFolder(p); return true; });
   ipcMain.handle('files:copy-path', (_e, p) => { clipboard.writeText(p); return true; });
@@ -111,6 +129,14 @@ function register(getWin) {
   });
 
   ipcMain.handle('files:trash', async (_e, p) => { await shell.trashItem(p); return true; });
+
+  // Drag a file out of the app to the OS (Explorer / other apps).
+  ipcMain.on('files:start-drag', (e, p) => {
+    try {
+      const icon = nativeImage.createFromPath(path.join(__dirname, '..', '..', 'assets', 'tray.png'));
+      e.sender.startDrag({ file: p, icon });
+    } catch (_) { /* ignore */ }
+  });
 
   ipcMain.handle('files:save-text', async (_e, text) => {
     const r = await dialog.showSaveDialog(getWin(), {

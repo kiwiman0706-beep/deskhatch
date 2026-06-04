@@ -188,6 +188,28 @@ html, body {
 .ss-clip-text { margin: 0; white-space: pre-wrap; word-break: break-word; font: 12.5px/1.6 monospace; color: var(--ink); }
 .ss-clip-img { max-width: 100%; }
 
+/* clip (temporary holding) */
+.ss-bar.drop { outline: 2px dashed #ffd86b; outline-offset: -3px; }
+.ss-clip-bin { display: flex; flex-direction: column; height: 100%; }
+.ss-clip-bin.over { background: #dcefef; }
+.ss-clip-list { list-style: none; margin: 0; padding: 6px; overflow: auto; flex: 1; }
+.ss-clip-row { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 6px; cursor: pointer; }
+.ss-clip-row:hover { background: #e8f3f3; }
+.ss-clip-ico { flex: 0 0 18px; text-align: center; }
+.ss-clip-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--ink); }
+.ss-clip-x { border: none; background: transparent; color: #a55; font-size: 15px; cursor: pointer; border-radius: 4px; }
+.ss-clip-x:hover { background: #f0d0d0; }
+.ss-clip-empty { color: #8aa; padding: 12px; font-size: 12px; }
+
+/* file viewer */
+.ss-viewer { display: flex; height: 100%; background: #111; overflow: auto; }
+.ss-viewer-img { margin: auto; max-width: 100%; max-height: 100%; }
+.ss-viewer-media { margin: auto; max-width: 100%; max-height: 100%; }
+.ss-viewer-audio { margin: auto; width: 90%; }
+.ss-viewer-frame { flex: 1; width: 100%; height: 100%; border: 0; background: #fff; }
+.ss-viewer-text { flex: 1; margin: 0; padding: 10px; background: #fff; color: var(--ink); white-space: pre-wrap; word-break: break-word; font: 12.5px/1.6 monospace; overflow: auto; }
+.ss-viewer-msg { color: #ddd; margin: auto; }
+
 /* camera (RTSP) */
 .ss-cam { display: flex; flex-direction: column; height: 100%; background: #000; }
 .ss-cam-bar { padding: 6px; background: #1a1a1a; }
