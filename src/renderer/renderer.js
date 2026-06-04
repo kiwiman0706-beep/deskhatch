@@ -725,6 +725,8 @@ function buildBody(tab) {
     body.appendChild(buildViewer(tab));
   } else if (tab.type === 'clip') {
     body.appendChild(buildClipPanel());
+  } else if (tab.type === 'editbox') {
+    body.appendChild(buildTabEditor(tab.target));
   } else if (tab.type === 'snippet') {
     body.appendChild(buildSnippet(tab));
   } else if (tab.type === 'tool') {
@@ -979,6 +981,98 @@ function buildDisplaySettings() {
   return root;
 }
 
+// All editable fields for one tab object `t` (edits bound in place). `extras`
+// are extra nodes appended to the top row (e.g. reorder/delete buttons).
+// Shared by the settings list and the inline right-click editor.
+function buildTabFields(t, extras) {
+  const wrap = el('div', 'ss-fields');
+  const top = el('div', 'ss-set-top');
+  const icon = field(t.icon, '絵文字'); icon.classList.add('ss-set-icon'); icon.oninput = () => { t.icon = icon.value; };
+  const label = field(t.label, 'ラベル'); label.oninput = () => { t.label = label.value; };
+  top.append(icon, label);
+  (extras || []).forEach((n) => top.append(n));
+
+  const width = document.createElement('input');
+  width.type = 'number'; width.className = 'ss-set-w'; width.value = t.width || 420;
+  width.oninput = () => { t.width = Number(width.value) || 420; };
+  const wlabel = el('span', 'ss-set-wlabel', '幅');
+  const row2 = el('div', 'ss-set-row');
+
+  if (!['page', 'tabs', 'files', 'folder', 'tool', 'camera'].includes(t.type)) {
+    row2.append(el('span', 'ss-set-note', '特殊表示（編集不可）'), wlabel, width);
+    wrap.append(top, row2);
+    return wrap;
+  }
+
+  const type = el('select', 'ss-set-type');
+  [['page', 'ページ'], ['tabs', 'タブ'], ['files', 'PC全体'], ['folder', 'フォルダ'], ['tool', 'ツール'], ['camera', 'カメラ']].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; type.appendChild(op); });
+  type.value = t.type;
+  const mobileWrap = el('label', 'ss-set-check'); const mobile = document.createElement('input'); mobile.type = 'checkbox'; mobile.checked = !!t.mobile; mobile.onchange = () => { t.mobile = mobile.checked; }; mobileWrap.append(mobile, document.createTextNode(' スマホ表示'));
+  const keepWrap = el('label', 'ss-set-check'); const keep = document.createElement('input'); keep.type = 'checkbox'; keep.checked = !!t.keepAlive; keep.onchange = () => { t.keepAlive = keep.checked; }; keepWrap.append(keep, document.createTextNode(' 閉じても止めない'));
+  const toolWrap = el('label', 'ss-set-check'); const toolSel = el('select', 'ss-set-type'); [['editor', '簡易エディタ'], ['calc', '電卓'], ['clipboard', 'クリップボード'], ['bookmarks', 'ブックマーク']].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; toolSel.appendChild(op); }); toolSel.value = t.tool || 'editor'; toolSel.onchange = () => { t.tool = toolSel.value; }; toolWrap.append(document.createTextNode('ツール '), toolSel);
+  const acctWrap = el('label', 'ss-set-check'); const acctSel = el('select', 'ss-set-type'); accountsFull().forEach((a) => { const op = el('option', null, a.name); op.value = a.id; acctSel.appendChild(op); }); acctSel.value = t.account || 'default'; acctSel.onchange = () => { t.account = acctSel.value === 'default' ? undefined : acctSel.value; }; acctWrap.append(document.createTextNode('アカウント '), acctSel);
+  row2.append(type, mobileWrap, acctWrap, toolWrap, keepWrap, wlabel, width);
+
+  const url = field(t.url, 'https://…'); url.classList.add('ss-set-url'); url.oninput = () => { t.url = url.value; };
+  const pathInput = field(t.path, 'フォルダ未選択'); pathInput.classList.add('ss-set-url'); pathInput.readOnly = true;
+  const pickBtn = el('button', 'ss-set-mini', '📂'); pickBtn.title = 'フォルダを選択'; pickBtn.onclick = async () => { const dir = await window.files.pickFolder(); if (dir) { t.path = dir; pathInput.value = dir; } };
+  const pathRow = el('div', 'ss-set-row'); pathRow.append(pickBtn, pathInput);
+  const rtsp = field(t.rtsp, 'rtsp://ユーザー:パス@IP:554/stream1'); rtsp.classList.add('ss-set-url'); rtsp.oninput = () => { t.rtsp = rtsp.value; };
+  const paneBox = el('div', 'ss-panes');
+  function renderPanes() {
+    paneBox.innerHTML = '';
+    (t.panes || []).forEach((pane, pi) => {
+      const r = el('div', 'ss-set-row');
+      const lbl = field(pane.label, 'タブ名'); lbl.classList.add('ss-pane-label'); lbl.oninput = () => { pane.label = lbl.value; };
+      const u = field(pane.url, 'https://…'); u.classList.add('ss-set-url'); u.oninput = () => { pane.url = u.value; };
+      const del = el('button', 'ss-set-mini', '🗑'); del.onclick = () => { t.panes.splice(pi, 1); renderPanes(); };
+      r.append(lbl, u, del); paneBox.appendChild(r);
+    });
+    const add = el('button', 'ss-set-btn', '＋ タブ追加'); add.onclick = () => { if (!t.panes) t.panes = []; t.panes.push({ label: 'タブ' + (t.panes.length + 1), url: 'https://', mobile: true }); renderPanes(); };
+    paneBox.appendChild(add);
+  }
+  renderPanes();
+  const syncType = () => {
+    t.type = type.value;
+    const isPage = t.type === 'page', isFolder = t.type === 'folder', isTabs = t.type === 'tabs', isTool = t.type === 'tool', isCamera = t.type === 'camera';
+    url.style.display = isPage ? '' : 'none';
+    mobileWrap.style.display = isPage ? '' : 'none';
+    acctWrap.style.display = (isPage || isTabs) ? '' : 'none';
+    toolWrap.style.display = isTool ? '' : 'none';
+    keepWrap.style.display = (isPage || isTabs || isCamera) ? '' : 'none';
+    pathRow.style.display = isFolder ? '' : 'none';
+    rtsp.style.display = isCamera ? '' : 'none';
+    paneBox.style.display = isTabs ? '' : 'none';
+  };
+  type.onchange = syncType; syncType();
+  wrap.append(top, row2, url, pathRow, rtsp, paneBox);
+  return wrap;
+}
+
+// Inline editor (opened from a button's right-click "編集").
+function buildTabEditor(target) {
+  const t = JSON.parse(JSON.stringify(target));
+  const wrap = el('div', 'ss-editbox');
+  wrap.append(buildTabFields(t));
+  const actions = el('div', 'ss-set-actions');
+  const save = el('button', 'ss-set-btn ss-set-save', '保存');
+  save.onclick = () => {
+    const arr = JSON.parse(JSON.stringify(tabs));
+    const i = arr.findIndex((x) => x.id === target.id);
+    if (i >= 0) { t.id = target.id; if (!t.width) t.width = 420; arr[i] = t; }
+    closeDrawer('__edit');
+    closeDrawer(target.id); // force reload on next open
+    commitTabs(arr);
+  };
+  actions.append(save);
+  wrap.append(actions);
+  return wrap;
+}
+
+function openEditor(tab, btn) {
+  openTab({ id: '__edit', type: 'editbox', target: tab, label: '編集', icon: '✎', width: 460 }, btn);
+}
+
 function buildSettings() {
   const root = el('div', 'ss-settings');
   root.append(buildDisplaySettings());
@@ -989,135 +1083,13 @@ function buildSettings() {
     listEl.innerHTML = '';
     working.forEach((t, idx) => {
       const card = el('div', 'ss-set-card');
-
-      const top = el('div', 'ss-set-top');
-      const icon = field(t.icon, '絵文字');
-      icon.classList.add('ss-set-icon');
-      icon.oninput = () => { t.icon = icon.value; };
-      const label = field(t.label, 'ラベル');
-      label.oninput = () => { t.label = label.value; };
       const upBtn = el('button', 'ss-set-mini', '▲');
       const downBtn = el('button', 'ss-set-mini', '▼');
       const delBtn = el('button', 'ss-set-mini', '🗑');
       upBtn.onclick = () => { if (idx > 0) { [working[idx - 1], working[idx]] = [working[idx], working[idx - 1]]; render(); } };
       downBtn.onclick = () => { if (idx < working.length - 1) { [working[idx + 1], working[idx]] = [working[idx], working[idx + 1]]; render(); } };
       delBtn.onclick = () => { working.splice(idx, 1); render(); };
-      top.append(icon, label, upBtn, downBtn, delBtn);
-
-      const editable = ['page', 'tabs', 'files', 'folder', 'tool', 'camera'].includes(t.type);
-
-      const width = document.createElement('input');
-      width.type = 'number';
-      width.className = 'ss-set-w';
-      width.value = t.width || 420;
-      width.oninput = () => { t.width = Number(width.value) || 420; };
-      const wlabel = el('span', 'ss-set-wlabel', '幅');
-
-      const row2 = el('div', 'ss-set-row');
-
-      if (editable) {
-        const type = el('select', 'ss-set-type');
-        [['page', 'ページ'], ['tabs', 'タブ'], ['files', 'PC全体'], ['folder', 'フォルダ'], ['tool', 'ツール'], ['camera', 'カメラ']].forEach(([v, lbl]) => {
-          const op = el('option', null, lbl); op.value = v; type.appendChild(op);
-        });
-        type.value = t.type;
-        const mobileWrap = el('label', 'ss-set-check');
-        const mobile = document.createElement('input');
-        mobile.type = 'checkbox';
-        mobile.checked = !!t.mobile;
-        mobile.onchange = () => { t.mobile = mobile.checked; };
-        mobileWrap.append(mobile, document.createTextNode(' スマホ表示'));
-
-        // keep-alive (don't stop the page/audio when closed)
-        const keepWrap = el('label', 'ss-set-check');
-        const keep = document.createElement('input');
-        keep.type = 'checkbox';
-        keep.checked = !!t.keepAlive;
-        keep.onchange = () => { t.keepAlive = keep.checked; };
-        keepWrap.append(keep, document.createTextNode(' 閉じても止めない'));
-
-        // which built-in tool (type 'tool')
-        const toolWrap = el('label', 'ss-set-check');
-        const toolSel = el('select', 'ss-set-type');
-        [['editor', '簡易エディタ'], ['calc', '電卓'], ['clipboard', 'クリップボード'], ['bookmarks', 'ブックマーク']].forEach(([v, lbl]) => {
-          const op = el('option', null, lbl); op.value = v; toolSel.appendChild(op);
-        });
-        toolSel.value = t.tool || 'editor';
-        toolSel.onchange = () => { t.tool = toolSel.value; };
-        toolWrap.append(document.createTextNode('ツール '), toolSel);
-
-        const acctWrap = el('label', 'ss-set-check');
-        const acctSel = el('select', 'ss-set-type');
-        accountsFull().forEach((a) => { const op = el('option', null, a.name); op.value = a.id; acctSel.appendChild(op); });
-        acctSel.value = t.account || 'default';
-        acctSel.onchange = () => { t.account = acctSel.value === 'default' ? undefined : acctSel.value; };
-        acctWrap.append(document.createTextNode('アカウント '), acctSel);
-
-        row2.append(type, mobileWrap, acctWrap, toolWrap, keepWrap, wlabel, width);
-
-        const url = field(t.url, 'https://…');
-        url.classList.add('ss-set-url');
-        url.oninput = () => { t.url = url.value; };
-
-        const pathInput = field(t.path, 'フォルダ未選択');
-        pathInput.classList.add('ss-set-url');
-        pathInput.readOnly = true;
-        const pickBtn = el('button', 'ss-set-mini', '📂');
-        pickBtn.title = 'フォルダを選択';
-        pickBtn.onclick = async () => {
-          const dir = await window.files.pickFolder();
-          if (dir) { t.path = dir; pathInput.value = dir; }
-        };
-        const pathRow = el('div', 'ss-set-row');
-        pathRow.append(pickBtn, pathInput);
-
-        // RTSP url for the 'camera' type.
-        const rtsp = field(t.rtsp, 'rtsp://ユーザー:パス@IP:554/stream1');
-        rtsp.classList.add('ss-set-url');
-        rtsp.oninput = () => { t.rtsp = rtsp.value; };
-
-        // Pane editor for the 'tabs' type (label + URL per tab).
-        const paneBox = el('div', 'ss-panes');
-        function renderPanes() {
-          paneBox.innerHTML = '';
-          (t.panes || []).forEach((pane, pi) => {
-            const r = el('div', 'ss-set-row');
-            const lbl = field(pane.label, 'タブ名'); lbl.classList.add('ss-pane-label'); lbl.oninput = () => { pane.label = lbl.value; };
-            const u = field(pane.url, 'https://…'); u.classList.add('ss-set-url'); u.oninput = () => { pane.url = u.value; };
-            const del = el('button', 'ss-set-mini', '🗑'); del.onclick = () => { t.panes.splice(pi, 1); renderPanes(); };
-            r.append(lbl, u, del);
-            paneBox.appendChild(r);
-          });
-          const add = el('button', 'ss-set-btn', '＋ タブ追加');
-          add.onclick = () => { if (!t.panes) t.panes = []; t.panes.push({ label: 'タブ' + (t.panes.length + 1), url: 'https://', mobile: true }); renderPanes(); };
-          paneBox.appendChild(add);
-        }
-        renderPanes();
-
-        const syncType = () => {
-          t.type = type.value;
-          const isPage = t.type === 'page';
-          const isFolder = t.type === 'folder';
-          const isTabs = t.type === 'tabs';
-          const isTool = t.type === 'tool';
-          const isCamera = t.type === 'camera';
-          url.style.display = isPage ? '' : 'none';
-          mobileWrap.style.display = isPage ? '' : 'none';
-          acctWrap.style.display = (isPage || isTabs) ? '' : 'none';
-          toolWrap.style.display = isTool ? '' : 'none';
-          keepWrap.style.display = (isPage || isTabs || isCamera) ? '' : 'none';
-          pathRow.style.display = isFolder ? '' : 'none';
-          rtsp.style.display = isCamera ? '' : 'none';
-          paneBox.style.display = isTabs ? '' : 'none';
-        };
-        type.onchange = syncType;
-        syncType();
-
-        card.append(top, row2, url, pathRow, rtsp, paneBox);
-      } else {
-        row2.append(el('span', 'ss-set-note', '特殊表示（編集不可）'), wlabel, width);
-        card.append(top, row2);
-      }
+      card.append(buildTabFields(t, [upBtn, downBtn, delBtn]));
       listEl.appendChild(card);
     });
   }
@@ -1311,18 +1283,20 @@ function addNewTab() {
   commitTabs(arr);
 }
 
-async function tabContextMenu(tab) {
+async function tabContextMenu(tab, btn) {
   const action = await window.system.menu([
-    { id: 'add', label: '新規項目を追加' },
+    { id: 'edit', label: '編集…' },
     { id: 'dup', label: 'この項目を複製' },
     { separator: true },
+    { id: 'add', label: '新規項目を追加' },
     { id: 'left', label: '← 左へ移動' },
     { id: 'right', label: '右へ移動 →' },
     { separator: true },
     { id: 'del', label: '削除' },
   ]);
-  if (action === 'add') addNewTab();
+  if (action === 'edit') openEditor(tab, btn);
   else if (action === 'dup') duplicateTab(tab.id);
+  else if (action === 'add') addNewTab();
   else if (action === 'left') moveTab(tab.id, -1);
   else if (action === 'right') moveTab(tab.id, 1);
   else if (action === 'del') deleteTab(tab.id);
@@ -1348,7 +1322,7 @@ function renderBar() {
       if (tab.type === 'launch') window.files.open(tab.path); // open with default app
       else openTab(tab, btn);
     });
-    btn.addEventListener('contextmenu', (e) => { e.preventDefault(); tabContextMenu(tab); });
+    btn.addEventListener('contextmenu', (e) => { e.preventDefault(); tabContextMenu(tab, btn); });
     btn.draggable = true;
     btn.addEventListener('dragstart', (e) => { e.dataTransfer.setData('ss-tab', tab.id); e.dataTransfer.effectAllowed = 'move'; btn.classList.add('dragging'); });
     btn.addEventListener('dragend', () => btn.classList.remove('dragging'));

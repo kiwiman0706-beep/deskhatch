@@ -313,6 +313,8 @@ html, body {
 
 /* settings editor */
 .ss-settings { display: flex; flex-direction: column; gap: 10px; }
+.ss-editbox { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.ss-fields { display: flex; flex-direction: column; gap: 6px; }
 .ss-disp {
   border: 1px solid #dbe6e6; border-radius: 8px; padding: 8px; background: #fafcfc;
   display: flex; flex-direction: column; gap: 6px;
