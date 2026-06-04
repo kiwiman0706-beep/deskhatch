@@ -1129,7 +1129,11 @@ function buildSettings() {
     working = JSON.parse(JSON.stringify(tabs));
     render();
   };
-  actions.append(addBtn, saveBtn, resetBtn);
+  const exportBtn = el('button', 'ss-set-btn', '⬇ エクスポート');
+  exportBtn.onclick = exportSettings;
+  const importBtn = el('button', 'ss-set-btn', '⬆ インポート');
+  importBtn.onclick = importSettings;
+  actions.append(addBtn, saveBtn, resetBtn, exportBtn, importBtn);
 
   render();
   root.append(listEl, actions);
@@ -1273,6 +1277,50 @@ function mergeTabs(draggedId, targetId) {
   commitTabs(arr);
 }
 
+function paneIcon(p) {
+  if (p.type === 'folder' || p.type === 'files') return '📁';
+  if (p.type === 'viewer') return viewerIcon(p.viewer);
+  if (p.type === 'tool') return '🧰';
+  if (p.type === 'camera') return '🎥';
+  return '🔗';
+}
+function paneToTab(p, baseId, k) {
+  const t = { id: baseId + '_' + k + Date.now().toString(36).slice(-3), label: p.label || 'タブ', icon: paneIcon(p), width: 460 };
+  ['type', 'url', 'mobile', 'account', 'path', 'tool', 'viewer', 'rtsp', 'text'].forEach((key) => { if (p[key] !== undefined) t[key] = p[key]; });
+  if (!t.type) t.type = 'page';
+  return t;
+}
+// Break a tab group back into individual buttons.
+function ungroupTab(id) {
+  const arr = JSON.parse(JSON.stringify(tabs));
+  const i = arr.findIndex((t) => t.id === id);
+  if (i < 0 || arr[i].type !== 'tabs') return;
+  const newTabs = (arr[i].panes || []).map((p, k) => paneToTab(p, id, k));
+  closeDrawer(id);
+  arr.splice(i, 1, ...newTabs);
+  commitTabs(arr);
+}
+
+// --- Import / export of all settings (localStorage ss.* keys) --------------
+function exportSettings() {
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.indexOf('ss.') === 0) data[k] = localStorage.getItem(k);
+  }
+  window.files.saveText(JSON.stringify({ app: 'smartsuite.next', version: 1, data }, null, 2));
+}
+async function importSettings() {
+  const text = await window.files.openText();
+  if (!text) return;
+  let obj;
+  try { obj = JSON.parse(text); } catch (_) { toast('読み込めない形式です'); return; }
+  const data = obj && obj.data ? obj.data : obj;
+  if (!data || typeof data !== 'object') { toast('設定が見つかりません'); return; }
+  Object.keys(data).forEach((k) => { if (k.indexOf('ss.') === 0) localStorage.setItem(k, data[k]); });
+  location.reload();
+}
+
 function clearDragFx() {
   bar.classList.remove('drop');
   bar.querySelectorAll('.ss-btn.merge, .ss-btn.dragging').forEach((b) => b.classList.remove('merge', 'dragging'));
@@ -1321,18 +1369,23 @@ function addNewTab() {
 }
 
 async function tabContextMenu(tab, btn) {
-  const action = await window.system.menu([
+  const items = [
     { id: 'edit', label: '編集…' },
     { id: 'dup', label: 'この項目を複製' },
+  ];
+  if (tab.type === 'tabs') items.push({ id: 'ungroup', label: 'タブを分解' });
+  items.push(
     { separator: true },
     { id: 'add', label: '新規項目を追加' },
     { id: 'left', label: '← 左へ移動' },
     { id: 'right', label: '右へ移動 →' },
     { separator: true },
     { id: 'del', label: '削除' },
-  ]);
+  );
+  const action = await window.system.menu(items);
   if (action === 'edit') openEditor(tab, btn);
   else if (action === 'dup') duplicateTab(tab.id);
+  else if (action === 'ungroup') ungroupTab(tab.id);
   else if (action === 'add') addNewTab();
   else if (action === 'left') moveTab(tab.id, -1);
   else if (action === 'right') moveTab(tab.id, 1);

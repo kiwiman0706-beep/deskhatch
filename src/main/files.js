@@ -138,6 +138,15 @@ function register(getWin) {
     } catch (_) { /* ignore */ }
   });
 
+  ipcMain.handle('files:open-text', async () => {
+    const r = await dialog.showOpenDialog(getWin(), {
+      properties: ['openFile'],
+      filters: [{ name: '設定', extensions: ['json', 'txt'] }, { name: 'すべて', extensions: ['*'] }],
+    });
+    if (r.canceled || !r.filePaths[0]) return null;
+    try { return (await fsp.readFile(r.filePaths[0])).toString('utf8'); } catch (_) { return null; }
+  });
+
   ipcMain.handle('files:save-text', async (_e, text) => {
     const r = await dialog.showSaveDialog(getWin(), {
       filters: [{ name: 'テキスト', extensions: ['txt'] }, { name: 'すべて', extensions: ['*'] }],
