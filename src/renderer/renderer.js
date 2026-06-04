@@ -113,7 +113,6 @@ let hideTimer = null;
 // drawer is open (transparent areas beside it must stay click-through).
 // ---------------------------------------------------------------------------
 let ignoring = true;
-let dndActive = false; // a file/link is being dragged over us
 window.overlay.setIgnoreMouse(true);
 
 function setIgnore(v) {
@@ -123,7 +122,6 @@ function setIgnore(v) {
 }
 
 function wantIgnore(overUI) {
-  if (dndActive) return false;            // capture during drag so drops land
   if (!barShouldShow()) return true;      // hidden: pass through
   if (Object.keys(open).length === 0) return false; // bar only: capture all
   return !overUI;                         // drawer open: capture over UI only
@@ -132,7 +130,7 @@ function wantIgnore(overUI) {
 function setOverUI(over) { setIgnore(wantIgnore(over)); }
 
 document.addEventListener('mousemove', (e) => {
-  if (dragging || dndActive) return;
+  if (dragging) return;
   setOverUI(!!(e.target.closest && e.target.closest('.ss-interactive')));
 });
 document.addEventListener('mouseleave', () => setOverUI(false));
@@ -512,6 +510,13 @@ async function handleDrop(e) {
     else addClip({ kind: 'file', path: p, label: st.name, viewer: viewerForExt(st.ext) });
     added++;
   }
+
+  // Plain selected text (not a URL, no files) -> a text snippet.
+  if (!url && plain && (!dt.files || !dt.files.length)) {
+    addClip({ kind: 'text', text: plain, label: plain.replace(/\s+/g, ' ').slice(0, 40) });
+    added++;
+  }
+
   if (added) refreshClipUI();
 }
 
@@ -524,7 +529,7 @@ function renderClipList(list) {
   if (!clips.length) { list.innerHTML = '<li class="ss-clip-empty">（空です）ここやバーにドラッグ＆ドロップ</li>'; return; }
   for (const it of clips) {
     const li = el('li', 'ss-clip-row');
-    const icon = it.kind === 'url' ? '🔗' : it.kind === 'folder' ? '📁' : (it.viewer ? viewerIcon(it.viewer) : '📦');
+    const icon = it.kind === 'url' ? '🔗' : it.kind === 'folder' ? '📁' : it.kind === 'text' ? '✂' : (it.viewer ? viewerIcon(it.viewer) : '📦');
     li.append(el('span', 'ss-clip-ico', icon), el('span', 'ss-clip-name', it.label));
     li.title = it.url || it.path || '';
     li.addEventListener('click', () => openClipItem(it));
@@ -546,6 +551,7 @@ function openClipItem(it) {
   const id = 'clip-' + it.id;
   if (it.kind === 'url') openTab({ id, label: it.label.slice(0, 18), icon: '🔗', type: 'page', url: it.url, mobile: false, width: 540 }, anchor);
   else if (it.kind === 'folder') openTab({ id, label: it.label, icon: '📁', type: 'folder', path: it.path, width: 460 }, anchor);
+  else if (it.kind === 'text') openTab({ id, label: it.label || 'テキスト', icon: '✂', type: 'snippet', text: it.text, width: 420 }, anchor);
   else if (it.kind === 'file') {
     if (it.viewer) openTab({ id, label: it.label, icon: viewerIcon(it.viewer), type: 'viewer', viewer: it.viewer, path: it.path, width: 560 }, anchor);
     else window.files.open(it.path);
@@ -585,6 +591,19 @@ function buildViewer(tab) {
     else if (tab.viewer === 'html') { node = makeWebview(url, false, 'persist:smartsuite'); }
     if (node) wrap.appendChild(node);
   });
+  return wrap;
+}
+
+function buildSnippet(tab) {
+  const wrap = el('div', 'ss-editor');
+  const barEl = el('div', 'ss-editor-bar');
+  const copy = el('button', 'ss-set-btn', 'コピー');
+  const ta = document.createElement('textarea');
+  ta.className = 'ss-editor-area';
+  ta.value = tab.text || '';
+  copy.onclick = () => { ta.select(); try { document.execCommand('copy'); } catch (_) {} };
+  barEl.append(copy);
+  wrap.append(barEl, ta);
   return wrap;
 }
 
@@ -642,6 +661,8 @@ function buildBody(tab) {
     body.appendChild(buildViewer(tab));
   } else if (tab.type === 'clip') {
     body.appendChild(buildClipPanel());
+  } else if (tab.type === 'snippet') {
+    body.appendChild(buildSnippet(tab));
   } else if (tab.type === 'tool') {
     if (tab.tool === 'editor') body.appendChild(buildEditor());
     else if (tab.tool === 'calc') body.appendChild(buildCalc());
@@ -1225,13 +1246,10 @@ function renderBar() {
 
 renderBar();
 
-// Drag & drop intake. Capture during a drag so drops land on us (not pass
-// through / navigate). The bar itself is the drop target; the clip drawer has
-// its own handler too.
-document.addEventListener('dragenter', () => { dndActive = true; setIgnore(false); });
+// Drag & drop intake. Prevent the window from navigating to dropped files, and
+// let the bar (which captures while it's the only thing showing) receive drops.
 document.addEventListener('dragover', (e) => { e.preventDefault(); });
-document.addEventListener('dragend', () => { dndActive = false; setOverUI(false); });
-document.addEventListener('drop', (e) => { e.preventDefault(); dndActive = false; setOverUI(false); });
+document.addEventListener('drop', (e) => { e.preventDefault(); });
 bar.addEventListener('dragover', (e) => { e.preventDefault(); bar.classList.add('drop'); });
 bar.addEventListener('dragleave', () => bar.classList.remove('drop'));
 bar.addEventListener('drop', (e) => { bar.classList.remove('drop'); handleDrop(e); });
