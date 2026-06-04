@@ -3,12 +3,15 @@
   "version": "0.1.0",
   "description": "SmartCenter-style top-edge drawer launcher (Electron). A thin bar docks at the top of the screen; clicking a button slides a single drawer down directly beneath it.",
   "main": "src/main/main.js",
+  "author": "SmartSuite.next",
   "scripts": {
     "start": "electron .",
     "gen:icons": "node scripts/generate-icons.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "pack": "electron-builder --win --dir",
+    "dist": "electron-builder --win"
   },
   "license": "MIT",
   "dependencies": {
@@ -17,9 +20,38 @@
   "devDependencies": {
     "@playwright/test": "^1.47.0",
     "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
     "vitest": "^2.0.0"
   },
   "optionalDependencies": {
     "koffi": "^2.9.0"
+  },
+  "build": {
+    "appId": "com.smartsuite.next",
+    "productName": "SmartSuite.next",
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/ffmpeg-static/**",
+      "**/node_modules/koffi/**"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SmartSuite.next"
+    }
   }
 }

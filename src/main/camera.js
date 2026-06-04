@@ -13,7 +13,11 @@ const { spawn } = require('child_process');
 const { ipcMain } = require('electron');
 
 let ffmpegPath = null;
-try { ffmpegPath = require('ffmpeg-static'); } catch (_) { ffmpegPath = null; }
+try {
+  ffmpegPath = require('ffmpeg-static');
+  // In a packaged app the binary is unpacked next to the asar.
+  if (ffmpegPath) ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked');
+} catch (_) { ffmpegPath = null; }
 
 const TOKEN = crypto.randomBytes(8).toString('hex');
 const cams = new Map(); // id -> rtsp url

@@ -14,9 +14,11 @@
 const { ipcMain, session, BrowserWindow } = require('electron');
 
 const DEFAULT_PARTITION = 'persist:smartsuite';
+// Match Electron's real Chromium version so Google's sign-in is less likely to
+// flag us as an unsupported browser.
 const CHROME_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-  '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+  '(KHTML, like Gecko) Chrome/' + process.versions.chrome + ' Safari/537.36';
 
 const loginWins = new Map(); // partition -> BrowserWindow
 

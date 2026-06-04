@@ -91,6 +91,6 @@ function draw(x, y, w, h) {
 
 const assetsDir = path.join(__dirname, '..', 'assets');
 fs.mkdirSync(assetsDir, { recursive: true });
-fs.writeFileSync(path.join(assetsDir, 'icon.png'), png(64, 64, draw));
+fs.writeFileSync(path.join(assetsDir, 'icon.png'), png(256, 256, draw)); // app/installer icon
 fs.writeFileSync(path.join(assetsDir, 'tray.png'), png(32, 32, draw));
 console.log('Icons written to', assetsDir);
