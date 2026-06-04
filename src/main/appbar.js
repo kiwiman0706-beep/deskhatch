@@ -14,7 +14,7 @@ const ABM_SETPOS = 0x00000003;
 const ABE_TOP = 1;
 
 let api = null;   // { SHAppBarMessage, sizeof } — built once
-let state = null; // { data } while registered
+const regs = new Map(); // win.id -> APPBARDATA while registered (one per display)
 
 function tryLoadKoffi() {
   try {
@@ -80,7 +80,7 @@ function register(win, opts = {}) {
       lParam: 0,
     };
 
-    if (!state) SHAppBarMessage(ABM_NEW, data); // register once
+    if (!regs.has(win.id)) SHAppBarMessage(ABM_NEW, data); // register once per window
     // Ask Windows where a top bar of this thickness may sit, then claim it.
     SHAppBarMessage(ABM_QUERYPOS, data);
     data.rc.bottom = data.rc.top + px(height);
@@ -95,26 +95,25 @@ function register(win, opts = {}) {
       height: win.getBounds().height,
     });
 
-    state = { data };
+    regs.set(win.id, data);
     console.info('[appbar] reserved top edge sf=' + sf + ' rc=' + JSON.stringify(data.rc) +
       ' win=' + JSON.stringify(win.getBounds()));
     return 'ok';
   } catch (err) {
     console.warn('[appbar] registration failed:', err && err.message);
-    state = null;
     return 'error:' + (err && err.message);
   }
 }
 
-function unregister() {
-  if (!state || !api) return;
+function unregister(win) {
+  if (!api || !win || !regs.has(win.id)) return;
   try {
-    api.SHAppBarMessage(ABM_REMOVE, state.data);
+    api.SHAppBarMessage(ABM_REMOVE, regs.get(win.id));
     console.info('[appbar] released top edge.');
   } catch (_) {
     /* ignore */
   }
-  state = null;
+  regs.delete(win.id);
 }
 
 module.exports = { register, unregister };

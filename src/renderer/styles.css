@@ -322,6 +322,7 @@ html, body {
   display: flex; flex-direction: column; gap: 6px;
 }
 .ss-disp-title { font-weight: 700; color: var(--ink); font-size: 12.5px; }
+.ss-mon { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ss-disp-note { font-size: 11px; color: #8090a0; line-height: 1.5; }
 .ss-set-list { display: flex; flex-direction: column; gap: 8px; }
 .ss-set-card {

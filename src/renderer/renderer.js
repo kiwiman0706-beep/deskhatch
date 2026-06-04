@@ -992,17 +992,31 @@ function buildDisplaySettings() {
   repinWrap.append(document.createTextNode('予約の維持方式 '), repinSel);
   root.append(repinWrap);
 
-  // Target monitor (multi-display).
-  const monWrap = el('label', 'ss-set-check');
-  const monSel = el('select', 'ss-set-type');
-  const optP = el('option', null, 'プライマリ'); optP.value = ''; monSel.appendChild(optP);
-  monWrap.append(document.createTextNode('表示モニタ '), monSel);
-  root.append(monWrap);
+  // Target monitors (multi-display): check the displays that should show a bar.
+  const monBox = el('div', 'ss-mon');
+  monBox.append(el('span', 'ss-set-wlabel', '表示モニタ'));
   window.overlay.getDisplays().then((list) => {
-    (list || []).forEach((dp) => { const op = el('option', null, dp.label); op.value = String(dp.id); monSel.appendChild(op); });
-    monSel.value = (display.monitor != null) ? String(display.monitor) : '';
+    (list || []).forEach((dp) => {
+      const l = el('label', 'ss-set-check');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      const sel = display.monitors || [];
+      cb.checked = sel.length ? sel.includes(dp.id) : !!dp.primary;
+      cb.onchange = () => {
+        let arr = (display.monitors && display.monitors.length)
+          ? display.monitors.slice()
+          : list.filter((x) => x.primary).map((x) => x.id);
+        if (cb.checked) { if (!arr.includes(dp.id)) arr.push(dp.id); }
+        else arr = arr.filter((x) => x !== dp.id);
+        if (!arr.length) { arr = list.filter((x) => x.primary).map((x) => x.id); cb.checked = dp.primary; }
+        display = { ...display, monitors: arr };
+        applyDisplay();
+      };
+      l.append(cb, document.createTextNode(' ' + dp.label));
+      monBox.appendChild(l);
+    });
   });
-  monSel.onchange = () => { display = { ...display, monitor: monSel.value === '' ? undefined : Number(monSel.value) }; applyDisplay(); };
+  root.append(monBox);
 
   // Theme / colour
   const themeWrap = el('label', 'ss-set-check');
