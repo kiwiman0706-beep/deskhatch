@@ -23,13 +23,17 @@ let cfg = { mode: 'autohide', reserve: false, repin: 'event', monitors: null, ba
 let edgeTimer = null;
 let metricsTimer = null;
 let suppressMetricsUntil = 0; // ignore metrics events caused by our own reservation
+let lastDisplayIds = '';      // to detect real monitor add/remove
 
 const allDisplays = () => screen.getAllDisplays();
 const displayObj = (id) => allDisplays().find((d) => d.id === id) || screen.getPrimaryDisplay();
 
 function wantedDisplays() {
   const ids = (cfg.monitors && cfg.monitors.length) ? cfg.monitors : [screen.getPrimaryDisplay().id];
-  return allDisplays().filter((d) => ids.includes(d.id));
+  const want = allDisplays().filter((d) => ids.includes(d.id));
+  // Safety: never end up with zero bars (e.g. the chosen monitor was unplugged)
+  // — fall back to the primary so the user can still reach the menu.
+  return want.length ? want : [screen.getPrimaryDisplay()];
 }
 
 // --- window factories -------------------------------------------------------
@@ -261,24 +265,36 @@ system.register();
 camera.register();
 fileserver.register();
 
+function displayIdsKey() { return allDisplays().map((d) => d.id).sort().join(','); }
+
+function onDisplaysChanged() {
+  const ids = displayIdsKey();
+  const setChanged = ids !== lastDisplayIds; // a monitor was added/removed
+  lastDisplayIds = ids;
+  // Ignore work-area-only changes caused by our own reservation, but ALWAYS
+  // handle a real monitor add/remove (so we never strand the bar).
+  if (!setChanged && Date.now() < suppressMetricsUntil) return;
+  clearTimeout(metricsTimer);
+  metricsTimer = setTimeout(() => {
+    for (const e of bars.values()) {
+      if (!e.win || e.win.isDestroyed()) continue;
+      const d = displayObj(e.displayId).bounds;
+      const b = e.win.getBounds();
+      if (b.x !== d.x || b.y !== d.y || b.width !== d.width) e.win.setBounds({ x: d.x, y: d.y, width: d.width, height: b.height });
+    }
+    reconcile();
+  }, 300);
+}
+
 app.whenReady().then(() => {
   auth.setup();
+  lastDisplayIds = displayIdsKey();
   reconcile();      // initial bar(s) (primary by default; renderer refines via display:set)
   createTray();
   startEdgeWatch();
-  screen.on('display-metrics-changed', () => {
-    if (Date.now() < suppressMetricsUntil) return; // our own reservation; ignore
-    clearTimeout(metricsTimer);
-    metricsTimer = setTimeout(() => {
-      for (const e of bars.values()) {
-        if (!e.win || e.win.isDestroyed()) continue;
-        const d = displayObj(e.displayId).bounds;
-        const b = e.win.getBounds();
-        if (b.x !== d.x || b.y !== d.y || b.width !== d.width) e.win.setBounds({ x: d.x, y: d.y, width: d.width, height: b.height });
-      }
-      reconcile();
-    }, 400);
-  });
+  screen.on('display-metrics-changed', onDisplaysChanged);
+  screen.on('display-added', onDisplaysChanged);
+  screen.on('display-removed', onDisplaysChanged);
 
   app.on('activate', () => { if (!bars.size) reconcile(); });
 });
