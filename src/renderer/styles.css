@@ -34,9 +34,15 @@ html, body {
   border-bottom: 2px solid var(--teal-dark);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   transition: transform 0.15s ease;
+  z-index: 2; /* above the black corner fillers */
 }
 .ss-bar.hidden { transform: translateY(-100%); }
 .ss-bar.round-ends { border-top-left-radius: 14px; border-top-right-radius: 14px; } /* classic-Mac: rounded screen corners */
+
+/* black screen-corner fillers behind the rounded bar (classic-Mac look) */
+.ss-corner { position: fixed; top: 0; width: 14px; height: 14px; background: #000; display: none; z-index: 1; pointer-events: none; }
+#corner-l { left: 0; }
+.ss-corner-r { right: 0; }
 
 /* horizontal-scrolling area for the tab buttons */
 .ss-bar-scroll {
