@@ -136,7 +136,15 @@ function applyReserve(entry) {
     if (!entry.spacer || entry.spacer.isDestroyed()) {
       entry.spacer = makeSpacer(displayObj(entry.displayId));
       entry.spacer.on('move', () => { if (entry.repinMode === 'event') rePin(entry, 'spacer-move'); });
-      entry.spacer.webContents.once('dom-ready', () => paintSpacer(entry));
+      entry.spacer.webContents.once('dom-ready', () => {
+        paintSpacer(entry);
+        // Re-assert the correct physical size once the window is fully realized
+        // on its monitor (see the DPI note in applyReserve below).
+        if (entry.reservedDip && entry.spacer && !entry.spacer.isDestroyed()) {
+          const d = entry.reservedDip;
+          entry.spacer.setBounds({ x: d.x, y: d.y, width: d.width, height: d.height });
+        }
+      });
     }
     paintSpacer(entry);
     status = appbar.register(entry.spacer, { edge: 'top', height: BAR_HEIGHT, display: displayObj(entry.displayId) });
@@ -147,6 +155,19 @@ function applyReserve(entry) {
       ? screen.screenToDipRect(entry.spacer, { x: rc.left, y: rc.top, width: rc.right - rc.left, height: rc.bottom - rc.top })
       : null;
     console.info('[appbar] display ' + entry.displayId + ' rc=' + JSON.stringify(rc) + ' reservedDip=' + JSON.stringify(entry.reservedDip));
+    // The spacer can land with the WRONG physical size on a secondary /
+    // different-DPI monitor: Electron computes a new window's initial size with
+    // the PRIMARY monitor's scale factor, then moves it without recomputing, so
+    // a 44-DIP spacer ends up too tall and pokes out below the reserved strip.
+    // rePin's equality guard sees the reported DIP height already == 44 and
+    // skips the corrective resize. Force a real resize now that it's on its
+    // monitor (nudge the height so the set can't be optimised away). The real
+    // bar avoids this because the renderer re-sets its height after load.
+    if (entry.reservedDip && entry.spacer && !entry.spacer.isDestroyed()) {
+      const d = entry.reservedDip;
+      entry.spacer.setBounds({ x: d.x, y: d.y, width: d.width, height: d.height + 1 });
+      entry.spacer.setBounds({ x: d.x, y: d.y, width: d.width, height: d.height });
+    }
     entry.win.setAlwaysOnTop(true, 'screen-saver');
     entry.win.moveTop();
     rePin(entry, 'init');
