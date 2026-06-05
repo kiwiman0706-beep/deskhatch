@@ -190,6 +190,14 @@ html, body {
 .ss-clip-text { margin: 0; white-space: pre-wrap; word-break: break-word; font: 12.5px/1.6 monospace; color: var(--ink); }
 .ss-clip-img { max-width: 100%; }
 
+/* other monitors' drawers */
+.ss-others { display: flex; flex-direction: column; height: 100%; overflow: auto; padding: 6px; }
+.ss-others-head { font-size: 11px; font-weight: 700; color: #678; padding: 8px 6px 3px; }
+.ss-others-list { display: flex; flex-direction: column; gap: 2px; }
+.ss-others-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: none; background: transparent; border-radius: 6px; cursor: pointer; color: var(--ink); font-size: 12.5px; text-align: left; }
+.ss-others-item:hover { background: #e8f3f3; }
+.ss-others-empty { color: #8aa; padding: 12px; font-size: 12px; }
+
 /* clip (temporary holding) */
 .ss-bar.drop { outline: 2px dashed #ffd86b; outline-offset: -3px; }
 .ss-clip-bin { display: flex; flex-direction: column; height: 100%; }

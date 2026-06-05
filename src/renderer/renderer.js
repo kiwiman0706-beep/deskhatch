@@ -18,6 +18,8 @@ const MENU_TAB = { id: '__menu', label: 'メニュー', icon: '☰', type: 'menu
 
 // The "clip" (temporary holding) pseudo-tab — a drop target / bin.
 const CLIP_TAB = { id: '__clip', label: 'クリップ', icon: '📎', type: 'clip', width: 380 };
+// The "other monitors' drawers" pseudo-tab — open another monitor's items here.
+const OTHERS_TAB = { id: '__others', label: '別モニタのドロワー', icon: '🖥', type: 'others', width: 320 };
 
 // File viewers by extension (others open with the default app).
 const VIEWER_EXT = {
@@ -653,6 +655,52 @@ function promoteClip(it) {
   refreshClipUI();
 }
 
+// --- Other monitors' drawers -----------------------------------------------
+function readProfile(id) {
+  try {
+    let s = JSON.parse(localStorage.getItem('ss.tabs.' + id));
+    if (!(Array.isArray(s) && s.length)) s = JSON.parse(localStorage.getItem('ss.tabs'));
+    return Array.isArray(s) && s.length ? s : defaultTabs();
+  } catch (_) { return defaultTabs(); }
+}
+function otherProfileIds(connectedIds) {
+  const ids = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const m = (localStorage.key(i) || '').match(/^ss\.tabs\.(.+)$/);
+    if (m && m[1] !== MY_DISPLAY && !connectedIds.includes(m[1])) ids.push(m[1]);
+  }
+  return ids;
+}
+function buildOthersPanel() {
+  const wrap = el('div', 'ss-others');
+  window.overlay.getDisplays().then((list) => {
+    const connected = list || [];
+    const connIds = connected.map((d) => String(d.id));
+    const groups = [];
+    connected.forEach((d) => { if (String(d.id) !== MY_DISPLAY) groups.push({ id: String(d.id), name: d.label, items: readProfile(d.id) }); });
+    otherProfileIds(connIds).forEach((id) => groups.push({ id, name: 'モニタ（未接続）', items: readProfile(id) }));
+
+    wrap.innerHTML = '';
+    if (!groups.length) { wrap.append(el('div', 'ss-others-empty', '他のモニタはありません')); return; }
+    const anchor = () => document.querySelector('.ss-others-btn') || document.getElementById('bar');
+    for (const g of groups) {
+      wrap.append(el('div', 'ss-others-head', g.name));
+      const listEl = el('div', 'ss-others-list');
+      g.items.forEach((it) => {
+        const b = el('button', 'ss-others-item');
+        b.append(el('span', 'ss-ico', it.icon || '🔖'), el('span', null, it.label || ''));
+        b.onclick = () => {
+          if (it.type === 'launch') window.files.open(it.path);
+          else openTab({ ...it, id: 'other-' + g.id + '-' + it.id }, anchor());
+        };
+        listEl.appendChild(b);
+      });
+      wrap.append(listEl);
+    }
+  });
+  return wrap;
+}
+
 function buildClipPanel() {
   const wrap = el('div', 'ss-clip-bin');
   const list = el('ul', 'ss-clip-list');
@@ -760,6 +808,8 @@ function buildBody(tab) {
     body.appendChild(buildViewer(tab));
   } else if (tab.type === 'clip') {
     body.appendChild(buildClipPanel());
+  } else if (tab.type === 'others') {
+    body.appendChild(buildOthersPanel());
   } else if (tab.type === 'editbox') {
     body.appendChild(buildTabEditor(tab.target));
   } else if (tab.type === 'snippet') {
@@ -1519,6 +1569,19 @@ function renderBar() {
   bar.appendChild(navL);
   bar.appendChild(scroll);
   bar.appendChild(navR);
+
+  // "other monitors' drawers" — small icon-only button, shown only when relevant
+  const othersBtn = el('button', 'ss-btn ss-others-btn');
+  othersBtn.title = '別モニタのドロワー';
+  othersBtn.append(el('span', 'ss-ico', OTHERS_TAB.icon));
+  othersBtn.style.display = 'none';
+  othersBtn.addEventListener('click', () => openTab(OTHERS_TAB, othersBtn));
+  bar.appendChild(othersBtn);
+  window.overlay.getDisplays().then((list) => {
+    const connIds = (list || []).map((d) => String(d.id));
+    const hasOther = connIds.some((id) => id !== MY_DISPLAY) || otherProfileIds(connIds).length > 0;
+    othersBtn.style.display = hasOther ? '' : 'none';
+  });
 
   // clip (temporary holding) button — also the drop target
   const clipBtn = el('button', 'ss-btn ss-clip-btn');
