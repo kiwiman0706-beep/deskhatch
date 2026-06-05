@@ -1297,6 +1297,10 @@ function buildMenuPanel() {
       const inBtn = el('button', 'ss-acct-mini', 'ログイン');
       inBtn.onclick = () => window.auth.login(partitionFor(a.id));
       chip.append(inBtn);
+      const reset = el('button', 'ss-acct-mini', '🔄');
+      reset.title = '履歴を消してログインし直す（「安全でない」ループの解除）';
+      reset.onclick = async () => { await window.auth.logout(partitionFor(a.id)); window.auth.login(partitionFor(a.id)); };
+      chip.append(reset);
       if (a.id !== 'default') {
         const del = el('button', 'ss-acct-mini', '✕');
         del.title = 'このアカウントを削除';
