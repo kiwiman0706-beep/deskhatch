@@ -159,6 +159,14 @@ function applyReserve(entry) {
     entry.win.setAlwaysOnTop(true, 'screen-saver');
     entry.win.moveTop();
     rePin(entry, 'init');
+    // Ground-truth diagnostic: what Electron actually reports for both windows
+    // after pinning (DIP). The spacer should be SPACER_HEIGHT tall and hidden
+    // behind the bar; the bar should be BAR_HEIGHT tall at the reserved strip.
+    try {
+      const sgb = entry.spacer && !entry.spacer.isDestroyed() ? entry.spacer.getBounds() : null;
+      const wgb = entry.win.getBounds();
+      console.info('[diag2] display ' + entry.displayId + ' spacer=' + JSON.stringify(sgb) + ' bar=' + JSON.stringify(wgb));
+    } catch (_) { /* ignore */ }
   } else if (entry.spacer && !entry.spacer.isDestroyed()) {
     entry.reservedDip = null;
     appbar.unregister(entry.spacer);
