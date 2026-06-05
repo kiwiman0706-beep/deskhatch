@@ -40,8 +40,10 @@ const viewerIcon = (v) => ({ image: '🖼', video: '🎬', audio: '🎵', pdf: '
 // be tinted (white on the teal bar) and needs no external file / CSP allowance.
 const logoMark = (color) =>
   '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">' +
-  `<rect x="3" y="4.2" width="18" height="3.2" rx="1.6" fill="${color}"/>` +
-  `<rect x="6.5" y="9.4" width="11" height="9" rx="2" fill="${color}"/></svg>`;
+  `<rect x="4" y="4.2" width="16" height="3.1" rx="1.5" fill="${color}"/>` +
+  `<rect x="6" y="9.4" width="12" height="9.4" rx="2" fill="${color}"/>` +
+  '<rect x="9" y="11.8" width="6" height="1.6" rx="0.8" fill="rgba(0,0,0,.22)"/>' +
+  '<rect x="9" y="15.2" width="6" height="1.6" rx="0.8" fill="rgba(0,0,0,.22)"/></svg>';
 
 // This window's display id (from main via ?d=). Bar items are stored per display
 // so each monitor can have a different bar; everything else is shared.
@@ -1245,7 +1247,7 @@ function buildSettings() {
 function buildHelp() {
   const root = el('div', 'ss-help');
   root.innerHTML = `
-    <h3>SmartSuite.next</h3>
+    <h3>DeskHatch</h3>
     <ul>
       <li>上の<b>Google アカウント</b>で「ログイン」して1回サインインすると、Gmail・カレンダー・Tasks・Keep などが全てログイン済みになります。</li>
       <li><b>別アカウントも追加可能</b>：名前を入れて「＋追加」→そのアカウントで「ログイン」。設定で各項目に割り当てれば、個人用・仕事用を同時に開けます。</li>

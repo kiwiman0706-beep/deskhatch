@@ -211,7 +211,7 @@ function startEdgeWatch() {
 function createTray() {
   const icon = nativeImage.createFromPath(path.join(__dirname, '..', '..', 'assets', 'tray.png'));
   tray = new Tray(icon);
-  tray.setToolTip('SmartSuite.next');
+  tray.setToolTip('DeskHatch');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: '表示 / 非表示', click: toggleAll },
     { label: 'Google にログイン', click: () => auth.openLogin() },

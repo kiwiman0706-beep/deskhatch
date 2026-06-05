@@ -1,9 +1,9 @@
 {
-  "name": "smartsuite-next",
+  "name": "deskhatch",
   "version": "0.1.0",
-  "description": "SmartCenter-style top-edge drawer launcher (Electron). A thin bar docks at the top of the screen; clicking a button slides a single drawer down directly beneath it.",
+  "description": "DeskHatch — a SmartCenter-style top-edge drawer launcher (Electron). A thin bar docks at the top of the screen; clicking a button slides a drawer down directly beneath it.",
   "main": "src/main/main.js",
-  "author": "SmartSuite.next",
+  "author": "DeskHatch",
   "scripts": {
     "start": "electron .",
     "gen:icons": "node scripts/generate-icons.js",
@@ -27,8 +27,8 @@
     "koffi": "^2.9.0"
   },
   "build": {
-    "appId": "com.smartsuite.next",
-    "productName": "SmartSuite.next",
+    "appId": "com.deskhatch.app",
+    "productName": "DeskHatch",
     "files": [
       "src/**/*",
       "assets/**/*",
@@ -51,7 +51,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "SmartSuite.next"
+      "shortcutName": "DeskHatch"
     }
   }
 }
