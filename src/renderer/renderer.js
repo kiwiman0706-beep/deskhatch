@@ -67,7 +67,7 @@ const Store = {
   },
   saveSize(id, s) { localStorage.setItem('ss.size.' + id, JSON.stringify(s)); },
   getDisplay() {
-    const def = { mode: 'autohide', reserve: false, repin: 'event', theme: 'teal' };
+    const def = { mode: 'autohide', reserve: false, repin: 'event', theme: 'teal', roundEnds: false };
     try { const d = JSON.parse(localStorage.getItem('ss.display')); return d && d.mode ? { ...def, ...d } : def; } catch (_) { return def; }
   },
   saveDisplay(d) { localStorage.setItem('ss.display', JSON.stringify(d)); },
@@ -105,10 +105,12 @@ const THEMES = {
   sunset: { '--teal-light': '#e0913c', '--teal': '#d4682f', '--teal-dark': '#a8481b', '--bar-fg': '#fff1e6' },
   rose: { '--teal-light': '#e06aa0', '--teal': '#c24683', '--teal-dark': '#933063', '--bar-fg': '#fdeef5' },
   light: { '--teal-light': '#eef2f6', '--teal': '#d7dee6', '--teal-dark': '#aeb9c6', '--bar-fg': '#2a3340' },
+  classicmac: { '--teal-light': '#fbfbfb', '--teal': '#e9e9ec', '--teal-dark': '#000000', '--bar-fg': '#0a0a0a' },
 };
 const THEME_LABELS = [
   ['teal', 'Teal（既定）'], ['graphite', 'Graphite（ダーク）'], ['ocean', 'Ocean'],
-  ['forest', 'Forest'], ['plum', 'Plum'], ['sunset', 'Sunset'], ['rose', 'Rose'], ['light', 'Light'],
+  ['forest', 'Forest'], ['plum', 'Plum'], ['sunset', 'Sunset'], ['rose', 'Rose'],
+  ['light', 'Light'], ['classicmac', 'Classic Mac'],
 ];
 function applyTheme(key) {
   const t = THEMES[key] || THEMES.teal;
@@ -200,6 +202,7 @@ function scheduleHide() {
 function applyDisplay() {
   Store.saveDisplay(display);
   applyTheme(display.theme);
+  bar.classList.toggle('round-ends', !!display.roundEnds);
   const barColor = (THEMES[display.theme] || THEMES.teal)['--teal'];
   window.overlay.setDisplay({ ...display, barColor }); // main toggles AppBar reservation + spacer color
   reflowHeight();
@@ -1086,6 +1089,23 @@ function buildDisplaySettings() {
   themeSel.onchange = () => { display = { ...display, theme: themeSel.value }; applyDisplay(); };
   themeWrap.append(document.createTextNode('テーマ '), themeSel);
   root.append(themeWrap);
+
+  // Rounded ends (classic-Mac look)
+  const roundWrap = el('label', 'ss-set-check');
+  const round = document.createElement('input');
+  round.type = 'checkbox'; round.checked = !!display.roundEnds;
+  round.onchange = () => { display = { ...display, roundEnds: round.checked }; applyDisplay(); };
+  roundWrap.append(round, document.createTextNode(' 両端を丸める（クラシックMac風）'));
+  root.append(roundWrap);
+
+  // Launch at login
+  const startWrap = el('label', 'ss-set-check');
+  const startup = document.createElement('input');
+  startup.type = 'checkbox';
+  startup.onchange = () => window.overlay.setStartup(startup.checked);
+  window.overlay.getStartup().then((on) => { startup.checked = !!on; });
+  startWrap.append(startup, document.createTextNode(' Windows起動時に自動で開く'));
+  root.append(startWrap);
 
   root.append(el('div', 'ss-disp-note', '※「常に表示」で重なる場合は「領域を予約」をON。維持方式は通常「イベント駆動」でOK（うまく追従しない時だけ「ポーリング」へ）。'));
   return root;

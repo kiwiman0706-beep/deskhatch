@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld('overlay', {
   // Quit the whole app (tray + bar).
   quit: () => ipcRenderer.send('app:quit'),
 
+  // Launch at login.
+  getStartup: () => ipcRenderer.invoke('startup:get'),
+  setStartup: (on) => ipcRenderer.invoke('startup:set', on),
+
   // Display mode: { mode: 'always'|'autohide', reserve: bool }. Drives whether
   // the main process reserves the top edge (AppBar).
   setDisplay: (d) => ipcRenderer.send('display:set', d),

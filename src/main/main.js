@@ -242,6 +242,13 @@ ipcMain.on('overlay:set-height', (e, height) => {
 
 ipcMain.on('app:quit', () => app.quit());
 
+// Launch at login (Windows/macOS).
+ipcMain.handle('startup:get', () => app.getLoginItemSettings().openAtLogin);
+ipcMain.handle('startup:set', (_e, on) => {
+  app.setLoginItemSettings({ openAtLogin: !!on });
+  return app.getLoginItemSettings().openAtLogin;
+});
+
 ipcMain.handle('overlay:get-displays', () => {
   const prim = screen.getPrimaryDisplay().id;
   return allDisplays().map((dp, i) => ({ id: dp.id, label: 'モニタ' + (i + 1) + (dp.id === prim ? '（主）' : ''), primary: dp.id === prim }));
