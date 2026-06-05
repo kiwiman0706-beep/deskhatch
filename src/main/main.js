@@ -130,6 +130,7 @@ function applyReserve(entry) {
     entry.reservedDip = rc
       ? screen.screenToDipRect(entry.spacer, { x: rc.left, y: rc.top, width: rc.right - rc.left, height: rc.bottom - rc.top })
       : null;
+    console.info('[appbar] display ' + entry.displayId + ' rc=' + JSON.stringify(rc) + ' reservedDip=' + JSON.stringify(entry.reservedDip));
     entry.win.setAlwaysOnTop(true, 'screen-saver');
     entry.win.moveTop();
     rePin(entry, 'init');
@@ -196,7 +197,7 @@ function startEdgeWatch() {
     for (const e of bars.values()) {
       if (!e.win || e.win.isDestroyed() || !e.win.isVisible()) continue;
       const d = displayObj(e.displayId).bounds;
-      if (e.reserveActive && e.repinMode === 'poll') rePin(e, 'poll');
+      if (e.reserveActive) rePin(e, 'poll'); // always re-pin (robust on multi-monitor)
       const atTop = p.y <= d.y + 2 && p.x >= d.x && p.x < d.x + d.width;
       if (e.lastEdge !== atTop) { e.lastEdge = atTop; e.win.webContents.send('overlay:edge', atTop); }
     }
