@@ -36,7 +36,7 @@ html, body {
   transition: transform 0.15s ease;
 }
 .ss-bar.hidden { transform: translateY(-100%); }
-.ss-bar.round-ends { border-bottom-left-radius: 14px; border-bottom-right-radius: 14px; } /* classic-Mac-ish */
+.ss-bar.round-ends { border-top-left-radius: 14px; border-top-right-radius: 14px; } /* classic-Mac: rounded screen corners */
 
 /* horizontal-scrolling area for the tab buttons */
 .ss-bar-scroll {
