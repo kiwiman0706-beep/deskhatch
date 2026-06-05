@@ -1296,6 +1296,7 @@ function buildMenuPanel() {
 // Direct bar editing: reorder (drag) + right-click menu (add/dup/move/delete)
 // ---------------------------------------------------------------------------
 let dragMergeTarget = null; // button id when hovering a button's center (merge)
+let barNavUpdate = null;    // refresh the ‹ › overflow buttons
 
 function commitTabs(arr) { Store.saveTabs(arr); tabs = arr; renderBar(); }
 
@@ -1493,7 +1494,24 @@ function renderBar() {
     }
     reorderTabs(id, beforeId);
   });
+  // ‹ › overflow buttons — shown only when the tabs overflow the bar width.
+  const navL = el('button', 'ss-btn ss-nav', '‹'); navL.title = '左へスクロール';
+  const navR = el('button', 'ss-btn ss-nav', '›'); navR.title = '右へスクロール';
+  navL.onclick = () => scroll.scrollBy({ left: -220, behavior: 'smooth' });
+  navR.onclick = () => scroll.scrollBy({ left: 220, behavior: 'smooth' });
+  function updateNav() {
+    const overflow = scroll.scrollWidth > scroll.clientWidth + 1;
+    navL.style.display = overflow ? '' : 'none';
+    navR.style.display = overflow ? '' : 'none';
+    navL.disabled = scroll.scrollLeft <= 0;
+    navR.disabled = scroll.scrollLeft + scroll.clientWidth >= scroll.scrollWidth - 1;
+  }
+  scroll.addEventListener('scroll', updateNav);
+  barNavUpdate = updateNav;
+
+  bar.appendChild(navL);
   bar.appendChild(scroll);
+  bar.appendChild(navR);
 
   // clip (temporary holding) button — also the drop target
   const clipBtn = el('button', 'ss-btn ss-clip-btn');
@@ -1520,6 +1538,8 @@ function renderBar() {
     if (!b && id === '__clip') b = bar.querySelector('.ss-clip-btn');
     if (b) { open[id].btn = b; b.classList.add('active'); }
   }
+
+  requestAnimationFrame(() => { if (barNavUpdate) barNavUpdate(); });
 }
 
 // Drop last session's temporary clip items (the rest persist).
@@ -1574,4 +1594,5 @@ window.addEventListener('resize', () => {
     o.el.style.left = anchorLeft(o.btn, o.el.offsetWidth) + 'px';
   }
   reflowHeight();
+  if (barNavUpdate) barNavUpdate();
 });
