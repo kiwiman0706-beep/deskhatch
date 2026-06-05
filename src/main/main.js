@@ -72,9 +72,14 @@ function makeSpacer(display) {
   const y = barTop(display);
   const col = cfg.barColor || '#1f6f6f';
   const s = new BrowserWindow({
-    x, y, width, height: BAR_HEIGHT,
+    x, y, width, height: 1,
+    // resizable:true + minHeight:1 lets us shrink BELOW Windows' default minimum
+    // window height (~56px). If honored, the spacer becomes ~1px and hides fully
+    // behind the bar (no spill in any direction). placeSpacer() falls back to a
+    // bottom-aligned spill-upward if the OS still clamps the height.
+    minWidth: 1, minHeight: 1,
     frame: false, transparent: false, backgroundColor: col,
-    resizable: false, movable: false, minimizable: false, maximizable: false,
+    resizable: true, movable: false, minimizable: false, maximizable: false,
     fullscreenable: false, skipTaskbar: true, focusable: false, hasShadow: false,
     alwaysOnTop: true, webPreferences: { backgroundThrottling: false },
   });
@@ -118,7 +123,9 @@ function placeSpacer(entry) {
   const dr = stripDip(entry);
   entry.placingSpacer = true;
   try {
-    s.setBounds({ x: dr.x, y: dr.y, width: dr.width, height: BAR_HEIGHT });
+    // Ask for a 1px strip. If Windows honors our minHeight it stays ~1px and
+    // hides behind the bar; otherwise it gets clamped to the OS minimum.
+    s.setBounds({ x: dr.x, y: dr.y, width: dr.width, height: 1 });
     const ab = s.getBounds();                 // OS may have clamped the height up
     const overflow = ab.height - BAR_HEIGHT;
     const y = overflow > 0 ? dr.y - overflow : dr.y; // push surplus above the edge
