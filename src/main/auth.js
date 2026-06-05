@@ -12,6 +12,7 @@
 // and sign-in happens in a dedicated framed window on that same partition.
 
 const { ipcMain, session, BrowserWindow } = require('electron');
+const path = require('path');
 
 const DEFAULT_PARTITION = 'persist:smartsuite';
 // Match Electron's real Chromium version so Google's sign-in is less likely to
@@ -20,11 +21,39 @@ const CHROME_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/' + process.versions.chrome + ' Safari/537.36';
 
+const DISGUISE_PRELOAD = path.join(__dirname, '..', 'preload', 'disguise.js');
+const hinted = new Set(); // partitions whose Client-Hints headers we've patched
+
+// A plain-Chrome Sec-CH-UA so the "Electron" brand never reaches Google's
+// servers. Mirrors what the disguise preload reports on the client side.
+const CH_MAJOR = process.versions.chrome.split('.')[0];
+const SEC_CH_UA =
+  '"Chromium";v="' + CH_MAJOR + '", "Google Chrome";v="' + CH_MAJOR + '", "Not-A.Brand";v="99"';
+const SEC_CH_UA_FULL =
+  '"Chromium";v="' + process.versions.chrome + '", "Google Chrome";v="' +
+  process.versions.chrome + '", "Not-A.Brand";v="99.0.0.0"';
+
 const loginWins = new Map(); // partition -> BrowserWindow
 
 function ensureSession(partition) {
   const p = partition || DEFAULT_PARTITION;
-  try { session.fromPartition(p).setUserAgent(CHROME_UA); } catch (_) { /* set later */ }
+  try {
+    const ses = session.fromPartition(p);
+    ses.setUserAgent(CHROME_UA);
+    if (!hinted.has(p)) {
+      hinted.add(p);
+      // Strip the "Electron" brand out of the User-Agent Client Hints headers.
+      ses.webRequest.onBeforeSendHeaders((details, cb) => {
+        const h = details.requestHeaders;
+        for (const k of Object.keys(h)) {
+          const lk = k.toLowerCase();
+          if (lk === 'sec-ch-ua') h[k] = SEC_CH_UA;
+          else if (lk === 'sec-ch-ua-full-version-list') h[k] = SEC_CH_UA_FULL;
+        }
+        cb({ requestHeaders: h });
+      });
+    }
+  } catch (_) { /* set later */ }
   return p;
 }
 
@@ -39,7 +68,16 @@ function openLogin(partition) {
     height: 660,
     title: 'Google にログイン',
     autoHideMenuBar: true,
-    webPreferences: { partition: p },
+    webPreferences: {
+      partition: p,
+      // contextIsolation must be off so the disguise preload can patch the
+      // page's own navigator before Google's scripts read it. This window only
+      // ever loads accounts.google.com.
+      contextIsolation: false,
+      nodeIntegration: false,
+      sandbox: false,
+      preload: DISGUISE_PRELOAD,
+    },
   });
   w.loadURL('https://accounts.google.com/');
   w.on('closed', () => loginWins.delete(p));
