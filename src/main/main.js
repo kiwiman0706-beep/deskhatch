@@ -50,7 +50,7 @@ function makeOverlay(display) {
   w.setAlwaysOnTop(true, 'floating');
   w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   w.setIgnoreMouseEvents(true, { forward: true });
-  w.loadFile(INDEX);
+  w.loadFile(INDEX, { query: { d: String(display.id) } }); // tell the renderer its display
   return w;
 }
 

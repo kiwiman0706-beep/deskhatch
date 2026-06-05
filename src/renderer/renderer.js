@@ -41,16 +41,23 @@ const logoMark = (color) =>
   `<rect x="3" y="4.2" width="18" height="3.2" rx="1.6" fill="${color}"/>` +
   `<rect x="6.5" y="9.4" width="11" height="9" rx="2" fill="${color}"/></svg>`;
 
+// This window's display id (from main via ?d=). Bar items are stored per display
+// so each monitor can have a different bar; everything else is shared.
+const MY_DISPLAY = new URLSearchParams(location.search).get('d') || '';
+const TABS_KEY = MY_DISPLAY ? 'ss.tabs.' + MY_DISPLAY : 'ss.tabs';
+
 // --- Persistence (localStorage) -------------------------------------------
 const Store = {
   getTabs() {
     try {
-      const s = JSON.parse(localStorage.getItem('ss.tabs'));
+      let s = JSON.parse(localStorage.getItem(TABS_KEY));
+      // First run on this monitor: fall back to the shared set, then defaults.
+      if (!(Array.isArray(s) && s.length) && TABS_KEY !== 'ss.tabs') s = JSON.parse(localStorage.getItem('ss.tabs'));
       return Array.isArray(s) && s.length ? s : null;
     } catch (_) { return null; }
   },
-  saveTabs(t) { localStorage.setItem('ss.tabs', JSON.stringify(t)); },
-  clearTabs() { localStorage.removeItem('ss.tabs'); },
+  saveTabs(t) { localStorage.setItem(TABS_KEY, JSON.stringify(t)); },
+  clearTabs() { localStorage.removeItem(TABS_KEY); },
   getSize(id) {
     try { return JSON.parse(localStorage.getItem('ss.size.' + id)) || null; } catch (_) { return null; }
   },
@@ -1181,7 +1188,7 @@ function buildSettings() {
   actions.append(addBtn, saveBtn, resetBtn, exportBtn, importBtn);
 
   render();
-  root.append(listEl, actions);
+  root.append(el('div', 'ss-disp-title', 'バー項目（このモニタ）'), listEl, actions);
   return root;
 }
 
