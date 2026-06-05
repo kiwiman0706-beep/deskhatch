@@ -10,13 +10,6 @@ const camera = require('./camera');
 const fileserver = require('./fileserver');
 
 const BAR_HEIGHT = 44; // collapsed strip height (px)
-// The AppBar spacer exists ONLY to register the top-edge reservation; the
-// reserved rectangle is set by SHAppBarMessage from the display bounds and is
-// independent of this window's size. We keep the spacer deliberately short so
-// it always hides behind the opaque real bar and can never poke out below the
-// reserved strip — even when fractional-DPI scaling (e.g. 150%) makes Electron
-// mis-size a window. The visible strip is painted by the real bar.
-const SPACER_HEIGHT = 6;
 const INDEX = path.join(__dirname, '..', 'renderer', 'index.html');
 
 /** @type {Tray | null} */
@@ -79,7 +72,7 @@ function makeSpacer(display) {
   const y = barTop(display);
   const col = cfg.barColor || '#1f6f6f';
   const s = new BrowserWindow({
-    x, y, width, height: SPACER_HEIGHT,
+    x, y, width, height: BAR_HEIGHT,
     frame: false, transparent: false, backgroundColor: col,
     resizable: false, movable: false, minimizable: false, maximizable: false,
     fullscreenable: false, skipTaskbar: true, focusable: false, hasShadow: false,
@@ -111,18 +104,41 @@ function stripDip(entry) {
   return { x: d.bounds.x, y: barTop(d), width: d.bounds.width, height: BAR_HEIGHT };
 }
 
+// Place the opaque AppBar spacer so its BOTTOM edge aligns exactly with the
+// reserved strip's bottom (= the real bar's bottom). Windows enforces a minimum
+// window height (~56 physical px), so on monitors where that minimum exceeds the
+// bar height the spacer would otherwise poke out BELOW the bar and cover the
+// title bar of maximized windows. We instead let the surplus height spill UPWARD
+// past the top screen edge (off-screen / hidden), keeping the visible bottom
+// pixel-aligned with the bar. The AppBar reservation itself is set from the
+// display bounds and is unaffected by where this window sits.
+function placeSpacer(entry) {
+  const s = entry.spacer;
+  if (!s || s.isDestroyed() || entry.placingSpacer) return;
+  const dr = stripDip(entry);
+  entry.placingSpacer = true;
+  try {
+    s.setBounds({ x: dr.x, y: dr.y, width: dr.width, height: BAR_HEIGHT });
+    const ab = s.getBounds();                 // OS may have clamped the height up
+    const overflow = ab.height - BAR_HEIGHT;
+    const y = overflow > 0 ? dr.y - overflow : dr.y; // push surplus above the edge
+    if (ab.x !== dr.x || ab.y !== y || ab.width !== dr.width) {
+      s.setBounds({ x: dr.x, y, width: dr.width, height: ab.height });
+    }
+    entry.spacerKey = dr.x + ',' + dr.y + ',' + dr.width;
+  } finally { entry.placingSpacer = false; }
+}
+
 function rePin(entry, reason) {
   if (!entry.reserveActive || entry.pinning || !entry.win || entry.win.isDestroyed()) return;
   const dr = stripDip(entry);
   entry.pinning = true;
   try {
     if (entry.spacer && !entry.spacer.isDestroyed()) {
-      // Keep the spacer at the top of the reserved strip but only SPACER_HEIGHT
-      // tall, so it stays tucked behind the opaque real bar (never overflows).
-      const sb = entry.spacer.getBounds();
-      if (sb.x !== dr.x || sb.y !== dr.y || sb.width !== dr.width || sb.height !== SPACER_HEIGHT) {
-        entry.spacer.setBounds({ x: dr.x, y: dr.y, width: dr.width, height: SPACER_HEIGHT });
-      }
+      // Re-place the spacer only when the reserved strip actually moved/resized
+      // (cheap on the 120ms poll); placeSpacer aligns its bottom to the bar.
+      const key = dr.x + ',' + dr.y + ',' + dr.width;
+      if (entry.spacerKey !== key) placeSpacer(entry);
     }
     const wb = entry.win.getBounds();
     if (wb.x !== dr.x || wb.y !== dr.y || wb.width !== dr.width) {
@@ -144,7 +160,7 @@ function applyReserve(entry) {
   if (reserve) {
     if (!entry.spacer || entry.spacer.isDestroyed()) {
       entry.spacer = makeSpacer(displayObj(entry.displayId));
-      entry.spacer.on('move', () => { if (entry.repinMode === 'event') rePin(entry, 'spacer-move'); });
+      entry.spacerKey = null; // force placeSpacer to run on first rePin
       entry.spacer.webContents.once('dom-ready', () => paintSpacer(entry));
     }
     paintSpacer(entry);
@@ -160,8 +176,8 @@ function applyReserve(entry) {
     entry.win.moveTop();
     rePin(entry, 'init');
     // Ground-truth diagnostic: what Electron actually reports for both windows
-    // after pinning (DIP). The spacer should be SPACER_HEIGHT tall and hidden
-    // behind the bar; the bar should be BAR_HEIGHT tall at the reserved strip.
+    // after pinning (DIP). The spacer's BOTTOM (y + height) should equal the
+    // bar's bottom; surplus height (OS min) spills upward (negative-ish y).
     try {
       const sgb = entry.spacer && !entry.spacer.isDestroyed() ? entry.spacer.getBounds() : null;
       const wgb = entry.win.getBounds();
