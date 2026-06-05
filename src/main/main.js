@@ -10,9 +10,6 @@ const camera = require('./camera');
 const fileserver = require('./fileserver');
 
 const BAR_HEIGHT = 44; // collapsed strip height (px)
-const SPACER_H = BAR_HEIGHT - 10; // spacer window a bit shorter than the bar so the
-                                  // opaque bar always covers it (no peek); reservation
-                                  // height is still BAR_HEIGHT (set from display bounds).
 const INDEX = path.join(__dirname, '..', 'renderer', 'index.html');
 
 /** @type {Tray | null} */
@@ -61,7 +58,7 @@ function makeSpacer(display) {
   const { x, y, width } = display.bounds;
   const col = cfg.barColor || '#1f6f6f';
   const s = new BrowserWindow({
-    x, y, width, height: SPACER_H,
+    x, y, width, height: BAR_HEIGHT,
     frame: false, transparent: false, backgroundColor: col,
     resizable: false, movable: false, minimizable: false, maximizable: false,
     fullscreenable: false, skipTaskbar: true, focusable: false, hasShadow: false,
@@ -84,21 +81,30 @@ function paintSpacer(entry) {
 }
 
 // --- re-pin (keep the bar/spacer at the reserved top edge) ------------------
+// The DIP rect of the bar strip: the OS-granted reservation converted back to
+// this monitor's DIP (authoritative, DPI-correct), or the display top as a
+// fallback before/without a reservation.
+function stripDip(entry) {
+  if (entry.reservedDip) return entry.reservedDip;
+  const b = displayObj(entry.displayId).bounds;
+  return { x: b.x, y: b.y, width: b.width, height: BAR_HEIGHT };
+}
+
 function rePin(entry, reason) {
   if (!entry.reserveActive || entry.pinning || !entry.win || entry.win.isDestroyed()) return;
-  const d = displayObj(entry.displayId).bounds;
+  const dr = stripDip(entry);
   entry.pinning = true;
   try {
     if (entry.spacer && !entry.spacer.isDestroyed()) {
       const sb = entry.spacer.getBounds();
-      if (sb.x !== d.x || sb.y !== d.y || sb.width !== d.width || sb.height !== SPACER_H) {
-        entry.spacer.setBounds({ x: d.x, y: d.y, width: d.width, height: SPACER_H });
+      if (sb.x !== dr.x || sb.y !== dr.y || sb.width !== dr.width || sb.height !== dr.height) {
+        entry.spacer.setBounds({ x: dr.x, y: dr.y, width: dr.width, height: dr.height });
       }
     }
     const wb = entry.win.getBounds();
-    if (wb.x !== d.x || wb.y !== d.y || wb.width !== d.width) {
-      if (!entry.rePinnedOnce) { console.info('[appbar] re-pin (' + reason + ') display ' + entry.displayId); entry.rePinnedOnce = true; }
-      entry.win.setBounds({ x: d.x, y: d.y, width: d.width, height: wb.height });
+    if (wb.x !== dr.x || wb.y !== dr.y || wb.width !== dr.width) {
+      if (!entry.rePinnedOnce) { console.info('[appbar] re-pin (' + reason + ') display ' + entry.displayId + ' strip=' + JSON.stringify(dr)); entry.rePinnedOnce = true; }
+      entry.win.setBounds({ x: dr.x, y: dr.y, width: dr.width, height: Math.max(dr.height, wb.height) });
       entry.win.moveTop();
     }
   } finally { entry.pinning = false; }
@@ -118,10 +124,17 @@ function applyReserve(entry) {
     }
     paintSpacer(entry);
     status = appbar.register(entry.spacer, { edge: 'top', height: BAR_HEIGHT, display: displayObj(entry.displayId) });
+    // Convert the OS-granted physical rect back to THIS monitor's DIP — the
+    // authoritative, DPI-correct size/position for both windows.
+    const rc = appbar.getRect(entry.spacer);
+    entry.reservedDip = rc
+      ? screen.screenToDipRect(entry.spacer, { x: rc.left, y: rc.top, width: rc.right - rc.left, height: rc.bottom - rc.top })
+      : null;
     entry.win.setAlwaysOnTop(true, 'screen-saver');
     entry.win.moveTop();
     rePin(entry, 'init');
   } else if (entry.spacer && !entry.spacer.isDestroyed()) {
+    entry.reservedDip = null;
     appbar.unregister(entry.spacer);
     entry.spacer.close();
     entry.spacer = null;

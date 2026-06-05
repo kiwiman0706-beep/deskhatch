@@ -103,4 +103,10 @@ function unregister(win) {
   regs.delete(win.id);
 }
 
-module.exports = { register, unregister };
+// The physical reserved rectangle for a registered window (or null).
+function getRect(win) {
+  const d = win && regs.get(win.id);
+  return d ? d.rc : null;
+}
+
+module.exports = { register, unregister, getRect };
