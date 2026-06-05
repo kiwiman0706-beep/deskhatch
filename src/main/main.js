@@ -11,6 +11,12 @@ const fileserver = require('./fileserver');
 
 const BAR_HEIGHT = 44; // collapsed strip height (px)
 const INDEX = path.join(__dirname, '..', 'renderer', 'index.html');
+// `electron . --selftest`: force top-edge reservation on every monitor, then
+// verify (numerically, no GUI needed) that each spacer's bottom edge lines up
+// with its bar's bottom and never pokes out below. Prints PASS/FAIL and exits
+// with code 0/1 — lets a local agent iterate on the DPI/reservation geometry
+// without anyone having to eyeball the screen.
+const SELFTEST = process.argv.includes('--selftest');
 
 /** @type {Tray | null} */
 let tray = null;
@@ -338,6 +344,44 @@ function onDisplaysChanged() {
   }, 300);
 }
 
+// Numeric self-test for the spacer/bar geometry (see SELFTEST above).
+function runSelfTest() {
+  if (process.platform !== 'win32') {
+    console.info('[selftest] SKIP (top-edge reservation is Windows-only)');
+    app.exit(0);
+    return;
+  }
+  // Force reserve mode on every connected monitor.
+  cfg = { mode: 'always', reserve: true, repin: 'event', monitors: allDisplays().map((d) => d.id), barColor: '#1f6f6f' };
+  reconcile();
+  startEdgeWatch(); // keep rePin correcting the OS's post-reservation push
+  // Let the windows settle (reservation shrinks the work area asynchronously,
+  // then the poll re-pins), then assert the invariant.
+  setTimeout(() => {
+    let allPass = true;
+    let n = 0;
+    for (const e of bars.values()) {
+      if (!e.win || e.win.isDestroyed()) continue;
+      n += 1;
+      const d = displayObj(e.displayId);
+      const wb = e.win.getBounds();
+      const sb = e.spacer && !e.spacer.isDestroyed() ? e.spacer.getBounds() : null;
+      if (!sb) { allPass = false; console.info('[selftest] display ' + e.displayId + ' FAIL no-spacer'); continue; }
+      const spacerBottom = sb.y + sb.height;
+      const barBottom = wb.y + wb.height;
+      const overflowBelow = spacerBottom - barBottom; // >0 = pokes below the bar (BAD)
+      const pass = overflowBelow <= 0 && spacerBottom === barBottom;
+      if (!pass) allPass = false;
+      console.info('[selftest] display ' + e.displayId + ' sf=' + d.scaleFactor + ' ' + (pass ? 'PASS' : 'FAIL') +
+        ' spacerBottom=' + spacerBottom + ' barBottom=' + barBottom + ' overflowBelow=' + overflowBelow +
+        ' spacer=' + JSON.stringify(sb) + ' bar=' + JSON.stringify(wb));
+    }
+    if (n === 0) { allPass = false; console.info('[selftest] FAIL no-bars'); }
+    console.info('[selftest] RESULT ' + (allPass ? 'PASS' : 'FAIL'));
+    app.exit(allPass ? 0 : 1);
+  }, 2500);
+}
+
 app.whenReady().then(() => {
   // On macOS run as a menu-bar accessory: no Dock icon, no Cmd-Tab entry, and
   // — crucially — no app menu of our own in the system menu bar, so we don't
@@ -345,6 +389,7 @@ app.whenReady().then(() => {
   if (isMac && app.setActivationPolicy) app.setActivationPolicy('accessory');
   auth.setup();
   lastDisplayIds = displayIdsKey();
+  if (SELFTEST) { runSelfTest(); return; }
   reconcile();      // initial bar(s) (primary by default; renderer refines via display:set)
   createTray();
   startEdgeWatch();

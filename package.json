@@ -6,6 +6,7 @@
   "author": "DeskHatch",
   "scripts": {
     "start": "electron .",
+    "selftest": "electron . --selftest",
     "gen:icons": "node scripts/generate-icons.js",
     "test": "vitest run",
     "test:watch": "vitest",
