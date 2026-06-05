@@ -72,14 +72,9 @@ function makeSpacer(display) {
   const y = barTop(display);
   const col = cfg.barColor || '#1f6f6f';
   const s = new BrowserWindow({
-    x, y, width, height: 1,
-    // resizable:true + minHeight:1 lets us shrink BELOW Windows' default minimum
-    // window height (~56px). If honored, the spacer becomes ~1px and hides fully
-    // behind the bar (no spill in any direction). placeSpacer() falls back to a
-    // bottom-aligned spill-upward if the OS still clamps the height.
-    minWidth: 1, minHeight: 1,
+    x, y, width, height: BAR_HEIGHT,
     frame: false, transparent: false, backgroundColor: col,
-    resizable: true, movable: false, minimizable: false, maximizable: false,
+    resizable: false, movable: false, minimizable: false, maximizable: false,
     fullscreenable: false, skipTaskbar: true, focusable: false, hasShadow: false,
     alwaysOnTop: true, webPreferences: { backgroundThrottling: false },
   });
@@ -121,18 +116,18 @@ function placeSpacer(entry) {
   const s = entry.spacer;
   if (!s || s.isDestroyed() || entry.placingSpacer) return;
   const dr = stripDip(entry);
+  // Read the spacer's CURRENT (OS-clamped) bounds. Registering the AppBar shrinks
+  // the work area and Windows pushes our windows down out of the reserved strip;
+  // we must keep correcting the spacer back, not cache "done" (that left it stuck
+  // below the bar). Bottom-align: if the clamped height is taller than the bar,
+  // spill the surplus UPWARD off the top edge instead of below over windows.
+  const cur = s.getBounds();
+  const overflow = cur.height - BAR_HEIGHT;
+  const wantY = overflow > 0 ? dr.y - overflow : dr.y;
+  if (cur.x === dr.x && cur.width === dr.width && cur.y === wantY) return; // already correct
   entry.placingSpacer = true;
   try {
-    // Ask for a 1px strip. If Windows honors our minHeight it stays ~1px and
-    // hides behind the bar; otherwise it gets clamped to the OS minimum.
-    s.setBounds({ x: dr.x, y: dr.y, width: dr.width, height: 1 });
-    const ab = s.getBounds();                 // OS may have clamped the height up
-    const overflow = ab.height - BAR_HEIGHT;
-    const y = overflow > 0 ? dr.y - overflow : dr.y; // push surplus above the edge
-    if (ab.x !== dr.x || ab.y !== y || ab.width !== dr.width) {
-      s.setBounds({ x: dr.x, y, width: dr.width, height: ab.height });
-    }
-    entry.spacerKey = dr.x + ',' + dr.y + ',' + dr.width;
+    s.setBounds({ x: dr.x, y: wantY, width: dr.width, height: cur.height });
   } finally { entry.placingSpacer = false; }
 }
 
@@ -141,12 +136,7 @@ function rePin(entry, reason) {
   const dr = stripDip(entry);
   entry.pinning = true;
   try {
-    if (entry.spacer && !entry.spacer.isDestroyed()) {
-      // Re-place the spacer only when the reserved strip actually moved/resized
-      // (cheap on the 120ms poll); placeSpacer aligns its bottom to the bar.
-      const key = dr.x + ',' + dr.y + ',' + dr.width;
-      if (entry.spacerKey !== key) placeSpacer(entry);
-    }
+    if (entry.spacer && !entry.spacer.isDestroyed()) placeSpacer(entry);
     const wb = entry.win.getBounds();
     if (wb.x !== dr.x || wb.y !== dr.y || wb.width !== dr.width) {
       if (!entry.rePinnedOnce) { console.info('[appbar] re-pin (' + reason + ') display ' + entry.displayId + ' strip=' + JSON.stringify(dr)); entry.rePinnedOnce = true; }
@@ -167,7 +157,6 @@ function applyReserve(entry) {
   if (reserve) {
     if (!entry.spacer || entry.spacer.isDestroyed()) {
       entry.spacer = makeSpacer(displayObj(entry.displayId));
-      entry.spacerKey = null; // force placeSpacer to run on first rePin
       entry.spacer.webContents.once('dom-ready', () => paintSpacer(entry));
     }
     paintSpacer(entry);
