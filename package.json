@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "pack": "electron-builder --win --dir",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
   },
   "license": "MIT",
   "dependencies": {
@@ -43,6 +45,22 @@
         "nsis",
         "portable"
       ],
+      "icon": "assets/icon.png"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "assets/icon.png",
+      "hardenedRuntime": true
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility",
       "icon": "assets/icon.png"
     },
     "nsis": {

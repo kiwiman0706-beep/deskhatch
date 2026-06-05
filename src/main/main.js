@@ -28,6 +28,14 @@ let lastDisplayIds = '';      // to detect real monitor add/remove
 const allDisplays = () => screen.getAllDisplays();
 const displayObj = (id) => allDisplays().find((d) => d.id === id) || screen.getPrimaryDisplay();
 
+const isMac = process.platform === 'darwin';
+// Top Y for the bar on a display. On macOS we sit just below the system menu
+// bar (the work-area top) so we don't fight it; everywhere else we hug the
+// absolute top edge of the screen (Fitts's-law slam target).
+function barTop(display) {
+  return isMac ? display.workArea.y : display.bounds.y;
+}
+
 function wantedDisplays() {
   const ids = (cfg.monitors && cfg.monitors.length) ? cfg.monitors : [screen.getPrimaryDisplay().id];
   const want = allDisplays().filter((d) => ids.includes(d.id));
@@ -38,7 +46,8 @@ function wantedDisplays() {
 
 // --- window factories -------------------------------------------------------
 function makeOverlay(display) {
-  const { x, y, width } = display.bounds;
+  const { x, width } = display.bounds;
+  const y = barTop(display);
   const w = new BrowserWindow({
     x, y, width, height: BAR_HEIGHT,
     frame: false, transparent: true, resizable: false, movable: false,
@@ -59,7 +68,8 @@ function makeOverlay(display) {
 }
 
 function makeSpacer(display) {
-  const { x, y, width } = display.bounds;
+  const { x, width } = display.bounds;
+  const y = barTop(display);
   const col = cfg.barColor || '#1f6f6f';
   const s = new BrowserWindow({
     x, y, width, height: BAR_HEIGHT,
@@ -90,8 +100,8 @@ function paintSpacer(entry) {
 // fallback before/without a reservation.
 function stripDip(entry) {
   if (entry.reservedDip) return entry.reservedDip;
-  const b = displayObj(entry.displayId).bounds;
-  return { x: b.x, y: b.y, width: b.width, height: BAR_HEIGHT };
+  const d = displayObj(entry.displayId);
+  return { x: d.bounds.x, y: barTop(d), width: d.bounds.width, height: BAR_HEIGHT };
 }
 
 function rePin(entry, reason) {
@@ -115,7 +125,9 @@ function rePin(entry, reason) {
 }
 
 function applyReserve(entry) {
-  const reserve = cfg.mode === 'always' && cfg.reserve;
+  // Reserving the top edge uses the Windows AppBar API; there is no equivalent
+  // on macOS/Linux, so the bar there is always overlay-only (no spacer).
+  const reserve = cfg.mode === 'always' && cfg.reserve && process.platform === 'win32';
   entry.reserveActive = reserve;
   entry.repinMode = cfg.repin === 'poll' ? 'poll' : 'event';
   entry.rePinnedOnce = false;
@@ -200,9 +212,11 @@ function startEdgeWatch() {
     const p = screen.getCursorScreenPoint();
     for (const e of bars.values()) {
       if (!e.win || e.win.isDestroyed() || !e.win.isVisible()) continue;
-      const d = displayObj(e.displayId).bounds;
+      const dd = displayObj(e.displayId);
+      const d = dd.bounds;
       if (e.reserveActive) rePin(e, 'poll'); // always re-pin (robust on multi-monitor)
-      const atTop = p.y <= d.y + 2 && p.x >= d.x && p.x < d.x + d.width;
+      const top = barTop(dd);
+      const atTop = p.y <= top + 2 && p.x >= d.x && p.x < d.x + d.width;
       if (e.lastEdge !== atTop) { e.lastEdge = atTop; e.win.webContents.send('overlay:edge', atTop); }
     }
   }, 120);
@@ -285,15 +299,21 @@ function onDisplaysChanged() {
   metricsTimer = setTimeout(() => {
     for (const e of bars.values()) {
       if (!e.win || e.win.isDestroyed()) continue;
-      const d = displayObj(e.displayId).bounds;
+      const dd = displayObj(e.displayId);
+      const d = dd.bounds;
+      const top = barTop(dd);
       const b = e.win.getBounds();
-      if (b.x !== d.x || b.y !== d.y || b.width !== d.width) e.win.setBounds({ x: d.x, y: d.y, width: d.width, height: b.height });
+      if (b.x !== d.x || b.y !== top || b.width !== d.width) e.win.setBounds({ x: d.x, y: top, width: d.width, height: b.height });
     }
     reconcile();
   }, 300);
 }
 
 app.whenReady().then(() => {
+  // On macOS run as a menu-bar accessory: no Dock icon, no Cmd-Tab entry, and
+  // — crucially — no app menu of our own in the system menu bar, so we don't
+  // fight the menu bar we sit just beneath. Lives in the tray instead.
+  if (isMac && app.setActivationPolicy) app.setActivationPolicy('accessory');
   auth.setup();
   lastDisplayIds = displayIdsKey();
   reconcile();      // initial bar(s) (primary by default; renderer refines via display:set)
