@@ -34,15 +34,34 @@ html, body {
   border-bottom: 2px solid var(--teal-dark);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   transition: transform 0.15s ease;
-  z-index: 2; /* above the black corner fillers */
+  z-index: 2;
 }
 .ss-bar.hidden { transform: translateY(-100%); }
 .ss-bar.round-ends { border-top-left-radius: 14px; border-top-right-radius: 14px; } /* classic-Mac: rounded screen corners */
 
-/* black screen-corner fillers behind the rounded bar (classic-Mac look) */
-.ss-corner { position: fixed; top: 0; width: 14px; height: 14px; background: #000; display: none; z-index: 1; pointer-events: none; }
-#corner-l { left: 0; }
-.ss-corner-r { right: 0; }
+/* Classic-Mac rounded screen corners. The bar's own top corners are rounded
+   (above); these pseudo-elements paint solid black in the little triangle that
+   sits OUTSIDE the arc but still touches the screen edge, so the corner reads
+   as a black, rounded screen corner. Painted on top of the bar (not behind a
+   transparent window), so it renders regardless of window compositing. */
+.ss-bar.round-ends::before,
+.ss-bar.round-ends::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  z-index: 3;
+}
+.ss-bar.round-ends::before {
+  left: 0;
+  background: radial-gradient(circle at bottom right, transparent 13px, #000 13.5px);
+}
+.ss-bar.round-ends::after {
+  right: 0;
+  background: radial-gradient(circle at bottom left, transparent 13px, #000 13.5px);
+}
 
 /* horizontal-scrolling area for the tab buttons */
 .ss-bar-scroll {

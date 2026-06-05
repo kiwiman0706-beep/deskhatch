@@ -122,8 +122,6 @@ const loadTabs = () => Store.getTabs() || defaultTabs();
 
 const bar = document.getElementById('bar');
 const peek = document.getElementById('peek');
-const cornerL = document.getElementById('corner-l');
-const cornerR = document.getElementById('corner-r');
 let tabs = loadTabs();
 
 /** id -> { el, btn, pinned } */
@@ -187,9 +185,6 @@ function reflowHeight() {
   const shown = barShouldShow();
   bar.classList.toggle('hidden', !shown);
   peek.classList.toggle('on', !shown);
-  const corners = shown && display.roundEnds ? '' : 'none';
-  cornerL.style.display = corners;
-  cornerR.style.display = corners;
   if (!shown) { window.overlay.setHeight(PEEK); }
   else {
     const heights = Object.keys(open).map((id) => open[id].el.offsetHeight);

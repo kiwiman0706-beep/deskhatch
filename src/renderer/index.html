@@ -10,11 +10,9 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Black screen-corner fillers (behind the bar) for the classic-Mac rounded look. -->
-  <div id="corner-l" class="ss-corner"></div>
-  <div id="corner-r" class="ss-corner ss-corner-r"></div>
-
-  <!-- Thin top bar. Buttons are injected from config.js by renderer.js. -->
+  <!-- Thin top bar. Buttons are injected from config.js by renderer.js.
+       Classic-Mac rounded black screen corners are drawn by the bar's own
+       ::before / ::after pseudo-elements (see styles.css). -->
   <div id="bar" class="ss-bar ss-interactive"></div>
 
   <!-- 4px hover strip shown when the bar is hidden (auto-hide / temp-hide). -->
