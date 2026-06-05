@@ -10,6 +10,13 @@ const camera = require('./camera');
 const fileserver = require('./fileserver');
 
 const BAR_HEIGHT = 44; // collapsed strip height (px)
+// The AppBar spacer exists ONLY to register the top-edge reservation; the
+// reserved rectangle is set by SHAppBarMessage from the display bounds and is
+// independent of this window's size. We keep the spacer deliberately short so
+// it always hides behind the opaque real bar and can never poke out below the
+// reserved strip — even when fractional-DPI scaling (e.g. 150%) makes Electron
+// mis-size a window. The visible strip is painted by the real bar.
+const SPACER_HEIGHT = 6;
 const INDEX = path.join(__dirname, '..', 'renderer', 'index.html');
 
 /** @type {Tray | null} */
@@ -72,7 +79,7 @@ function makeSpacer(display) {
   const y = barTop(display);
   const col = cfg.barColor || '#1f6f6f';
   const s = new BrowserWindow({
-    x, y, width, height: BAR_HEIGHT,
+    x, y, width, height: SPACER_HEIGHT,
     frame: false, transparent: false, backgroundColor: col,
     resizable: false, movable: false, minimizable: false, maximizable: false,
     fullscreenable: false, skipTaskbar: true, focusable: false, hasShadow: false,
@@ -110,9 +117,11 @@ function rePin(entry, reason) {
   entry.pinning = true;
   try {
     if (entry.spacer && !entry.spacer.isDestroyed()) {
+      // Keep the spacer at the top of the reserved strip but only SPACER_HEIGHT
+      // tall, so it stays tucked behind the opaque real bar (never overflows).
       const sb = entry.spacer.getBounds();
-      if (sb.x !== dr.x || sb.y !== dr.y || sb.width !== dr.width || sb.height !== dr.height) {
-        entry.spacer.setBounds({ x: dr.x, y: dr.y, width: dr.width, height: dr.height });
+      if (sb.x !== dr.x || sb.y !== dr.y || sb.width !== dr.width || sb.height !== SPACER_HEIGHT) {
+        entry.spacer.setBounds({ x: dr.x, y: dr.y, width: dr.width, height: SPACER_HEIGHT });
       }
     }
     const wb = entry.win.getBounds();
@@ -136,15 +145,7 @@ function applyReserve(entry) {
     if (!entry.spacer || entry.spacer.isDestroyed()) {
       entry.spacer = makeSpacer(displayObj(entry.displayId));
       entry.spacer.on('move', () => { if (entry.repinMode === 'event') rePin(entry, 'spacer-move'); });
-      entry.spacer.webContents.once('dom-ready', () => {
-        paintSpacer(entry);
-        // Re-assert the correct physical size once the window is fully realized
-        // on its monitor (see the DPI note in applyReserve below).
-        if (entry.reservedDip && entry.spacer && !entry.spacer.isDestroyed()) {
-          const d = entry.reservedDip;
-          entry.spacer.setBounds({ x: d.x, y: d.y, width: d.width, height: d.height });
-        }
-      });
+      entry.spacer.webContents.once('dom-ready', () => paintSpacer(entry));
     }
     paintSpacer(entry);
     status = appbar.register(entry.spacer, { edge: 'top', height: BAR_HEIGHT, display: displayObj(entry.displayId) });
@@ -155,19 +156,6 @@ function applyReserve(entry) {
       ? screen.screenToDipRect(entry.spacer, { x: rc.left, y: rc.top, width: rc.right - rc.left, height: rc.bottom - rc.top })
       : null;
     console.info('[appbar] display ' + entry.displayId + ' rc=' + JSON.stringify(rc) + ' reservedDip=' + JSON.stringify(entry.reservedDip));
-    // The spacer can land with the WRONG physical size on a secondary /
-    // different-DPI monitor: Electron computes a new window's initial size with
-    // the PRIMARY monitor's scale factor, then moves it without recomputing, so
-    // a 44-DIP spacer ends up too tall and pokes out below the reserved strip.
-    // rePin's equality guard sees the reported DIP height already == 44 and
-    // skips the corrective resize. Force a real resize now that it's on its
-    // monitor (nudge the height so the set can't be optimised away). The real
-    // bar avoids this because the renderer re-sets its height after load.
-    if (entry.reservedDip && entry.spacer && !entry.spacer.isDestroyed()) {
-      const d = entry.reservedDip;
-      entry.spacer.setBounds({ x: d.x, y: d.y, width: d.width, height: d.height + 1 });
-      entry.spacer.setBounds({ x: d.x, y: d.y, width: d.width, height: d.height });
-    }
     entry.win.setAlwaysOnTop(true, 'screen-saver');
     entry.win.moveTop();
     rePin(entry, 'init');
