@@ -113,7 +113,9 @@ function searchOrUrl(q) {
     || /^\d{1,3}(\.\d{1,3}){3}(:\d+)?(\/|$)/.test(q)
     || /^[^\s/]+\.[^\s/]{2,}([/?#].*)?$/.test(q);
   if (noSpace && domainish) return 'https://' + q;
-  return searchEngine().q.replace('%s', encodeURIComponent(q));
+  let tmpl = 'https://www.google.com/search?q=%s';
+  try { const e = searchEngine(); if (e && e.q) tmpl = e.q; } catch (_) { /* fall back to Google */ }
+  return tmpl.replace('%s', encodeURIComponent(q));
 }
 
 // Accounts: the built-in "default" (shared session) plus user-added ones, each
@@ -1834,7 +1836,13 @@ function openSearch(btn) {
   input.type = 'text';
   input.spellcheck = false;
   input.placeholder = searchEngine().name + ' で検索、または URL を入力';
-  const submit = () => { const u = searchOrUrl(input.value); if (u) window.system.external(u); closeSearch(); };
+  const submit = () => {
+    let u = '';
+    try { u = searchOrUrl(input.value); } catch (err) { alert('検索URLの組み立てに失敗しました: ' + (err && err.message)); return; }
+    if (!u) return;
+    Promise.resolve(window.system.external(u)).catch((err) => alert('ブラウザを開けませんでした: ' + (err && err.message)));
+    closeSearch();
+  };
   input.addEventListener('keydown', (e) => {
     if (e.isComposing || e.keyCode === 229) return; // ignore IME conversion/commit Enter
     if (e.key === 'Enter') { e.preventDefault(); submit(); }
