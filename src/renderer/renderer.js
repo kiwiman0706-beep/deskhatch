@@ -1321,6 +1321,90 @@ const HELP_SLIDES = [
   ] },
 ];
 
+// Animated SVG mock-ups (one per slide). Inline SVG + SMIL so they animate
+// identically in the app and in any browser, scale crisply, and need no assets.
+function dhFrame(inner, o) {
+  o = o || {};
+  const barFill = o.barFill || 'url(#dhb)';
+  const barAnim = o.barAnim || '';
+  const btns = o.noBtns ? '' :
+    '<g fill="#eafafa" opacity=".92"><rect x="10" y="7" width="8" height="8" rx="2"/>' +
+    '<rect x="26" y="9" width="22" height="5" rx="2.5"/><rect x="54" y="9" width="22" height="5" rx="2.5"/>' +
+    '<rect x="82" y="9" width="22" height="5" rx="2.5"/><rect x="110" y="9" width="22" height="5" rx="2.5"/></g>';
+  return '<svg class="dh-art" viewBox="0 0 300 170" xmlns="http://www.w3.org/2000/svg">' +
+    '<defs><linearGradient id="dhb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e8b8b"/>' +
+    '<stop offset="1" stop-color="#1f6f6f"/></linearGradient>' +
+    '<clipPath id="dhs"><rect x="2" y="2" width="296" height="166" rx="12"/></clipPath></defs>' +
+    '<g clip-path="url(#dhs)"><rect x="2" y="2" width="296" height="166" fill="#e6edee"/>' +
+    '<rect x="2" y="2" width="296" height="20" fill="' + barFill + '">' + barAnim + '</rect>' +
+    btns + inner + '</g>' +
+    '<rect x="2" y="2" width="296" height="166" rx="12" fill="none" stroke="#c3ced3" stroke-width="1.5"/></svg>';
+}
+
+function slideArt(i) {
+  const cur = '<path d="M0,0 L0,15 L4.2,10.8 L7.4,16.8 L9.6,15.6 L6.4,9.6 L11.4,9.6 Z" fill="#1c1c1c" stroke="#fff" stroke-width="0.9">';
+  if (i === 0) return dhFrame(
+    '<rect x="26" y="22" width="118" height="84" rx="4" fill="#fff" stroke="#b9cccc"><animate attributeName="height" values="0;0;84;84;0" keyTimes="0;0.12;0.45;0.85;1" dur="3.4s" repeatCount="indefinite"/></rect>' +
+    '<rect x="26" y="22" width="118" height="13" fill="#1f6f6f"><animate attributeName="height" values="0;0;13;13;0" keyTimes="0;0.12;0.45;0.85;1" dur="3.4s" repeatCount="indefinite"/></rect>' +
+    '<g fill="#d7e2e2"><rect x="34" y="44" width="96" height="6" rx="3"/><rect x="34" y="56" width="74" height="6" rx="3"/><rect x="34" y="68" width="88" height="6" rx="3"/><rect x="34" y="80" width="60" height="6" rx="3"/><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.25;0.5;0.85;1" dur="3.4s" repeatCount="indefinite"/></g>' +
+    cur + '<animateTransform attributeName="transform" type="translate" values="150,86;150,86;33,7;33,7;150,86" keyTimes="0;0.1;0.34;0.85;1" dur="3.4s" repeatCount="indefinite"/></path>');
+  if (i === 1) {
+    let t = '';
+    const xs = [38, 84, 130, 176, 222];
+    const bg = ['0', '0.18', '0.36', '0.54', '0.72'];
+    for (let k = 0; k < xs.length; k++) {
+      const x = xs[k];
+      const cx = x + 17;
+      t += '<rect x="' + x + '" y="62" width="34" height="34" rx="7" fill="#cdd9d9"><animate attributeName="fill" values="#cdd9d9;#cdd9d9;#37a45f;#37a45f;#cdd9d9" keyTimes="0;0.15;0.4;0.85;1" dur="3.6s" begin="' + bg[k] + 's" repeatCount="indefinite"/></rect>';
+      t += '<path d="M' + (cx - 7) + ',79 l5,5 l10,-12" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.22;0.42;0.85;1" dur="3.6s" begin="' + bg[k] + 's" repeatCount="indefinite"/></path>';
+    }
+    return dhFrame('<rect x="44" y="36" width="40" height="9" rx="4" fill="#ffffff" opacity=".85"/>' + t);
+  }
+  if (i === 2) return dhFrame(
+    '<rect x="40" y="26" width="140" height="96" rx="4" fill="#fff" stroke="#b9cccc"><animate attributeName="height" values="56;56;96;96;56" keyTimes="0;0.25;0.5;0.8;1" dur="3.4s" repeatCount="indefinite"/></rect>' +
+    '<rect x="40" y="26" width="140" height="13" rx="4" fill="#1f6f6f"/>' +
+    '<rect x="168" y="28" width="9" height="9" rx="2" fill="#c0392b"><animate attributeName="opacity" values="0.25;0.25;1;1;0.25" keyTimes="0;0.24;0.5;0.8;1" dur="3.4s" repeatCount="indefinite"/></rect>' +
+    '<g fill="#d7e2e2"><rect x="48" y="48" width="120" height="6" rx="3"/><rect x="48" y="60" width="96" height="6" rx="3"/></g>' +
+    '<path d="M0,0 l11,0 l0,11 z" fill="#1f6f6f"><animateTransform attributeName="transform" type="translate" values="169,71;169,71;169,111;169,111;169,71" keyTimes="0;0.25;0.5;0.8;1" dur="3.4s" repeatCount="indefinite"/></path>');
+  if (i === 3) return dhFrame(
+    '<rect x="54" y="6" width="24" height="11" rx="3" fill="#ffce4a"><animate attributeName="x" values="54;54;110;110;54" keyTimes="0;0.2;0.5;0.8;1" dur="3.2s" repeatCount="indefinite"/></rect>' +
+    '<rect x="110" y="6" width="24" height="11" rx="3" fill="#7ad0c0"><animate attributeName="x" values="110;110;54;54;110" keyTimes="0;0.2;0.5;0.8;1" dur="3.2s" repeatCount="indefinite"/></rect>' +
+    '<g fill="#cdd9d9"><rect x="40" y="60" width="220" height="8" rx="4"/><rect x="40" y="78" width="180" height="8" rx="4"/><rect x="40" y="96" width="205" height="8" rx="4"/></g>' +
+    cur + '<animateTransform attributeName="transform" type="translate" values="70,13;70,13;126,13;126,13;70,13" keyTimes="0;0.2;0.5;0.8;1" dur="3.2s" repeatCount="indefinite"/></path>');
+  if (i === 4) return dhFrame(
+    '<rect x="24" y="24" width="120" height="118" rx="4" fill="#fff" stroke="#b9cccc"/>' +
+    '<rect x="24" y="24" width="120" height="13" rx="4" fill="#1f6f6f"/>' +
+    '<g fill="#e3ecec"><rect x="32" y="64" width="104" height="14" rx="3"/><rect x="32" y="82" width="104" height="14" rx="3"/><rect x="32" y="100" width="104" height="14" rx="3"/></g>' +
+    '<g><rect x="32" y="46" width="104" height="14" rx="3" fill="#cfe3df"/><rect x="36" y="49" width="8" height="8" rx="2" fill="#5aa0c0"/>' +
+    '<animateTransform attributeName="transform" type="translate" values="0,0;0,0;160,20;160,20;0,0" keyTimes="0;0.25;0.6;0.85;1" dur="3.4s" repeatCount="indefinite"/>' +
+    '<animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.35;0.6;0.85;1" dur="3.4s" repeatCount="indefinite"/></g>');
+  if (i === 5) {
+    const bin = '<rect x="70" y="118" width="160" height="40" rx="7" fill="#eef6f6" stroke="#bcd2d2" stroke-width="1.5"/>';
+    let chips = '';
+    const cd = [['78', '#ffce4a', '0s'], ['122', '#7ad0c0', '0.5s'], ['166', '#9db8ff', '1s']];
+    for (let j = 0; j < cd.length; j++) {
+      const c = cd[j];
+      chips += '<rect x="' + c[0] + '" y="128" width="36" height="16" rx="4" fill="' + c[1] + '"><animate attributeName="y" values="-20;-20;128;128;-20" keyTimes="0;0.1;0.4;0.9;1" dur="3.6s" begin="' + c[2] + '" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.1;0.4;0.9;1" dur="3.6s" begin="' + c[2] + '" repeatCount="indefinite"/></rect>';
+    }
+    return dhFrame(bin + chips);
+  }
+  if (i === 6) return dhFrame(
+    '<rect x="14" y="26" width="272" height="130" rx="4" fill="#fff" stroke="#c3d0d4"><animate attributeName="y" values="170;170;26;26;26" keyTimes="0;0.12;0.5;0.95;1" dur="3.8s" repeatCount="indefinite"/><animate attributeName="height" values="0;0;130;130;130" keyTimes="0;0.12;0.5;0.95;1" dur="3.8s" repeatCount="indefinite"/></rect>' +
+    '<rect x="14" y="26" width="272" height="14" rx="4" fill="#d8e0e2"><animate attributeName="y" values="170;170;26;26;26" keyTimes="0;0.12;0.5;0.95;1" dur="3.8s" repeatCount="indefinite"/></rect>' +
+    '<rect x="2" y="22" width="296" height="2" fill="#1f6f6f" opacity="0.55"/>');
+  if (i === 7) {
+    const sw = [[70, '#1f6f6f'], [105, '#2c3038'], [140, '#1f63ad'], [175, '#2c7d44'], [210, '#6a3fa0'], [245, '#d4682f']];
+    let circles = '';
+    const vals = [];
+    for (let m = 0; m < sw.length; m++) { circles += '<circle cx="' + sw[m][0] + '" cy="118" r="12" fill="' + sw[m][1] + '"/>'; vals.push(sw[m][0]); }
+    vals.push(vals[0]);
+    const ring = '<circle cx="70" cy="118" r="15" fill="none" stroke="#15201f" stroke-width="2.5"><animate attributeName="cx" values="' + vals.join(';') + '" dur="5.4s" calcMode="discrete" repeatCount="indefinite"/></circle>';
+    const barCycle = '<animate attributeName="fill" values="#1f6f6f;#2c3038;#1f63ad;#2c7d44;#6a3fa0;#d4682f;#1f6f6f" dur="5.4s" calcMode="discrete" repeatCount="indefinite"/>';
+    return dhFrame('<g fill="#cdd9d9"><rect x="40" y="54" width="220" height="7" rx="3.5"/><rect x="40" y="70" width="170" height="7" rx="3.5"/></g>' + circles + ring, { barFill: '#1f6f6f', barAnim: barCycle });
+  }
+  return dhFrame('');
+}
+
 function buildHelpSlides() {
   const root = el('div', 'ss-help-slides');
   let i = 0;
@@ -1332,8 +1416,8 @@ function buildHelpSlides() {
   function render() {
     const s = HELP_SLIDES[i];
     stage.innerHTML =
-      '<div class="ss-help-icon">' + s.icon + '</div>' +
-      '<h3 class="ss-help-title">' + s.title + '</h3>' +
+      '<div class="ss-help-art">' + slideArt(i) + '</div>' +
+      '<h3 class="ss-help-title">' + s.icon + ' ' + s.title + '</h3>' +
       '<ul class="ss-help-list">' + s.lines.map((l) => '<li>' + l + '</li>').join('') + '</ul>' +
       '<div class="ss-help-count">' + (i + 1) + ' / ' + HELP_SLIDES.length + '</div>';
     dots.innerHTML = '';
