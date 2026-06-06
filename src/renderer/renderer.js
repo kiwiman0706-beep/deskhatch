@@ -1840,7 +1840,10 @@ function openSearch(btn) {
     let u = '';
     try { u = searchOrUrl(input.value); } catch (err) { alert('検索URLの組み立てに失敗しました: ' + (err && err.message)); return; }
     if (!u) { alert('検索URLが空でした（入力: ' + JSON.stringify(input.value) + '）'); return; }
-    Promise.resolve(window.system.external(u)).catch((err) => alert('ブラウザを開けませんでした:\n' + u + '\n' + (err && err.message)));
+    alert('OSに渡すURL: ' + u); // TEMP diagnostic — confirm the URL is correct
+    Promise.resolve(window.system.external(u))
+      .then((ok) => { if (ok === false) alert('main: 非httpのため無視されました: ' + u); })
+      .catch((err) => alert('ブラウザを開けませんでした:\n' + u + '\n' + (err && err.message)));
     closeSearch();
   };
   input.addEventListener('keydown', (e) => {
