@@ -52,8 +52,9 @@ function register() {
     try { fn(); return true; } catch (_) { return false; }
   });
 
-  ipcMain.handle('system:external', (_e, url) => {
-    if (/^https?:\/\//i.test(url || '')) shell.openExternal(url);
+  ipcMain.handle('system:external', async (_e, url) => {
+    if (!/^https?:\/\//i.test(url || '')) return false;
+    await shell.openExternal(url); // await so failures propagate to the renderer
     return true;
   });
 

@@ -1839,8 +1839,8 @@ function openSearch(btn) {
   const submit = () => {
     let u = '';
     try { u = searchOrUrl(input.value); } catch (err) { alert('検索URLの組み立てに失敗しました: ' + (err && err.message)); return; }
-    if (!u) return;
-    Promise.resolve(window.system.external(u)).catch((err) => alert('ブラウザを開けませんでした: ' + (err && err.message)));
+    if (!u) { alert('検索URLが空でした（入力: ' + JSON.stringify(input.value) + '）'); return; }
+    Promise.resolve(window.system.external(u)).catch((err) => alert('ブラウザを開けませんでした:\n' + u + '\n' + (err && err.message)));
     closeSearch();
   };
   input.addEventListener('keydown', (e) => {
