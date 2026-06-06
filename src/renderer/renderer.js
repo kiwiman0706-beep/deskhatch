@@ -20,6 +20,8 @@ const MENU_TAB = { id: '__menu', label: 'メニュー', icon: '☰', type: 'menu
 const CLIP_TAB = { id: '__clip', label: 'クリップ', icon: '📎', type: 'clip', width: 380 };
 // The "other monitors' drawers" pseudo-tab — open another monitor's items here.
 const OTHERS_TAB = { id: '__others', label: '別モニタのドロワー', icon: '🖥', type: 'others', width: 320 };
+// The "how-to guide" pseudo-tab — an HTML feature-overview slideshow.
+const HELP_TAB = { id: '__help', label: '使い方ガイド', icon: '❔', type: 'help', width: 620 };
 
 // File viewers by extension (others open with the default app).
 const VIEWER_EXT = {
@@ -79,6 +81,9 @@ const Store = {
     try { const c = JSON.parse(localStorage.getItem('ss.clips')); return Array.isArray(c) ? c : []; } catch (_) { return []; }
   },
   saveClips(c) { localStorage.setItem('ss.clips', JSON.stringify(c)); },
+  // "Don't show the intro guide on startup again."
+  getHelpSkip() { return localStorage.getItem('ss.help.skip') === '1'; },
+  setHelpSkip(v) { if (v) localStorage.setItem('ss.help.skip', '1'); else localStorage.removeItem('ss.help.skip'); },
 };
 
 // Accounts: the built-in "default" (shared session) plus user-added ones, each
@@ -826,6 +831,8 @@ function buildBody(tab) {
     else if (tab.tool === 'bookmarks') body.appendChild(buildBookmarks());
   } else if (tab.type === 'menu') {
     body.appendChild(buildMenuPanel());
+  } else if (tab.type === 'help') {
+    body.appendChild(buildHelpSlides());
   }
   return body;
 }
@@ -1264,10 +1271,116 @@ function buildSettings() {
   return root;
 }
 
+// Open the slideshow guide as a drawer, anchored to the menu button.
+function openHelp() {
+  const anchor = document.querySelector('.ss-menu') || bar;
+  openTab(HELP_TAB, anchor);
+}
+
+// Feature-overview slides shown in the guide (and on first run).
+const HELP_SLIDES = [
+  { icon: '👋', title: 'ようこそ DeskHatch へ', lines: [
+    '画面の<b>上端</b>に細いバーが常駐します。',
+    'ボタンを押すと、その<b>真下にドロワー</b>がスライドして開きます。',
+    'マウスを画面の一番上へ勢いよく当てれば、狙わなくてもボタンを押せます（Mac風）。',
+  ] },
+  { icon: '🔑', title: 'Google は1回ログインするだけ', lines: [
+    '☰メニュー →「ログイン」で一度サインインすると、Gmail・カレンダー・Keep・Tasks などが<b>すべてログイン済み</b>になります。',
+    '名前を入れて「＋追加」すれば<b>別アカウント</b>も。個人用と仕事用を同時に開けます。',
+    'うまくいかない時は 🔄 でログイン履歴をリセットして再ログイン。',
+  ] },
+  { icon: '🗄️', title: 'ドロワーの操作', lines: [
+    '同時に開くのは<b>1枚</b>。別のボタンを押すと前のドロワーは閉じます。',
+    '<b>📌 ピン</b>で開いたまま固定 → 複数を並べて使えます。',
+    '右下の角を<b>ドラッグでリサイズ</b>。大きさは記憶されます。',
+  ] },
+  { icon: '✏️', title: '自分好みにカスタマイズ', lines: [
+    '☰メニュー →「設定」で項目の<b>追加・削除・並べ替え・編集</b>。',
+    'バー上のボタンを<b>ドラッグで並べ替え</b>。中央へ重ねると<b>タブにまとめ</b>られます。',
+    'ボタンを<b>右クリック</b>で編集・複製・削除メニュー。',
+  ] },
+  { icon: '🗂️', title: 'ファイルとフォルダ', lines: [
+    '「My Computer」はファイルブラウザ。<b>右クリック</b>で操作メニュー。',
+    'ファイルを<b>ドロワーの外へドラッグ</b>すると、他アプリへ渡せます。',
+    'よく使うフォルダはショートカットとしてバーに置けます。',
+  ] },
+  { icon: '📎', title: 'クリップ（伝票ばさみ）', lines: [
+    'バーの📎へ<b>URL・ファイル・フォルダ・テキスト</b>をドロップして一時保管。',
+    '<b>再起動しても消えません</b>。気に入ったら正式な項目に昇格も。',
+    '居酒屋の伝票ばさみのように、サッと挟んで後で使えます。',
+  ] },
+  { icon: '🖥️', title: '表示モードとマルチモニタ', lines: [
+    '<b>常に表示＋領域を予約</b>：最大化ウィンドウがバーに重なりません。',
+    '<b>自動で隠す</b>：普段は隠れ、上端にカーソルで出現。<b>▲</b>で一時的に隠すことも。',
+    '複数モニタに表示でき、モニタごとに違うバーも作れます。',
+  ] },
+  { icon: '🧰', title: 'ツールとテーマ', lines: [
+    '「ツール」タブに<b>エディタ・電卓・クリップボード・ブックマーク</b>、Windows設定への近道。',
+    '「設定」で<b>テーマ</b>（クラシックMac含む）や<b>両端の角丸</b>を変更。',
+    '<b>スタートアップ登録</b>でPC起動時に自動起動。トレイから表示／非表示。',
+  ] },
+];
+
+function buildHelpSlides() {
+  const root = el('div', 'ss-help-slides');
+  let i = 0;
+  const stage = el('div', 'ss-help-stage');
+  const dots = el('div', 'ss-help-dots');
+  const prev = el('button', 'ss-help-arrow', '‹ 戻る');
+  const next = el('button', 'ss-help-arrow ss-help-next', '次へ ›');
+
+  function render() {
+    const s = HELP_SLIDES[i];
+    stage.innerHTML =
+      '<div class="ss-help-icon">' + s.icon + '</div>' +
+      '<h3 class="ss-help-title">' + s.title + '</h3>' +
+      '<ul class="ss-help-list">' + s.lines.map((l) => '<li>' + l + '</li>').join('') + '</ul>' +
+      '<div class="ss-help-count">' + (i + 1) + ' / ' + HELP_SLIDES.length + '</div>';
+    dots.innerHTML = '';
+    HELP_SLIDES.forEach((_, n) => {
+      const dot = el('button', 'ss-help-dot' + (n === i ? ' on' : ''));
+      dot.title = String(n + 1);
+      dot.onclick = () => { i = n; render(); };
+      dots.appendChild(dot);
+    });
+    prev.disabled = i === 0;
+    const last = i === HELP_SLIDES.length - 1;
+    next.textContent = last ? '✓ 完了' : '次へ ›';
+    next.classList.toggle('ss-help-done', last);
+  }
+  prev.onclick = () => { if (i > 0) { i -= 1; render(); } };
+  next.onclick = () => { if (i < HELP_SLIDES.length - 1) { i += 1; render(); } else closeDrawer(HELP_TAB.id); };
+
+  const nav = el('div', 'ss-help-nav');
+  nav.append(prev, dots, next);
+
+  const foot = el('div', 'ss-help-foot');
+  const lbl = el('label', 'ss-help-skip');
+  const chk = el('input');
+  chk.type = 'checkbox';
+  chk.checked = Store.getHelpSkip();
+  chk.onchange = () => Store.setHelpSkip(chk.checked);
+  lbl.append(chk, document.createTextNode(' 次回以降は表示しない'));
+  foot.append(lbl);
+
+  root.append(stage, nav, foot);
+  root.tabIndex = 0;
+  root.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight') next.click();
+    else if (e.key === 'ArrowLeft') prev.click();
+  });
+  render();
+  requestAnimationFrame(() => { try { root.focus(); } catch (_) { /* ignore */ } });
+  return root;
+}
+
 function buildHelp() {
   const root = el('div', 'ss-help');
-  root.innerHTML = `
-    <h3>DeskHatch</h3>
+  const openBtn = el('button', 'ss-set-btn ss-help-open', '📖 使い方ガイド（スライド）を開く');
+  openBtn.onclick = () => openHelp();
+  root.appendChild(openBtn);
+  const quick = el('div');
+  quick.innerHTML = `
     <ul>
       <li>上の<b>Google アカウント</b>で「ログイン」して1回サインインすると、Gmail・カレンダー・Tasks・Keep などが全てログイン済みになります。</li>
       <li><b>別アカウントも追加可能</b>：名前を入れて「＋追加」→そのアカウントで「ログイン」。設定で各項目に割り当てれば、個人用・仕事用を同時に開けます。</li>
@@ -1281,6 +1394,8 @@ function buildHelp() {
       <li>項目が増えてバーが画面幅を超えたら、横スクロール（マウスホイール）で送れます。</li>
       <li>トレイ／メニューバーのアイコンでバーの表示／非表示。</li>
     </ul>`;
+  root.appendChild(el('div', 'ss-help-quick-label', 'クイックリファレンス'));
+  root.appendChild(quick);
   return root;
 }
 
@@ -1682,6 +1797,18 @@ window.overlay.onReserveStatus((status, requested) => {
 });
 
 applyDisplay(); // push the saved display mode to main and set initial visibility
+
+// First run: pop the guide once (until "don't show again" is ticked). Only on
+// the primary monitor, so it doesn't appear on every screen in a multi-monitor
+// setup. A short delay lets the bar settle first.
+if (!Store.getHelpSkip()) {
+  const showIntro = () => setTimeout(openHelp, 600);
+  window.overlay.getDisplays().then((ds) => {
+    const prim = (ds || []).find((d) => d.primary);
+    if (prim && MY_DISPLAY && String(prim.id) !== MY_DISPLAY) return; // not the primary monitor
+    showIntro();
+  }).catch(showIntro);
+}
 
 // Re-clamp open drawers if the display size changes (keep user-set sizes).
 window.addEventListener('resize', () => {
