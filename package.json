@@ -33,6 +33,7 @@
   "build": {
     "appId": "com.deskhatch.app",
     "productName": "DeskHatch",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
     "files": [
       "src/**/*",
       "assets/**/*",
@@ -47,7 +48,8 @@
         "nsis",
         "portable"
       ],
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "publisherName": "DeskHatch"
     },
     "mac": {
       "target": [
