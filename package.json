@@ -8,6 +8,7 @@
     "start": "electron .",
     "selftest": "electron . --selftest",
     "gen:icons": "node scripts/generate-icons.js",
+    "diagnose:open": "node scripts/diagnose-open.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
