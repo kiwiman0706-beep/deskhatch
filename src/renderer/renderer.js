@@ -366,6 +366,58 @@ function makeWebview(url, mobile, partition) {
   return wv;
 }
 
+// Chrome-style omnibox: a query is a URL if it has a scheme, or looks like a
+// domain / localhost / IP and has no spaces; otherwise it's a Google search.
+function omniToUrl(q) {
+  q = (q || '').trim();
+  if (!q) return '';
+  if (/^(https?|file|about|chrome|view-source):/i.test(q)) return q;
+  const noSpace = !/\s/.test(q);
+  const domainish = /^localhost(:\d+)?(\/|$)/i.test(q)
+    || /^\d{1,3}(\.\d{1,3}){3}(:\d+)?(\/|$)/.test(q)
+    || /^[^\s/]+\.[^\s/]{2,}([/?#].*)?$/.test(q);
+  if (noSpace && domainish) return 'https://' + q;
+  return 'https://www.google.com/search?q=' + encodeURIComponent(q);
+}
+
+// Mini-browser drawer: a combined search/address bar (omnibox) over a webview,
+// with back / forward / reload and "open in the system browser".
+function buildBrowser(tab, partition) {
+  const wrap = el('div', 'ss-browser');
+  const barEl = el('div', 'ss-browser-bar');
+  const back = el('button', 'ss-browser-btn', '◀'); back.title = '戻る';
+  const fwd = el('button', 'ss-browser-btn', '▶'); fwd.title = '進む';
+  const reload = el('button', 'ss-browser-btn', '⟳'); reload.title = '再読み込み';
+  const omni = el('input', 'ss-browser-omni');
+  omni.type = 'text'; omni.spellcheck = false; omni.placeholder = '検索 または URL を入力';
+  const ext = el('button', 'ss-browser-btn', '↗'); ext.title = '標準ブラウザで開く';
+  barEl.append(back, fwd, reload, omni, ext);
+
+  const home = tab.url || 'https://www.google.com/';
+  const wv = makeWebview(home, false, partition);
+  wrap.append(barEl, wv);
+
+  const navTo = (q) => { const u = omniToUrl(q); if (u) wv.setAttribute('src', u); };
+  omni.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); navTo(omni.value); } });
+  omni.addEventListener('focus', () => omni.select());
+  back.onclick = () => { try { if (wv.canGoBack()) wv.goBack(); } catch (_) { /* not ready */ } };
+  fwd.onclick = () => { try { if (wv.canGoForward()) wv.goForward(); } catch (_) { /* not ready */ } };
+  reload.onclick = () => { try { wv.reload(); } catch (_) { /* not ready */ } };
+  ext.onclick = () => { let u = ''; try { u = wv.getURL(); } catch (_) { u = omni.value; } if (u) window.system.external(u); };
+
+  const sync = () => {
+    try {
+      if (document.activeElement !== omni) omni.value = wv.getURL() || '';
+      back.disabled = !wv.canGoBack();
+      fwd.disabled = !wv.canGoForward();
+    } catch (_) { /* not ready */ }
+  };
+  wv.addEventListener('did-navigate', sync);
+  wv.addEventListener('did-navigate-in-page', sync);
+  wv.addEventListener('dom-ready', sync);
+  return wrap;
+}
+
 // Tabbed drawer: switch between several panes in one drawer (lazy-loaded).
 // Each pane is a mini tab-config of any type (page/folder/viewer/tool/...),
 // rendered via buildBody, so a tab group can mix kinds.
@@ -831,6 +883,8 @@ function buildBody(tab) {
     else if (tab.tool === 'bookmarks') body.appendChild(buildBookmarks());
   } else if (tab.type === 'menu') {
     body.appendChild(buildMenuPanel());
+  } else if (tab.type === 'browser') {
+    body.appendChild(buildBrowser(tab, part));
   } else if (tab.type === 'help') {
     body.appendChild(buildHelpSlides());
   }
@@ -1142,7 +1196,7 @@ function buildTabFields(t, extras) {
   }
 
   const type = el('select', 'ss-set-type');
-  [['page', 'ページ'], ['tabs', 'タブ'], ['files', 'PC全体'], ['folder', 'フォルダ'], ['tool', 'ツール'], ['camera', 'カメラ']].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; type.appendChild(op); });
+  [['page', 'ページ'], ['browser', 'ブラウザ'], ['tabs', 'タブ'], ['files', 'PC全体'], ['folder', 'フォルダ'], ['tool', 'ツール'], ['camera', 'カメラ']].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; type.appendChild(op); });
   type.value = t.type;
   const mobileWrap = el('label', 'ss-set-check'); const mobile = document.createElement('input'); mobile.type = 'checkbox'; mobile.checked = !!t.mobile; mobile.onchange = () => { t.mobile = mobile.checked; }; mobileWrap.append(mobile, document.createTextNode(' スマホ表示'));
   const keepWrap = el('label', 'ss-set-check'); const keep = document.createElement('input'); keep.type = 'checkbox'; keep.checked = !!t.keepAlive; keep.onchange = () => { t.keepAlive = keep.checked; }; keepWrap.append(keep, document.createTextNode(' 閉じても止めない'));
@@ -1171,12 +1225,12 @@ function buildTabFields(t, extras) {
   renderPanes();
   const syncType = () => {
     t.type = type.value;
-    const isPage = t.type === 'page', isFolder = t.type === 'folder', isTabs = t.type === 'tabs', isTool = t.type === 'tool', isCamera = t.type === 'camera';
-    url.style.display = isPage ? '' : 'none';
+    const isPage = t.type === 'page', isFolder = t.type === 'folder', isTabs = t.type === 'tabs', isTool = t.type === 'tool', isCamera = t.type === 'camera', isBrowser = t.type === 'browser';
+    url.style.display = (isPage || isBrowser) ? '' : 'none'; // browser: optional home page
     mobileWrap.style.display = isPage ? '' : 'none';
-    acctWrap.style.display = (isPage || isTabs) ? '' : 'none';
+    acctWrap.style.display = (isPage || isTabs || isBrowser) ? '' : 'none';
     toolWrap.style.display = isTool ? '' : 'none';
-    keepWrap.style.display = (isPage || isTabs || isCamera) ? '' : 'none';
+    keepWrap.style.display = (isPage || isTabs || isCamera || isBrowser) ? '' : 'none';
     pathRow.style.display = isFolder ? '' : 'none';
     rtsp.style.display = isCamera ? '' : 'none';
     paneBox.style.display = isTabs ? '' : 'none';
@@ -1495,7 +1549,8 @@ function buildTools() {
 
   const tools = el('div', 'ss-tools-sec');
   tools.append(el('div', 'ss-tools-title', 'ツール'));
-  [['📝 簡易エディタ', { id: 'tool-editor', label: 'エディタ', icon: '📝', type: 'tool', tool: 'editor', width: 480 }],
+  [['🌐 ブラウザ（検索／URL）', { id: 'tool-browser', label: 'ブラウザ', icon: '🌐', type: 'browser', width: 560, url: 'https://www.google.com/' }],
+    ['📝 簡易エディタ', { id: 'tool-editor', label: 'エディタ', icon: '📝', type: 'tool', tool: 'editor', width: 480 }],
     ['🧮 電卓', { id: 'tool-calc', label: '電卓', icon: '🧮', type: 'tool', tool: 'calc', width: 280 }],
     ['📋 クリップボード', { id: 'tool-clip', label: 'クリップボード', icon: '📋', type: 'tool', tool: 'clipboard', width: 420 }],
     ['🔖 ブックマーク', { id: 'tool-bm', label: 'ブックマーク', icon: '🔖', type: 'tool', tool: 'bookmarks', width: 440 }]]
@@ -1610,6 +1665,7 @@ function paneIcon(p) {
   if (p.type === 'viewer') return viewerIcon(p.viewer);
   if (p.type === 'tool') return '🧰';
   if (p.type === 'camera') return '🎥';
+  if (p.type === 'browser') return '🌐';
   return '🔗';
 }
 function paneToTab(p, baseId, k) {

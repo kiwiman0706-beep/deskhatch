@@ -58,4 +58,8 @@ window.SS_TABS = [
   { id: 'desktop', label: 'Desktop', icon: '🖳', type: 'folder', path: '@desktop', width: 460 },
 
   { id: 'pc', label: 'My Computer', icon: '💻', type: 'files', width: 460 },
+
+  // Chrome-style omnibox (search + address bar) over a mini browser.
+  { id: 'search', label: '検索', icon: '🔎', type: 'browser', width: 560,
+    url: 'https://www.google.com/' },
 ];

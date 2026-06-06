@@ -210,6 +210,21 @@ html, body {
 .ss-calc-key { font-size: 16px; border: 1px solid #cfdcdc; border-radius: 8px; background: #fff; cursor: pointer; }
 .ss-calc-key:hover { background: #e8f3f3; }
 
+/* mini browser (omnibox + webview) */
+.ss-browser { display: flex; flex-direction: column; height: 100%; }
+.ss-browser-bar { display: flex; align-items: center; gap: 4px; padding: 5px 6px; border-bottom: 1px solid #dfe7e7; background: #f0f6f6; }
+.ss-browser-btn {
+  flex: 0 0 auto; border: 1px solid #cfdcdc; background: #fff; color: var(--ink);
+  border-radius: 6px; width: 28px; height: 28px; font-size: 13px; cursor: pointer;
+}
+.ss-browser-btn:hover:not(:disabled) { background: #e8f3f3; }
+.ss-browser-btn:disabled { opacity: 0.35; cursor: default; }
+.ss-browser-omni {
+  flex: 1; min-width: 0; height: 28px; padding: 0 12px; font-size: 13px;
+  border: 1px solid #cfdcdc; border-radius: 14px; background: #fff; color: var(--ink); outline: none;
+}
+.ss-browser-omni:focus { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(31, 111, 111, 0.18); }
+
 .ss-clip { display: flex; flex-direction: column; height: 100%; }
 .ss-clip-bar { padding: 6px; border-bottom: 1px solid #dfe7e7; background: #f0f6f6; }
 .ss-clip-content { flex: 1; overflow: auto; padding: 10px; }
