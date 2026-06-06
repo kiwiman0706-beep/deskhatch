@@ -210,6 +210,19 @@ html, body {
 .ss-calc-key { font-size: 16px; border: 1px solid #cfdcdc; border-radius: 8px; background: #fff; cursor: pointer; }
 .ss-calc-key:hover { background: #e8f3f3; }
 
+/* right-end 🔍 search popover (opens the system browser) */
+.ss-search {
+  position: fixed; top: var(--bar-h); width: 320px; max-width: calc(100vw - 16px);
+  background: var(--paper); border: 2px solid var(--teal-dark); border-top: none;
+  border-radius: 0 0 8px 8px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  padding: 8px; z-index: 9998;
+}
+.ss-search-input {
+  width: 100%; height: 34px; padding: 0 14px; font-size: 14px; box-sizing: border-box;
+  border: 1px solid #cfdcdc; border-radius: 17px; background: #fff; color: var(--ink); outline: none;
+}
+.ss-search-input:focus { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(31, 111, 111, 0.18); }
+
 /* mini browser (omnibox + webview) */
 .ss-browser { display: flex; flex-direction: column; height: 100%; }
 .ss-browser-bar { display: flex; align-items: center; gap: 4px; padding: 5px 6px; border-bottom: 1px solid #dfe7e7; background: #f0f6f6; }

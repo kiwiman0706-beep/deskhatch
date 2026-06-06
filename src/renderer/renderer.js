@@ -84,7 +84,37 @@ const Store = {
   // "Don't show the intro guide on startup again."
   getHelpSkip() { return localStorage.getItem('ss.help.skip') === '1'; },
   setHelpSkip(v) { if (v) localStorage.setItem('ss.help.skip', '1'); else localStorage.removeItem('ss.help.skip'); },
+  // Search engine for the right-end 🔍 box (id into SEARCH_ENGINES).
+  getSearchEngine() { return localStorage.getItem('ss.search.engine') || 'google'; },
+  setSearchEngine(id) { localStorage.setItem('ss.search.engine', id); },
 };
+
+// Search-box presets. %s is replaced with the URL-encoded query.
+const SEARCH_ENGINES = [
+  { id: 'google', name: 'Google', q: 'https://www.google.com/search?q=%s' },
+  { id: 'bing', name: 'Bing', q: 'https://www.bing.com/search?q=%s' },
+  { id: 'duckduckgo', name: 'DuckDuckGo', q: 'https://duckduckgo.com/?q=%s' },
+  { id: 'yahoojp', name: 'Yahoo! JAPAN', q: 'https://search.yahoo.co.jp/search?p=%s' },
+  { id: 'youtube', name: 'YouTube', q: 'https://www.youtube.com/results?search_query=%s' },
+  { id: 'wikipediaja', name: 'Wikipedia（日本語）', q: 'https://ja.wikipedia.org/w/index.php?search=%s' },
+  { id: 'amazonjp', name: 'Amazon.co.jp', q: 'https://www.amazon.co.jp/s?k=%s' },
+  { id: 'gmaps', name: 'Google マップ', q: 'https://www.google.com/maps/search/%s' },
+];
+const searchEngine = () => SEARCH_ENGINES.find((e) => e.id === Store.getSearchEngine()) || SEARCH_ENGINES[0];
+
+// Turn a query into a URL: a site if it has a scheme or looks like a
+// domain/localhost/IP with no spaces; otherwise the chosen engine's search.
+function searchOrUrl(q) {
+  q = (q || '').trim();
+  if (!q) return '';
+  if (/^(https?|file|about|chrome|view-source):/i.test(q)) return q;
+  const noSpace = !/\s/.test(q);
+  const domainish = /^localhost(:\d+)?(\/|$)/i.test(q)
+    || /^\d{1,3}(\.\d{1,3}){3}(:\d+)?(\/|$)/.test(q)
+    || /^[^\s/]+\.[^\s/]{2,}([/?#].*)?$/.test(q);
+  if (noSpace && domainish) return 'https://' + q;
+  return searchEngine().q.replace('%s', encodeURIComponent(q));
+}
 
 // Accounts: the built-in "default" (shared session) plus user-added ones, each
 // with its own isolated session partition.
@@ -143,6 +173,7 @@ let tempHidden = false;           // one-shot "get out of my way"
 let hovering = false;             // pointer over bar/peek
 let atEdge = false;               // cursor at the very top edge (from main)
 let hideTimer = null;
+let searchEl = null;              // the right-end 🔍 search popover, while open
 
 // ---------------------------------------------------------------------------
 // Mouse pass-through: capture over the bar/drawers, pass through elsewhere.
@@ -181,6 +212,7 @@ window.addEventListener('blur', () => setOverUI(false));
 const isHiddenMode = () => display.mode === 'autohide' || tempHidden;
 
 function barShouldShow() {
+  if (searchEl) return true;                   // search popover is open
   if (Object.keys(open).length) return true; // a drawer is open
   if (!isHiddenMode()) return true;           // always-show mode
   return hovering || atEdge;                  // hidden mode: reveal at top edge
@@ -193,10 +225,12 @@ function reflowHeight() {
   if (!shown) { window.overlay.setHeight(PEEK); }
   else {
     const heights = Object.keys(open).map((id) => open[id].el.offsetHeight);
+    if (searchEl) heights.push(searchEl.offsetHeight); // fit the search popover
     window.overlay.setHeight(window.SSLayout.computeHeight(BAR_H, heights));
   }
   // keep the bar capturing when it's the only thing shown (reliable drop target)
-  if (!shown || Object.keys(open).length === 0) setIgnore(wantIgnore(false));
+  if (searchEl) setIgnore(false);
+  else if (!shown || Object.keys(open).length === 0) setIgnore(wantIgnore(false));
 }
 
 function scheduleHide() {
@@ -1151,6 +1185,15 @@ function buildDisplaySettings() {
   themeWrap.append(document.createTextNode('テーマ '), themeSel);
   root.append(themeWrap);
 
+  // Search engine for the right-end 🔍 box
+  const engWrap = el('label', 'ss-set-check');
+  const engSel = el('select', 'ss-set-type');
+  SEARCH_ENGINES.forEach((e) => { const op = el('option', null, e.name); op.value = e.id; engSel.appendChild(op); });
+  engSel.value = Store.getSearchEngine();
+  engSel.onchange = () => Store.setSearchEngine(engSel.value);
+  engWrap.append(document.createTextNode('🔍 検索エンジン '), engSel);
+  root.append(engWrap);
+
   // Rounded ends (classic-Mac look)
   const roundWrap = el('label', 'ss-set-check');
   const round = document.createElement('input');
@@ -1776,6 +1819,39 @@ async function tabContextMenu(tab, btn) {
   else if (action === 'del') deleteTab(tab.id);
 }
 
+// Right-end 🔍 search box: a slim popover under the button; typing + Enter opens
+// the system browser (search via the chosen engine, or the site for a URL).
+function closeSearch() {
+  if (!searchEl) return;
+  searchEl.remove();
+  searchEl = null;
+  reflowHeight();
+}
+function openSearch(btn) {
+  if (searchEl) { closeSearch(); return; }
+  const box = el('div', 'ss-search ss-interactive');
+  const input = el('input', 'ss-search-input');
+  input.type = 'text';
+  input.spellcheck = false;
+  input.placeholder = searchEngine().name + ' で検索、または URL を入力';
+  const submit = () => { const u = searchOrUrl(input.value); if (u) window.system.external(u); closeSearch(); };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); submit(); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeSearch(); }
+  });
+  input.addEventListener('blur', () => setTimeout(() => { if (searchEl && document.activeElement !== input) closeSearch(); }, 120));
+  box.appendChild(input);
+  document.body.appendChild(box);
+  searchEl = box;
+  // anchor under the button, right-aligned, clamped on-screen
+  const r = btn.getBoundingClientRect();
+  const w = box.offsetWidth || 300;
+  box.style.left = Math.max(MARGIN, Math.min(r.right - w, window.innerWidth - w - MARGIN)) + 'px';
+  reflowHeight();
+  setIgnore(false);
+  requestAnimationFrame(() => { input.focus(); input.select(); });
+}
+
 function renderBar() {
   bar.innerHTML = '';
 
@@ -1850,6 +1926,13 @@ function renderBar() {
   bar.appendChild(navL);
   bar.appendChild(scroll);
   bar.appendChild(navR);
+
+  // right-end 🔍 search box (opens the system browser)
+  const searchBtn = el('button', 'ss-btn ss-search-btn');
+  searchBtn.title = '検索 / URL（標準ブラウザで開く）';
+  searchBtn.append(el('span', 'ss-ico', '🔍'));
+  searchBtn.addEventListener('click', () => openSearch(searchBtn));
+  bar.appendChild(searchBtn);
 
   // "other monitors' drawers" — small icon-only button, shown only when relevant
   const othersBtn = el('button', 'ss-btn ss-others-btn');
