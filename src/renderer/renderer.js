@@ -432,7 +432,7 @@ function buildBrowser(tab, partition) {
   wrap.append(barEl, wv);
 
   const navTo = (q) => { const u = omniToUrl(q); if (u) wv.setAttribute('src', u); };
-  omni.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); navTo(omni.value); } });
+  omni.addEventListener('keydown', (e) => { if (e.isComposing || e.keyCode === 229) return; if (e.key === 'Enter') { e.preventDefault(); navTo(omni.value); } });
   omni.addEventListener('focus', () => omni.select());
   back.onclick = () => { try { if (wv.canGoBack()) wv.goBack(); } catch (_) { /* not ready */ } };
   fwd.onclick = () => { try { if (wv.canGoForward()) wv.goForward(); } catch (_) { /* not ready */ } };
@@ -1836,6 +1836,7 @@ function openSearch(btn) {
   input.placeholder = searchEngine().name + ' で検索、または URL を入力';
   const submit = () => { const u = searchOrUrl(input.value); if (u) window.system.external(u); closeSearch(); };
   input.addEventListener('keydown', (e) => {
+    if (e.isComposing || e.keyCode === 229) return; // ignore IME conversion/commit Enter
     if (e.key === 'Enter') { e.preventDefault(); submit(); }
     else if (e.key === 'Escape') { e.preventDefault(); closeSearch(); }
   });
