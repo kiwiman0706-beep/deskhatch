@@ -1,0 +1,51 @@
+name: release
+
+# Tag a version (e.g. v0.1.1) to build the Windows installer + portable exe,
+# publish a GitHub Release, and auto-submit/update the winget manifest.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install
+      - name: Build installer + portable
+        run: npm run dist -- --publish never
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/DeskHatch-Setup-*.exe
+            dist/DeskHatch-Portable-*.exe
+          generate_release_notes: true
+
+  # Submits a PR to microsoft/winget-pkgs. NOTE: the FIRST version must be
+  # submitted once manually with wingetcreate (see docs/PUBLISHING.md); after
+  # the package exists, this keeps it updated automatically on every release.
+  winget:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit / update winget manifest
+        continue-on-error: true
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: Theta.Deskhatch
+          installers-regex: 'Setup-.*\.exe$'
+          release-tag: ${{ github.ref_name }}
+          fork-user: kiwiman0706-beep
+          token: ${{ secrets.WINGET_TOKEN }}
