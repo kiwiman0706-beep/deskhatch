@@ -9,6 +9,12 @@ contextBridge.exposeInMainWorld('overlay', {
   // the (transparent) overlay to the desktop below.
   setIgnoreMouse: (ignore) => ipcRenderer.send('overlay:set-ignore-mouse', ignore),
 
+  // Report the interactive geometry so the main process can drive click
+  // pass-through from the real cursor position. `mode`: 'none' (all through) |
+  // 'all' (all captured) | 'rects' (capture only over `rects`, window-local
+  // CSS px {x,y,w,h}). See pushHit() in the renderer.
+  setHit: (mode, rects) => ipcRenderer.send('overlay:set-hit', mode, rects),
+
   // Ask the main process to resize the overlay window to fit the open drawers,
   // so the desktop below stays clickable where nothing is shown.
   setHeight: (height) => ipcRenderer.send('overlay:set-height', height),

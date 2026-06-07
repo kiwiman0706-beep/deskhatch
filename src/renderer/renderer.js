@@ -183,29 +183,32 @@ let searchEl = null;              // the right-end 🔍 search popover, while op
 // receives clicks AND file drops; pass through when hidden; cursor-based when a
 // drawer is open (transparent areas beside it must stay click-through).
 // ---------------------------------------------------------------------------
-let ignoring = true;
+// The overlay is one full-screen, mostly-transparent window, and a single
+// setIgnoreMouseEvents flag governs the WHOLE window. Deciding that flag from
+// DOM `mousemove` hit-testing was unreliable: a <webview> swallows host-level
+// mousemove, so a click landing on a drawer's embedded page leaked through to
+// the window behind; and the async toggle lagged a click made right after the
+// cursor reached the bar (the click fell through before capture turned on).
+// Instead we hand the main process the interactive rectangles and let its
+// existing high-frequency cursor watch hit-test the real pointer position —
+// immune to webview event capture and free of the per-click toggle race.
 window.overlay.setIgnoreMouse(true);
 
-function setIgnore(v) {
-  if (v === ignoring) return;
-  ignoring = v;
-  window.overlay.setIgnoreMouse(v);
+// Report what should be clickable right now:
+//   'none'  hidden            -> the whole window passes clicks through
+//   'all'   bar only / drag   -> the whole window captures
+//   'rects' drawer/popover    -> capture only over the bar + open-drawer +
+//                                search-popover rects (window-local CSS px ==
+//                                DIP; main converts).
+function pushHit() {
+  if (!barShouldShow()) return window.overlay.setHit('none', []);
+  if (dragging) return window.overlay.setHit('all', []);
+  const interactive = [bar, ...Object.keys(open).map((id) => open[id].el)];
+  if (searchEl) interactive.push(searchEl);
+  if (interactive.length === 1) return window.overlay.setHit('all', []); // bar only
+  const r = (el) => { const b = el.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; };
+  window.overlay.setHit('rects', interactive.map(r));
 }
-
-function wantIgnore(overUI) {
-  if (!barShouldShow()) return true;      // hidden: pass through
-  if (Object.keys(open).length === 0) return false; // bar only: capture all
-  return !overUI;                         // drawer open: capture over UI only
-}
-
-function setOverUI(over) { setIgnore(wantIgnore(over)); }
-
-document.addEventListener('mousemove', (e) => {
-  if (dragging) return;
-  setOverUI(!!(e.target.closest && e.target.closest('.ss-interactive')));
-});
-document.addEventListener('mouseleave', () => setOverUI(false));
-window.addEventListener('blur', () => setOverUI(false));
 
 // ---------------------------------------------------------------------------
 // Bar visibility + window height. Shrinks to a 4px peek when hidden, to the bar
@@ -230,9 +233,9 @@ function reflowHeight() {
     if (searchEl) heights.push(searchEl.offsetHeight); // fit the search popover
     window.overlay.setHeight(window.SSLayout.computeHeight(BAR_H, heights));
   }
-  // keep the bar capturing when it's the only thing shown (reliable drop target)
-  if (searchEl) setIgnore(false);
-  else if (!shown || Object.keys(open).length === 0) setIgnore(wantIgnore(false));
+  // Re-report the interactive geometry whenever visibility/size changes; the
+  // main process drives the actual click pass-through from these rects.
+  pushHit();
 }
 
 function scheduleHide() {
@@ -932,7 +935,7 @@ function attachResize(handle, d, tab, ax, ay) {
     e.preventDefault();
     handle.setPointerCapture(e.pointerId);
     dragging = true;
-    setOverUI(true);
+    pushHit(); // capture the whole window while resizing (cursor may leave the rect)
     const sx = e.clientX, sy = e.clientY, sw = d.offsetWidth, sh = d.offsetHeight;
 
     const move = (ev) => {
@@ -955,6 +958,7 @@ function attachResize(handle, d, tab, ax, ay) {
       handle.removeEventListener('pointerup', up);
       dragging = false;
       Store.saveSize(tab.id, { width: d.offsetWidth, height: d.offsetHeight });
+      reflowHeight(); // settle height + re-report the final drawer rect
     };
     handle.addEventListener('pointermove', move);
     handle.addEventListener('pointerup', up);
@@ -1856,8 +1860,7 @@ function openSearch(btn) {
   const r = btn.getBoundingClientRect();
   const w = box.offsetWidth || 300;
   box.style.left = Math.max(MARGIN, Math.min(r.right - w, window.innerWidth - w - MARGIN)) + 'px';
-  reflowHeight();
-  setIgnore(false);
+  reflowHeight(); // grows the window + re-reports the popover rect (pushHit)
   requestAnimationFrame(() => { input.focus(); input.select(); });
 }
 

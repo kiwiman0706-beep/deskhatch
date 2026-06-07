@@ -22,7 +22,7 @@ const SELFTEST = process.argv.includes('--selftest');
 let tray = null;
 
 // One "bar" per display we show on. Each entry is independent.
-// displayId -> { displayId, win, spacer, reserveActive, repinMode, rePinnedOnce, pinning, lastEdge }
+// displayId -> { displayId, win, spacer, reserveActive, repinMode, rePinnedOnce, pinning, lastEdge, hit, ignoring }
 const bars = new Map();
 // Last display config pushed from a renderer (shared across windows in Phase 1).
 let cfg = { mode: 'autohide', reserve: false, repin: 'event', monitors: null, barColor: '#1f6f6f' };
@@ -196,7 +196,11 @@ function applyReserve(entry) {
 
 function createBar(display) {
   const win = makeOverlay(display);
-  const entry = { displayId: display.id, win, spacer: null, reserveActive: false, repinMode: 'event', rePinnedOnce: false, pinning: false, lastEdge: null };
+  const entry = { displayId: display.id, win, spacer: null, reserveActive: false, repinMode: 'event', rePinnedOnce: false, pinning: false, lastEdge: null,
+    // Click pass-through, driven by the cursor watch from the renderer's reported
+    // geometry. mode: 'none' (all through) | 'all' (all captured) | 'rects'.
+    // Default 'none' so the desktop stays clickable until the renderer reports in.
+    hit: { mode: 'none', rects: [] }, ignoring: true };
   win.on('move', () => { if (entry.repinMode === 'event') rePin(entry, 'move'); });
   win.on('closed', () => { bars.delete(display.id); });
   win.webContents.once('did-finish-load', () => {
@@ -240,13 +244,35 @@ function toggleAll() {
   for (const e of bars.values()) if (e.win && !e.win.isDestroyed()) { if (anyVisible) e.win.hide(); else e.win.show(); }
 }
 
-// --- cursor / edge watch (one timer, all bars) ------------------------------
+// Click pass-through for one window, decided from the real cursor position
+// against the interactive rectangles the renderer reported. This replaces DOM
+// mousemove hit-testing, which a <webview> swallows (clicks leaked behind open
+// drawers) and which lagged clicks made right after reaching the bar.
+function applyHit(e, p) {
+  const h = e.hit;
+  let ignore;
+  if (h.mode === 'all') ignore = false;
+  else if (h.mode === 'rects') {
+    const wb = e.win.getBounds();                 // DIP; window-local CSS px == DIP
+    const lx = p.x - wb.x, ly = p.y - wb.y;
+    ignore = !h.rects.some((r) => lx >= r.x && lx < r.x + r.w && ly >= r.y && ly < r.y + r.h);
+  } else ignore = true;                           // 'none'
+  if (e.ignoring !== ignore) { e.ignoring = ignore; e.win.setIgnoreMouseEvents(ignore, { forward: true }); }
+}
+
+// --- cursor / edge / pass-through watch (one timer, all bars) ----------------
+// Runs fast so click pass-through tracks the cursor without a per-click race;
+// the heavier edge-reveal + AppBar re-pin only need the slower ~120ms cadence.
 function startEdgeWatch() {
   if (edgeTimer) return;
+  let tick = 0;
   edgeTimer = setInterval(() => {
     const p = screen.getCursorScreenPoint();
+    const slow = (tick++ % 8) === 0; // ~16ms * 8 ≈ 128ms
     for (const e of bars.values()) {
-      if (!e.win || e.win.isDestroyed() || !e.win.isVisible()) continue;
+      if (!e.win || e.win.isDestroyed()) continue;
+      applyHit(e, p);
+      if (!slow || !e.win.isVisible()) continue;
       const dd = displayObj(e.displayId);
       const d = dd.bounds;
       if (e.reserveActive) rePin(e, 'poll'); // always re-pin (robust on multi-monitor)
@@ -254,7 +280,7 @@ function startEdgeWatch() {
       const atTop = p.y <= top + 2 && p.x >= d.x && p.x < d.x + d.width;
       if (e.lastEdge !== atTop) { e.lastEdge = atTop; e.win.webContents.send('overlay:edge', atTop); }
     }
-  }, 120);
+  }, 16);
 }
 
 function createTray() {
@@ -274,6 +300,16 @@ function createTray() {
 ipcMain.on('overlay:set-ignore-mouse', (e, ignore) => {
   const w = BrowserWindow.fromWebContents(e.sender);
   if (w && !w.isDestroyed()) w.setIgnoreMouseEvents(!!ignore, { forward: true });
+});
+
+// Renderer reports its interactive geometry; the cursor watch (applyHit) turns
+// it into the per-window click pass-through flag.
+ipcMain.on('overlay:set-hit', (e, mode, rects) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (!w || w.isDestroyed()) return;
+  for (const entry of bars.values()) {
+    if (entry.win === w) { entry.hit = { mode, rects: Array.isArray(rects) ? rects : [] }; break; }
+  }
 });
 
 ipcMain.on('overlay:raise', (e) => {
