@@ -1,4 +1,4 @@
-# SmartSuite.next
+# DeskHatch
 
 A modern take on the classic **Lotus SmartCenter** bar: a thin strip docks at the
 **top edge** of the screen, and clicking a button **slides a single drawer down
