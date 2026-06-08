@@ -12,7 +12,7 @@
 const { app, dialog, shell, net } = require('electron');
 
 const OWNER = 'kiwiman0706-beep';
-const REPO = 'Deskhatch';
+const REPO = 'deskhatch';
 
 // --- Windows: electron-updater (download in the background, prompt to apply) --
 function initWindowsAutoUpdate() {

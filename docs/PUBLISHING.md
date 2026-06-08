@@ -48,7 +48,7 @@ PackageIdentifier: **`Theta.Deskhatch`**
    ```
 2. 最初の Release ができたら、その Setup の URL を使って新規作成:
    ```powershell
-   wingetcreate new https://github.com/kiwiman0706-beep/Deskhatch/releases/download/v0.1.0/DeskHatch-Setup-0.1.0-x64.exe
+   wingetcreate new https://github.com/kiwiman0706-beep/deskhatch/releases/download/v0.1.0/DeskHatch-Setup-0.1.0-x64.exe
    ```
    - PackageIdentifier に **`Theta.Deskhatch`**
    - Publisher: `Theta` / PackageName: `DeskHatch` / Moniker: `deskhatch`
