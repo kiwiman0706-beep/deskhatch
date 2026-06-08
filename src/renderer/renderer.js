@@ -1211,7 +1211,7 @@ function buildDisplaySettings() {
   const locales = (window.i18n && window.i18n.list) ? window.i18n.list() : [{ code: 'en', name: 'English' }, { code: 'ja', name: '日本語' }];
   locales.forEach((lc) => addLangOpt(lc.code, lc.name));
   try { langSel.value = localStorage.getItem('ss-lang') || 'auto'; } catch (_) { langSel.value = 'auto'; }
-  langSel.onchange = () => { try { if (langSel.value === 'auto') localStorage.removeItem('ss-lang'); else localStorage.setItem('ss-lang', langSel.value); } catch (_) {} location.reload(); };
+  langSel.onchange = () => { try { if (langSel.value === 'auto') localStorage.removeItem('ss-lang'); else localStorage.setItem('ss-lang', langSel.value); } catch (_) {} window.overlay.relaunch(); };
   langWrap.append(document.createTextNode(L('言語') + ' '), langSel);
   root.append(langWrap);
 
@@ -1775,7 +1775,7 @@ async function importSettings() {
   const data = obj && obj.data ? obj.data : obj;
   if (!data || typeof data !== 'object') { toast(L('設定が見つかりません')); return; }
   Object.keys(data).forEach((k) => { if (k.indexOf('ss.') === 0) localStorage.setItem(k, data[k]); });
-  location.reload();
+  window.overlay.relaunch();
 }
 
 function clearDragFx() {

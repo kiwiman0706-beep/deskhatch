@@ -24,6 +24,9 @@ contextBridge.exposeInMainWorld('overlay', {
   // Quit the whole app (tray + bar).
   quit: () => ipcRenderer.send('app:quit'),
 
+  // Fully restart the app (language switch — in-place reload breaks the overlay).
+  relaunch: () => ipcRenderer.send('app:relaunch'),
+
   // Launch at login.
   getStartup: () => ipcRenderer.invoke('startup:get'),
   setStartup: (on) => ipcRenderer.invoke('startup:set', on),
