@@ -1206,7 +1206,10 @@ function buildDisplaySettings() {
   // Language (auto = follow the OS; override persists in localStorage).
   const langWrap = el('label', 'ss-set-check');
   const langSel = el('select', 'ss-set-type');
-  [['auto', 'Auto'], ['en', 'English'], ['ja', '日本語']].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; langSel.appendChild(op); });
+  const addLangOpt = (v, lbl) => { const op = el('option', null, lbl); op.value = v; langSel.appendChild(op); };
+  addLangOpt('auto', 'Auto');
+  const locales = (window.i18n && window.i18n.list) ? window.i18n.list() : [{ code: 'en', name: 'English' }, { code: 'ja', name: '日本語' }];
+  locales.forEach((lc) => addLangOpt(lc.code, lc.name));
   try { langSel.value = localStorage.getItem('ss-lang') || 'auto'; } catch (_) { langSel.value = 'auto'; }
   langSel.onchange = () => { try { if (langSel.value === 'auto') localStorage.removeItem('ss-lang'); else localStorage.setItem('ss-lang', langSel.value); } catch (_) {} location.reload(); };
   langWrap.append(document.createTextNode(L('言語') + ' '), langSel);

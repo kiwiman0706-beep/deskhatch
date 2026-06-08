@@ -1,6 +1,8 @@
 'use strict';
 
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
+const fs = require('fs');
+const nodePath = require('path');
 
 contextBridge.exposeInMainWorld('overlay', {
   platform: process.platform,
@@ -87,4 +89,26 @@ contextBridge.exposeInMainWorld('auth', {
   login: (partition) => ipcRenderer.invoke('auth:login', partition),
   logout: (partition) => ipcRenderer.invoke('auth:logout', partition),
   ensure: (partition) => ipcRenderer.send('auth:ensure', partition),
+});
+
+// Language packs: read src/renderer/locales/*.json synchronously so the UI can
+// translate at load time, and enumerate them so Settings lists every language.
+const LOCALES_DIR = nodePath.join(__dirname, '..', 'renderer', 'locales');
+contextBridge.exposeInMainWorld('i18n', {
+  list: () => {
+    try {
+      return fs.readdirSync(LOCALES_DIR).filter((f) => f.endsWith('.json')).map((f) => {
+        const code = f.replace(/\.json$/, '');
+        let name = code;
+        try { name = JSON.parse(fs.readFileSync(nodePath.join(LOCALES_DIR, f), 'utf8')).__name__ || code; } catch (_) {}
+        return { code, name };
+      });
+    } catch (_) { return []; }
+  },
+  load: (code) => {
+    try {
+      if (!/^[A-Za-z_-]+$/.test(code)) return null;
+      return JSON.parse(fs.readFileSync(nodePath.join(LOCALES_DIR, code + '.json'), 'utf8'));
+    } catch (_) { return null; }
+  },
 });
