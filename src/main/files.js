@@ -89,9 +89,19 @@ function register(getWin) {
 
   ipcMain.handle('files:icon', (_e, p) => getIcon(p));
 
-  // Resolve a well-known location ("@desktop", "@pc", ...) to a real path.
+  // Resolve a well-known location ("@desktop", "@pc", "@apps", ...) to a path.
+  const startMenuPrograms = () =>
+    path.join(process.env.ProgramData || 'C:\\ProgramData', 'Microsoft', 'Windows', 'Start Menu', 'Programs');
   ipcMain.handle('files:special', (_e, key) => {
     if (key === 'pc') return PC;
+    // Installed-apps folder, per OS: Windows Start Menu programs / macOS Applications.
+    if (key === 'apps') {
+      if (process.platform === 'win32') return startMenuPrograms();
+      if (process.platform === 'darwin') return '/Applications';
+      try { return app.getPath('home'); } catch (_) { return PC; }
+    }
+    if (key === 'startmenu') return startMenuPrograms();
+    if (key === 'applications') return '/Applications';
     try { return app.getPath(key); } catch (_) { return PC; }
   });
 

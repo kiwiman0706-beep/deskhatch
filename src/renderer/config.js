@@ -57,5 +57,8 @@ window.SS_TABS = [
 
   { id: 'desktop', label: 'Desktop', icon: '🖳', type: 'folder', path: '@desktop', width: 460 },
 
+  // Installed apps: Windows Start Menu programs / macOS Applications (auto per-OS).
+  { id: 'apps', label: 'アプリ', icon: '🚀', type: 'folder', path: '@apps', width: 460 },
+
   { id: 'pc', label: 'My Computer', icon: '💻', type: 'files', width: 460 },
 ];

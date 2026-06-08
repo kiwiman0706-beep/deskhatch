@@ -203,6 +203,7 @@ function createBar(display) {
     // Default 'none' so the desktop stays clickable until the renderer reports in.
     hit: { mode: 'none', rects: [] }, ignoring: true };
   win.on('move', () => { if (entry.repinMode === 'event') rePin(entry, 'move'); });
+  win.on('blur', () => { if (!win.isDestroyed()) win.webContents.send('overlay:blur'); });
   win.on('closed', () => { bars.delete(display.id); });
   win.webContents.once('did-finish-load', () => {
     const d = displayObj(display.id);

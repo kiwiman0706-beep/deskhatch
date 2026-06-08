@@ -321,7 +321,8 @@ function buildFilesPanel(startPath) {
       li.append(emoji, name);
 
       li.addEventListener('dblclick', () => {
-        if (ent.isDir) load(ent.path);
+        // macOS .app bundles are directories — launch them instead of descending.
+        if (ent.isDir && !/\.app$/i.test(ent.name)) load(ent.path);
         else window.files.open(ent.path);
       });
 
@@ -1023,11 +1024,16 @@ function bringToFront(el) {
 }
 
 function openExternalFor(tab, d) {
-  if (tab.type === 'page' && tab.url) window.system.external(tab.url);
+  // Prefer the webview's LIVE url (so the page you actually navigated to opens in
+  // the browser — e.g. the specific Gmail thread), falling back to the config url.
+  const liveUrl = (sel) => { const w = d.querySelector(sel); try { return (w && w.getURL && w.getURL()) || null; } catch (_) { return null; } };
+  if (tab.type === 'page') window.system.external(liveUrl('.ss-webview') || tab.url);
   else if (tab.type === 'split') (tab.panes || []).forEach((p) => p.url && window.system.external(p.url));
   else if (tab.type === 'tabs') {
     const w = d.querySelector('.ss-tabs');
-    if (w && w.dataset.activeUrl) window.system.external(w.dataset.activeUrl);
+    const active = d.querySelector('.ss-tabs-view .ss-webview');
+    const url = (active && active.getURL && active.getURL()) || (w && w.dataset.activeUrl);
+    if (url) window.system.external(url);
   }
 }
 
@@ -1071,6 +1077,11 @@ function openTab(tab, btn) {
   btn.classList.add('active');
   reflowHeight();
   requestAnimationFrame(() => d.classList.add('open'));
+  // Once the slide finishes, drop the CSS transform. A lingering `transform` on
+  // an ancestor of a <webview> breaks Chromium's input hit-testing inside it —
+  // the embedded page (e.g. Gmail) couldn't be scrolled and clicks misfired.
+  // Restored on close so the drawer still animates out.
+  setTimeout(() => { const o = open[tab.id]; if (o && o.el === d) d.style.transform = 'none'; }, ANIM_MS + 20);
 }
 
 function closeDrawer(id) {
@@ -1087,6 +1098,7 @@ function closeDrawer(id) {
     return;
   }
 
+  o.el.style.transform = '';      // hand the transform back to CSS so it can animate out
   o.el.classList.remove('open');
   const el = o.el;
   setTimeout(() => {
@@ -2021,6 +2033,14 @@ window.overlay.onEdge((top) => {
   atEdge = top;
   if (top) { clearTimeout(hideTimer); window.overlay.raise(); reflowHeight(); }
   else { scheduleHide(); }
+});
+
+// Close transient (unpinned) drawers when focus leaves the overlay — e.g. the
+// user switched virtual desktop / triggered Mission Control / Exposé, or moved
+// to another app. Pinned drawers stay so deliberate layouts survive.
+window.overlay.onBlur(() => {
+  if (searchEl) closeSearch();
+  for (const id of Object.keys(open)) if (!open[id].pinned) closeDrawer(id);
 });
 
 // Surface why the top-edge reservation didn't take, if it was requested.
