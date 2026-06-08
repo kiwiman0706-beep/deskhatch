@@ -84,6 +84,10 @@ const Store = {
   // "Don't show the intro guide on startup again."
   getHelpSkip() { return localStorage.getItem('ss.help.skip') === '1'; },
   setHelpSkip(v) { if (v) localStorage.setItem('ss.help.skip', '1'); else localStorage.removeItem('ss.help.skip'); },
+  // Close unpinned drawers when focus leaves the app (off by default so OS
+  // screenshot tools / Alt-Tab don't dismiss a drawer you're capturing).
+  getCloseOnLeave() { return localStorage.getItem('ss.closeOnLeave') === '1'; },
+  setCloseOnLeave(v) { if (v) localStorage.setItem('ss.closeOnLeave', '1'); else localStorage.removeItem('ss.closeOnLeave'); },
   // Search engine for the right-end 🔍 box (id into SEARCH_ENGINES).
   getSearchEngine() { return localStorage.getItem('ss.search.engine') || 'google'; },
   setSearchEngine(id) { localStorage.setItem('ss.search.engine', id); },
@@ -1232,6 +1236,14 @@ function buildDisplaySettings() {
   roundWrap.append(round, document.createTextNode(L(' 両端を丸める（クラシックMac風）')));
   root.append(roundWrap);
 
+  // Close drawers when leaving the app / switching desktop (off by default).
+  const colWrap = el('label', 'ss-set-check');
+  const colChk = document.createElement('input');
+  colChk.type = 'checkbox'; colChk.checked = Store.getCloseOnLeave();
+  colChk.onchange = () => Store.setCloseOnLeave(colChk.checked);
+  colWrap.append(colChk, document.createTextNode(L(' アプリ/デスクトップ切替時にドロワーを閉じる')));
+  root.append(colWrap);
+
   // Launch at login
   const startWrap = el('label', 'ss-set-check');
   const startup = document.createElement('input');
@@ -2051,6 +2063,7 @@ window.overlay.onEdge((top) => {
 // user switched virtual desktop / triggered Mission Control / Exposé, or moved
 // to another app. Pinned drawers stay so deliberate layouts survive.
 window.overlay.onBlur(() => {
+  if (!Store.getCloseOnLeave()) return; // off by default — keep drawers open for screenshots / Alt-Tab
   if (searchEl) closeSearch();
   for (const id of Object.keys(open)) if (!open[id].pinned) closeDrawer(id);
 });

@@ -184,5 +184,6 @@
   "<li class=\"ss-bm-empty\">（ブックマークが見つかりません）</li>": "<li class=\"ss-bm-empty\">(No bookmarks found)</li>",
   "<li class=\"ss-clip-empty\">（空です）ここやバーにドラッグ＆ドロップ</li>": "<li class=\"ss-clip-empty\">(Empty) drag &amp; drop here or onto the bar</li>",
   " 次回以降は表示しない": " Don't show again",
-  "ブラウザを開けませんでした:\n": "Couldn't open the browser:\n"
+  "ブラウザを開けませんでした:\n": "Couldn't open the browser:\n",
+  " アプリ/デスクトップ切替時にドロワーを閉じる": " Close drawers when leaving the app / switching desktop"
 }
