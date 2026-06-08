@@ -36,6 +36,8 @@ const allDisplays = () => screen.getAllDisplays();
 const displayObj = (id) => allDisplays().find((d) => d.id === id) || screen.getPrimaryDisplay();
 
 const isMac = process.platform === 'darwin';
+// Tiny main-process i18n for native menus/labels (follows the OS locale).
+const LM = (ja, en) => { try { return app.getLocale().toLowerCase().startsWith('ja') ? ja : en; } catch (_) { return en; } };
 // Top Y for the bar on a display. On macOS we sit just below the system menu
 // bar (the work-area top) so we don't fight it; everywhere else we hug the
 // absolute top edge of the screen (Fitts's-law slam target).
@@ -290,10 +292,10 @@ function createTray() {
   tray = new Tray(icon);
   tray.setToolTip('DeskHatch');
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: '表示 / 非表示', click: toggleAll },
-    { label: 'Google にログイン', click: () => auth.openLogin() },
+    { label: LM('表示 / 非表示', 'Show / Hide'), click: toggleAll },
+    { label: LM('Google にログイン', 'Sign in to Google'), click: () => auth.openLogin() },
     { type: 'separator' },
-    { label: '終了', click: () => app.quit() },
+    { label: LM('終了', 'Quit'), click: () => app.quit() },
   ]));
   tray.on('click', toggleAll);
 }
@@ -338,7 +340,7 @@ ipcMain.handle('startup:set', (_e, on) => {
 
 ipcMain.handle('overlay:get-displays', () => {
   const prim = screen.getPrimaryDisplay().id;
-  return allDisplays().map((dp, i) => ({ id: dp.id, label: 'モニタ' + (i + 1) + (dp.id === prim ? '（主）' : ''), primary: dp.id === prim }));
+  return allDisplays().map((dp, i) => ({ id: dp.id, label: LM('モニタ', 'Monitor ') + (i + 1) + (dp.id === prim ? LM('（主）', ' (primary)') : ''), primary: dp.id === prim }));
 });
 
 ipcMain.on('display:set', (_e, d) => {

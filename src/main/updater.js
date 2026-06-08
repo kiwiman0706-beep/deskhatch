@@ -11,6 +11,8 @@
 
 const { app, dialog, shell, net } = require('electron');
 
+const isJa = () => { try { return app.getLocale().toLowerCase().startsWith('ja'); } catch (_) { return false; } };
+
 const OWNER = 'kiwiman0706-beep';
 const REPO = 'deskhatch';
 
@@ -23,13 +25,14 @@ function initWindowsAutoUpdate() {
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.on('error', (e) => console.warn('[update] ' + (e && e.message)));
   autoUpdater.on('update-downloaded', async (info) => {
+    const ja = isJa();
     const { response } = await dialog.showMessageBox({
       type: 'info',
-      buttons: ['今すぐ再起動して更新', '後で'],
+      buttons: [ja ? '今すぐ再起動して更新' : 'Restart & update now', ja ? '後で' : 'Later'],
       defaultId: 0, cancelId: 1,
-      title: 'アップデート',
-      message: '新しいバージョン ' + info.version + ' を準備しました。',
-      detail: '再起動すると更新が適用されます（後で終了する際にも適用されます）。',
+      title: ja ? 'アップデート' : 'Update',
+      message: ja ? ('新しいバージョン ' + info.version + ' を準備しました。') : ('Version ' + info.version + ' is ready.'),
+      detail: ja ? '再起動すると更新が適用されます（後で終了する際にも適用されます）。' : 'It will be applied on restart (or next time you quit).',
     });
     if (response === 0) autoUpdater.quitAndInstall();
   });
@@ -67,13 +70,14 @@ async function checkAndNotify() {
     const rel = await fetchJson('https://api.github.com/repos/' + OWNER + '/' + REPO + '/releases/latest');
     const latest = String(rel.tag_name || '').replace(/^v/, '');
     if (!latest || !isNewer(app.getVersion(), latest)) return;
+    const ja = isJa();
     const { response } = await dialog.showMessageBox({
       type: 'info',
-      buttons: ['ダウンロード', '後で'],
+      buttons: [ja ? 'ダウンロード' : 'Download', ja ? '後で' : 'Later'],
       defaultId: 0, cancelId: 1,
-      title: 'アップデート',
-      message: '新しいバージョン ' + latest + ' があります。',
-      detail: '現在のバージョン: ' + app.getVersion(),
+      title: ja ? 'アップデート' : 'Update',
+      message: ja ? ('新しいバージョン ' + latest + ' があります。') : ('Version ' + latest + ' is available.'),
+      detail: (ja ? '現在のバージョン: ' : 'Current version: ') + app.getVersion(),
     });
     if (response === 0) {
       shell.openExternal(rel.html_url || ('https://github.com/' + OWNER + '/' + REPO + '/releases/latest'));

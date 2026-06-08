@@ -14,14 +14,14 @@ const MOBILE_UA =
 const drawerHeight = () => Math.min(720, Math.floor(window.screen.availHeight * 0.8));
 
 // The "logo" menu pseudo-tab pinned to the left of the bar.
-const MENU_TAB = { id: '__menu', label: 'メニュー', icon: '☰', type: 'menu', width: 380 };
+const MENU_TAB = { id: '__menu', label: L('メニュー'), icon: '☰', type: 'menu', width: 380 };
 
 // The "clip" (temporary holding) pseudo-tab — a drop target / bin.
 const CLIP_TAB = { id: '__clip', label: 'クリップ', icon: '📎', type: 'clip', width: 380 };
 // The "other monitors' drawers" pseudo-tab — open another monitor's items here.
-const OTHERS_TAB = { id: '__others', label: '別モニタのドロワー', icon: '🖥', type: 'others', width: 320 };
+const OTHERS_TAB = { id: '__others', label: L('別モニタのドロワー'), icon: '🖥', type: 'others', width: 320 };
 // The "how-to guide" pseudo-tab — an HTML feature-overview slideshow.
-const HELP_TAB = { id: '__help', label: '使い方ガイド', icon: '❔', type: 'help', width: 620 };
+const HELP_TAB = { id: '__help', label: L('使い方ガイド'), icon: '❔', type: 'help', width: 620 };
 
 // File viewers by extension (others open with the default app).
 const VIEWER_EXT = {
@@ -121,7 +121,7 @@ function searchOrUrl(q) {
 // Accounts: the built-in "default" (shared session) plus user-added ones, each
 // with its own isolated session partition.
 const partitionFor = (id) => (!id || id === 'default') ? 'persist:smartsuite' : 'persist:acct-' + id;
-const accountsFull = () => [{ id: 'default', name: '既定' }].concat(Store.getAccounts());
+const accountsFull = () => [{ id: 'default', name: L('既定') }].concat(Store.getAccounts());
 const addAccount = (name) => {
   const arr = Store.getAccounts();
   arr.push({ id: 'a' + Date.now().toString(36), name });
@@ -145,7 +145,7 @@ const THEMES = {
   classicmac: { '--teal-light': '#fbfbfb', '--teal': '#e9e9ec', '--teal-dark': '#000000', '--bar-fg': '#0a0a0a' },
 };
 const THEME_LABELS = [
-  ['teal', 'Teal（既定）'], ['graphite', 'Graphite（ダーク）'], ['ocean', 'Ocean'],
+  ['teal', L('Teal（既定）')], ['graphite', L('Graphite（ダーク）')], ['ocean', 'Ocean'],
   ['forest', 'Forest'], ['plum', 'Plum'], ['sunset', 'Sunset'], ['rose', 'Rose'],
   ['light', 'Light'], ['classicmac', 'Classic Mac'],
 ];
@@ -271,7 +271,7 @@ function buildFilesPanel(startPath) {
   const nav = document.createElement('div');
   nav.className = 'ss-fb-nav';
   const back = document.createElement('button');
-  back.className = 'ss-fb-btn'; back.textContent = '←'; back.title = '戻る';
+  back.className = 'ss-fb-btn'; back.textContent = '←'; back.title = L('戻る');
   const up = document.createElement('button');
   up.className = 'ss-fb-btn'; up.textContent = '↑'; up.title = '上のフォルダへ';
   const crumb = document.createElement('span');
@@ -376,8 +376,8 @@ function buildFilesPanel(startPath) {
     }
     const add = document.createElement('button');
     add.className = 'ss-fb-place ss-fb-add';
-    add.textContent = '＋';
-    add.title = 'フォルダを追加';
+    add.textContent = L('＋');
+    add.title = L('フォルダを追加');
     add.onclick = async () => {
       const dir = await window.files.pickFolder();
       if (!dir) return;
@@ -425,12 +425,12 @@ function omniToUrl(q) {
 function buildBrowser(tab, partition) {
   const wrap = el('div', 'ss-browser');
   const barEl = el('div', 'ss-browser-bar');
-  const back = el('button', 'ss-browser-btn', '◀'); back.title = '戻る';
-  const fwd = el('button', 'ss-browser-btn', '▶'); fwd.title = '進む';
-  const reload = el('button', 'ss-browser-btn', '⟳'); reload.title = '再読み込み';
+  const back = el('button', 'ss-browser-btn', '◀'); back.title = L('戻る');
+  const fwd = el('button', 'ss-browser-btn', '▶'); fwd.title = L('進む');
+  const reload = el('button', 'ss-browser-btn', '⟳'); reload.title = L('再読み込み');
   const omni = el('input', 'ss-browser-omni');
-  omni.type = 'text'; omni.spellcheck = false; omni.placeholder = '検索 または URL を入力';
-  const ext = el('button', 'ss-browser-btn', '↗'); ext.title = '標準ブラウザで開く';
+  omni.type = 'text'; omni.spellcheck = false; omni.placeholder = L('検索 または URL を入力');
+  const ext = el('button', 'ss-browser-btn', '↗'); ext.title = L('標準ブラウザで開く');
   barEl.append(back, fwd, reload, omni, ext);
 
   const home = tab.url || 'https://www.google.com/';
@@ -486,7 +486,7 @@ function buildTabsPanel(tab) {
   }
 
   panes.forEach((p, i) => {
-    const b = el('button', 'ss-tabs-tab', p.label || ('タブ' + (i + 1)));
+    const b = el('button', 'ss-tabs-tab', p.label || (L('タブ') + (i + 1)));
     b.onclick = () => show(i);
     tabbar.appendChild(b);
   });
@@ -502,9 +502,9 @@ function buildEditor() {
   ta.className = 'ss-editor-area';
   ta.value = localStorage.getItem('ss.editor') || '';
   ta.oninput = () => localStorage.setItem('ss.editor', ta.value);
-  const save = el('button', 'ss-set-btn', 'ファイルに保存');
+  const save = el('button', 'ss-set-btn', L('ファイルに保存'));
   save.onclick = () => window.files.saveText(ta.value);
-  const clear = el('button', 'ss-set-btn', 'クリア');
+  const clear = el('button', 'ss-set-btn', L('クリア'));
   clear.onclick = () => { ta.value = ''; localStorage.setItem('ss.editor', ''); };
   barEl.append(save, clear);
   wrap.append(barEl, ta);
@@ -565,7 +565,7 @@ function buildBookmarks() {
   const wrap = el('div', 'ss-bm');
   const search = document.createElement('input');
   search.className = 'ss-bm-search';
-  search.placeholder = 'ブックマークを絞り込み…';
+  search.placeholder = L('ブックマークを絞り込み…');
   const list = el('ul', 'ss-bm-list');
   wrap.append(search, list);
   let all = [];
@@ -590,7 +590,7 @@ function buildBookmarks() {
 function buildCamera(tab) {
   const wrap = el('div', 'ss-cam');
   const barEl = el('div', 'ss-cam-bar');
-  const reload = el('button', 'ss-set-btn', '再接続');
+  const reload = el('button', 'ss-set-btn', L('再接続'));
   barEl.append(reload);
   const video = document.createElement('video');
   video.className = 'ss-cam-video';
@@ -606,10 +606,10 @@ function buildCamera(tab) {
     wrap.appendChild(el('div', 'ss-cam-msg', text));
   }
   async function start() {
-    if (!tab.rtsp) { msg('設定で RTSP URL を入力してください'); return; }
+    if (!tab.rtsp) { msg(L('設定で RTSP URL を入力してください')); return; }
     const r = await window.camera.url(tab.rtsp);
     if (r.error) {
-      msg(r.error === 'no-ffmpeg' ? 'ffmpeg が見つかりません（npm install を実行）' : 'RTSP URL が不正です（rtsp://… 形式）');
+      msg(r.error === 'no-ffmpeg' ? L('ffmpeg が見つかりません（npm install を実行）') : L('RTSP URL が不正です（rtsp://… 形式）'));
       return;
     }
     const m = wrap.querySelector('.ss-cam-msg'); if (m) m.remove();
@@ -697,11 +697,11 @@ function renderClipList(list) {
     const acts = el('span', 'ss-clip-actions');
     const mk = (label, title, fn, cls) => { const b = el('button', 'ss-clip-act' + (cls || ''), label); b.title = title; b.onclick = (ev) => { ev.stopPropagation(); fn(); }; return b; };
     acts.append(
-      mk('▲', '上へ', () => moveClip(idx, -1, list)),
-      mk('▼', '下へ', () => moveClip(idx, 1, list)),
-      mk('⏱', '一時的（再起動で消す）', () => toggleTemp(it.id, list), it.temp ? ' on' : ''),
-      mk('📌', 'バーに固定', () => promoteClip(it)),
-      mk('×', '削除', () => { Store.saveClips(Store.getClips().filter((c) => c.id !== it.id)); renderClipList(list); }, ' ss-clip-x'),
+      mk('▲', L('上へ'), () => moveClip(idx, -1, list)),
+      mk('▼', L('下へ'), () => moveClip(idx, 1, list)),
+      mk('⏱', L('一時的（再起動で消す）'), () => toggleTemp(it.id, list), it.temp ? ' on' : ''),
+      mk('📌', L('バーに固定'), () => promoteClip(it)),
+      mk('×', L('削除'), () => { Store.saveClips(Store.getClips().filter((c) => c.id !== it.id)); renderClipList(list); }, ' ss-clip-x'),
     );
     li.append(acts);
     list.appendChild(li);
@@ -728,7 +728,7 @@ function openClipItem(it) {
   const id = 'clip-' + it.id;
   if (it.kind === 'url') openTab({ id, label: it.label.slice(0, 18), icon: '🔗', type: 'page', url: it.url, mobile: false, width: 540 }, anchor);
   else if (it.kind === 'folder') openTab({ id, label: it.label, icon: '📁', type: 'folder', path: it.path, width: 460 }, anchor);
-  else if (it.kind === 'text') openTab({ id, label: it.label || 'テキスト', icon: '✂', type: 'snippet', text: it.text, width: 420 }, anchor);
+  else if (it.kind === 'text') openTab({ id, label: it.label || L('テキスト'), icon: '✂', type: 'snippet', text: it.text, width: 420 }, anchor);
   else if (it.kind === 'file') {
     if (it.viewer) openTab({ id, label: it.label, icon: viewerIcon(it.viewer), type: 'viewer', viewer: it.viewer, path: it.path, width: 560 }, anchor);
     else window.files.open(it.path);
@@ -741,7 +741,7 @@ function promoteClip(it) {
   let tab = null;
   if (it.kind === 'url') tab = { id, label: it.label.slice(0, 16), icon: '🔗', type: 'page', url: it.url, mobile: false, width: 540 };
   else if (it.kind === 'folder') tab = { id, label: it.label, icon: '📁', type: 'folder', path: it.path, width: 460 };
-  else if (it.kind === 'text') tab = { id, label: (it.label || 'メモ').slice(0, 16), icon: '✂', type: 'snippet', text: it.text, width: 420 };
+  else if (it.kind === 'text') tab = { id, label: (it.label || L('メモ')).slice(0, 16), icon: '✂', type: 'snippet', text: it.text, width: 420 };
   else if (it.kind === 'file') {
     tab = it.viewer
       ? { id, label: it.label, icon: viewerIcon(it.viewer), type: 'viewer', viewer: it.viewer, path: it.path, width: 560 }
@@ -780,10 +780,10 @@ function buildOthersPanel() {
     const connIds = connected.map((d) => String(d.id));
     const groups = [];
     connected.forEach((d) => { if (String(d.id) !== MY_DISPLAY) groups.push({ id: String(d.id), name: d.label, items: readProfile(d.id) }); });
-    otherProfileIds(connIds).forEach((id) => groups.push({ id, name: 'モニタ（未接続）', items: readProfile(id) }));
+    otherProfileIds(connIds).forEach((id) => groups.push({ id, name: L('モニタ（未接続）'), items: readProfile(id) }));
 
     wrap.innerHTML = '';
-    if (!groups.length) { wrap.append(el('div', 'ss-others-empty', '他のモニタはありません')); return; }
+    if (!groups.length) { wrap.append(el('div', 'ss-others-empty', L('他のモニタはありません'))); return; }
     const anchor = () => document.querySelector('.ss-others-btn') || document.getElementById('bar');
     for (const g of groups) {
       wrap.append(el('div', 'ss-others-head', g.name));
@@ -807,9 +807,9 @@ function buildClipPanel() {
   const wrap = el('div', 'ss-clip-bin');
   const list = el('ul', 'ss-clip-list');
   const head = el('div', 'ss-clip-head');
-  const clear = el('button', 'ss-set-btn', '全クリア');
+  const clear = el('button', 'ss-set-btn', L('全クリア'));
   clear.onclick = () => { if (Store.getClips().length) { Store.saveClips([]); renderClipList(list); } };
-  head.append(el('span', 'ss-clip-hint', 'ドラッグ＆ドロップで追加'), clear);
+  head.append(el('span', 'ss-clip-hint', L('ドラッグ＆ドロップで追加')), clear);
   wrap.append(head, list);
   const stop = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
   ['dragenter', 'dragover'].forEach((ev) => wrap.addEventListener(ev, (e) => { stop(e); wrap.classList.add('over'); }));
@@ -823,7 +823,7 @@ function buildClipPanel() {
 // --- File viewer drawer ----------------------------------------------------
 function buildViewer(tab) {
   const wrap = el('div', 'ss-viewer');
-  if (!tab.path) { wrap.append(el('div', 'ss-viewer-msg', 'ファイルがありません')); return wrap; }
+  if (!tab.path) { wrap.append(el('div', 'ss-viewer-msg', L('ファイルがありません'))); return wrap; }
   if (tab.viewer === 'text') {
     const pre = document.createElement('pre');
     pre.className = 'ss-viewer-text';
@@ -846,7 +846,7 @@ function buildViewer(tab) {
 function buildSnippet(tab) {
   const wrap = el('div', 'ss-editor');
   const barEl = el('div', 'ss-editor-bar');
-  const copy = el('button', 'ss-set-btn', 'コピー');
+  const copy = el('button', 'ss-set-btn', L('コピー'));
   const ta = document.createElement('textarea');
   ta.className = 'ss-editor-area';
   ta.value = tab.text || '';
@@ -859,7 +859,7 @@ function buildSnippet(tab) {
 function buildClipboard() {
   const wrap = el('div', 'ss-clip');
   const barEl = el('div', 'ss-clip-bar');
-  const refresh = el('button', 'ss-set-btn', '更新');
+  const refresh = el('button', 'ss-set-btn', L('更新'));
   const content = el('div', 'ss-clip-content');
   async function load() {
     const data = await window.system.clipboard();
@@ -872,7 +872,7 @@ function buildClipboard() {
     } else {
       const pre = document.createElement('pre');
       pre.className = 'ss-clip-text';
-      pre.textContent = data.text || '（クリップボードは空です）';
+      pre.textContent = data.text || L('（クリップボードは空です）');
       content.appendChild(pre);
     }
   }
@@ -984,17 +984,17 @@ function createDrawer(tab) {
   const pin = document.createElement('button');
   pin.className = 'ss-head-btn ss-pin';
   pin.textContent = '📌';
-  pin.title = 'ピン留め（開いたままにする）';
+  pin.title = L('ピン留め（開いたままにする）');
   const close = document.createElement('button');
   close.className = 'ss-head-btn ss-close';
   close.textContent = '✕';
-  close.title = '閉じる';
+  close.title = L('閉じる');
   head.append(title, spacer);
   if (tab.type === 'page' || tab.type === 'tabs' || tab.type === 'split') {
     const ext = document.createElement('button');
     ext.className = 'ss-head-btn';
     ext.textContent = '↗';
-    ext.title = '標準ブラウザで開く';
+    ext.title = L('標準ブラウザで開く');
     ext.addEventListener('click', () => openExternalFor(tab, d));
     head.append(ext);
   }
@@ -1003,7 +1003,7 @@ function createDrawer(tab) {
   const gripE = el('div', 'ss-resize-e');   // right edge: width
   const gripS = el('div', 'ss-resize-s');   // bottom edge: height
   const gripSE = el('div', 'ss-resize-se'); // corner: both
-  gripSE.title = 'ドラッグでサイズ変更';
+  gripSE.title = L('ドラッグでサイズ変更');
 
   d.append(head, buildBody(tab), gripE, gripS, gripSE);
 
@@ -1203,6 +1203,15 @@ function buildDisplaySettings() {
   themeWrap.append(document.createTextNode('テーマ '), themeSel);
   root.append(themeWrap);
 
+  // Language (auto = follow the OS; override persists in localStorage).
+  const langWrap = el('label', 'ss-set-check');
+  const langSel = el('select', 'ss-set-type');
+  [['auto', 'Auto'], ['en', 'English'], ['ja', '日本語']].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; langSel.appendChild(op); });
+  try { langSel.value = localStorage.getItem('ss-lang') || 'auto'; } catch (_) { langSel.value = 'auto'; }
+  langSel.onchange = () => { try { if (langSel.value === 'auto') localStorage.removeItem('ss-lang'); else localStorage.setItem('ss-lang', langSel.value); } catch (_) {} location.reload(); };
+  langWrap.append(document.createTextNode(L('言語') + ' '), langSel);
+  root.append(langWrap);
+
   // Search engine for the right-end 🔍 box
   const engWrap = el('label', 'ss-set-check');
   const engSel = el('select', 'ss-set-type');
@@ -1257,11 +1266,11 @@ function buildTabFields(t, extras) {
   }
 
   const type = el('select', 'ss-set-type');
-  [['page', 'ページ'], ['browser', 'ブラウザ'], ['tabs', 'タブ'], ['files', 'PC全体'], ['folder', 'フォルダ'], ['tool', 'ツール'], ['camera', 'カメラ']].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; type.appendChild(op); });
+  [['page', 'ページ'], ['browser', L('ブラウザ')], ['tabs', L('タブ')], ['files', 'PC全体'], ['folder', 'フォルダ'], ['tool', L('ツール')], ['camera', 'カメラ']].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; type.appendChild(op); });
   type.value = t.type;
   const mobileWrap = el('label', 'ss-set-check'); const mobile = document.createElement('input'); mobile.type = 'checkbox'; mobile.checked = !!t.mobile; mobile.onchange = () => { t.mobile = mobile.checked; }; mobileWrap.append(mobile, document.createTextNode(' スマホ表示'));
   const keepWrap = el('label', 'ss-set-check'); const keep = document.createElement('input'); keep.type = 'checkbox'; keep.checked = !!t.keepAlive; keep.onchange = () => { t.keepAlive = keep.checked; }; keepWrap.append(keep, document.createTextNode(' 閉じても止めない'));
-  const toolWrap = el('label', 'ss-set-check'); const toolSel = el('select', 'ss-set-type'); [['editor', '簡易エディタ'], ['calc', '電卓'], ['clipboard', 'クリップボード'], ['bookmarks', 'ブックマーク']].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; toolSel.appendChild(op); }); toolSel.value = t.tool || 'editor'; toolSel.onchange = () => { t.tool = toolSel.value; }; toolWrap.append(document.createTextNode('ツール '), toolSel);
+  const toolWrap = el('label', 'ss-set-check'); const toolSel = el('select', 'ss-set-type'); [['editor', '簡易エディタ'], ['calc', L('電卓')], ['clipboard', L('クリップボード')], ['bookmarks', L('ブックマーク')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; toolSel.appendChild(op); }); toolSel.value = t.tool || 'editor'; toolSel.onchange = () => { t.tool = toolSel.value; }; toolWrap.append(document.createTextNode('ツール '), toolSel);
   const acctWrap = el('label', 'ss-set-check'); const acctSel = el('select', 'ss-set-type'); accountsFull().forEach((a) => { const op = el('option', null, a.name); op.value = a.id; acctSel.appendChild(op); }); acctSel.value = t.account || 'default'; acctSel.onchange = () => { t.account = acctSel.value === 'default' ? undefined : acctSel.value; }; acctWrap.append(document.createTextNode('アカウント '), acctSel);
   row2.append(type, mobileWrap, acctWrap, toolWrap, keepWrap, wlabel, width);
 
@@ -1280,7 +1289,7 @@ function buildTabFields(t, extras) {
       const del = el('button', 'ss-set-mini', '🗑'); del.onclick = () => { t.panes.splice(pi, 1); renderPanes(); };
       r.append(lbl, u, del); paneBox.appendChild(r);
     });
-    const add = el('button', 'ss-set-btn', '＋ タブ追加'); add.onclick = () => { if (!t.panes) t.panes = []; t.panes.push({ label: 'タブ' + (t.panes.length + 1), url: 'https://', mobile: true }); renderPanes(); };
+    const add = el('button', 'ss-set-btn', '＋ タブ追加'); add.onclick = () => { if (!t.panes) t.panes = []; t.panes.push({ label: L('タブ') + (t.panes.length + 1), url: 'https://', mobile: true }); renderPanes(); };
     paneBox.appendChild(add);
   }
   renderPanes();
@@ -1301,13 +1310,13 @@ function buildTabFields(t, extras) {
   return wrap;
 }
 
-// Inline editor (opened from a button's right-click "編集").
+// Inline editor (opened from a button's right-click L("編集")).
 function buildTabEditor(target) {
   const t = JSON.parse(JSON.stringify(target));
   const wrap = el('div', 'ss-editbox');
   wrap.append(buildTabFields(t));
   const actions = el('div', 'ss-set-actions');
-  const save = el('button', 'ss-set-btn ss-set-save', '保存');
+  const save = el('button', 'ss-set-btn ss-set-save', L('保存'));
   save.onclick = () => {
     const arr = JSON.parse(JSON.stringify(tabs));
     const i = arr.findIndex((x) => x.id === target.id);
@@ -1322,7 +1331,7 @@ function buildTabEditor(target) {
 }
 
 function openEditor(tab, btn) {
-  openTab({ id: '__edit', type: 'editbox', target: tab, label: '編集', icon: '✎', width: 460 }, btn);
+  openTab({ id: '__edit', type: 'editbox', target: tab, label: L('編集'), icon: '✎', width: 460 }, btn);
 }
 
 function buildSettings() {
@@ -1347,12 +1356,12 @@ function buildSettings() {
   }
 
   const actions = el('div', 'ss-set-actions');
-  const addBtn = el('button', 'ss-set-btn', '＋ 項目を追加');
+  const addBtn = el('button', 'ss-set-btn', L('＋ 項目を追加'));
   addBtn.onclick = () => {
-    working.push({ id: 'tab' + Date.now(), label: '新規', icon: '🔖', type: 'page', url: 'https://', mobile: true, width: 420 });
+    working.push({ id: 'tab' + Date.now(), label: L('新規'), icon: '🔖', type: 'page', url: 'https://', mobile: true, width: 420 });
     render();
   };
-  const saveBtn = el('button', 'ss-set-btn ss-set-save', '保存');
+  const saveBtn = el('button', 'ss-set-btn ss-set-save', L('保存'));
   saveBtn.onclick = () => {
     const used = new Set();
     for (const t of working) {
@@ -1365,7 +1374,7 @@ function buildSettings() {
     closeAll();
     renderBar();
   };
-  const resetBtn = el('button', 'ss-set-btn', '既定に戻す');
+  const resetBtn = el('button', 'ss-set-btn', L('既定に戻す'));
   resetBtn.onclick = () => {
     Store.clearTabs();
     localStorage.removeItem('ss.display'); // back to autohide + no reserve
@@ -1375,14 +1384,14 @@ function buildSettings() {
     working = JSON.parse(JSON.stringify(tabs));
     render();
   };
-  const exportBtn = el('button', 'ss-set-btn', '⬇ エクスポート');
+  const exportBtn = el('button', 'ss-set-btn', L('⬇ エクスポート'));
   exportBtn.onclick = exportSettings;
-  const importBtn = el('button', 'ss-set-btn', '⬆ インポート');
+  const importBtn = el('button', 'ss-set-btn', L('⬆ インポート'));
   importBtn.onclick = importSettings;
   actions.append(addBtn, saveBtn, resetBtn, exportBtn, importBtn);
 
   render();
-  root.append(el('div', 'ss-disp-title', 'バー項目（このモニタ）'), listEl, actions);
+  root.append(el('div', 'ss-disp-title', L('バー項目（このモニタ）')), listEl, actions);
   return root;
 }
 
@@ -1394,42 +1403,42 @@ function openHelp() {
 
 // Feature-overview slides shown in the guide (and on first run).
 const HELP_SLIDES = [
-  { icon: '👋', title: 'ようこそ DeskHatch へ', lines: [
+  { icon: '👋', title: L('ようこそ DeskHatch へ'), lines: [
     '画面の<b>上端</b>に細いバーが常駐します。',
     'ボタンを押すと、その<b>真下にドロワー</b>がスライドして開きます。',
     'マウスを画面の一番上へ勢いよく当てれば、狙わなくてもボタンを押せます（Mac風）。',
   ] },
-  { icon: '🔑', title: 'Google は1回ログインするだけ', lines: [
+  { icon: '🔑', title: L('Google は1回ログインするだけ'), lines: [
     '☰メニュー →「ログイン」で一度サインインすると、Gmail・カレンダー・Keep・Tasks などが<b>すべてログイン済み</b>になります。',
     '名前を入れて「＋追加」すれば<b>別アカウント</b>も。個人用と仕事用を同時に開けます。',
     'うまくいかない時は 🔄 でログイン履歴をリセットして再ログイン。',
   ] },
-  { icon: '🗄️', title: 'ドロワーの操作', lines: [
+  { icon: '🗄️', title: L('ドロワーの操作'), lines: [
     '同時に開くのは<b>1枚</b>。別のボタンを押すと前のドロワーは閉じます。',
     '<b>📌 ピン</b>で開いたまま固定 → 複数を並べて使えます。',
     '右下の角を<b>ドラッグでリサイズ</b>。大きさは記憶されます。',
   ] },
-  { icon: '✏️', title: '自分好みにカスタマイズ', lines: [
+  { icon: '✏️', title: L('自分好みにカスタマイズ'), lines: [
     '☰メニュー →「設定」で項目の<b>追加・削除・並べ替え・編集</b>。',
     'バー上のボタンを<b>ドラッグで並べ替え</b>。中央へ重ねると<b>タブにまとめ</b>られます。',
     'ボタンを<b>右クリック</b>で編集・複製・削除メニュー。',
   ] },
-  { icon: '🗂️', title: 'ファイルとフォルダ', lines: [
+  { icon: '🗂️', title: L('ファイルとフォルダ'), lines: [
     '「My Computer」はファイルブラウザ。<b>右クリック</b>で操作メニュー。',
     'ファイルを<b>ドロワーの外へドラッグ</b>すると、他アプリへ渡せます。',
     'よく使うフォルダはショートカットとしてバーに置けます。',
   ] },
-  { icon: '📎', title: 'クリップ（伝票ばさみ）', lines: [
+  { icon: '📎', title: L('クリップ（伝票ばさみ）'), lines: [
     'バーの📎へ<b>URL・ファイル・フォルダ・テキスト</b>をドロップして一時保管。',
     '<b>再起動しても消えません</b>。気に入ったら正式な項目に昇格も。',
     '居酒屋の伝票ばさみのように、サッと挟んで後で使えます。',
   ] },
-  { icon: '🖥️', title: '表示モードとマルチモニタ', lines: [
+  { icon: '🖥️', title: L('表示モードとマルチモニタ'), lines: [
     '<b>常に表示＋領域を予約</b>：最大化ウィンドウがバーに重なりません。',
     '<b>自動で隠す</b>：普段は隠れ、上端にカーソルで出現。<b>▲</b>で一時的に隠すことも。',
     '複数モニタに表示でき、モニタごとに違うバーも作れます。',
   ] },
-  { icon: '🧰', title: 'ツールとテーマ', lines: [
+  { icon: '🧰', title: L('ツールとテーマ'), lines: [
     '「ツール」タブに<b>エディタ・電卓・クリップボード・ブックマーク</b>、Windows設定への近道。',
     '「設定」で<b>テーマ</b>（クラシックMac含む）や<b>両端の角丸</b>を変更。',
     '<b>スタートアップ登録</b>でPC起動時に自動起動。トレイから表示／非表示。',
@@ -1525,8 +1534,8 @@ function buildHelpSlides() {
   let i = 0;
   const stage = el('div', 'ss-help-stage');
   const dots = el('div', 'ss-help-dots');
-  const prev = el('button', 'ss-help-arrow', '‹ 戻る');
-  const next = el('button', 'ss-help-arrow ss-help-next', '次へ ›');
+  const prev = el('button', 'ss-help-arrow', L('‹ 戻る'));
+  const next = el('button', 'ss-help-arrow ss-help-next', L('次へ ›'));
 
   function render() {
     const s = HELP_SLIDES[i];
@@ -1544,7 +1553,7 @@ function buildHelpSlides() {
     });
     prev.disabled = i === 0;
     const last = i === HELP_SLIDES.length - 1;
-    next.textContent = last ? '✓ 完了' : '次へ ›';
+    next.textContent = last ? L('✓ 完了') : L('次へ ›');
     next.classList.toggle('ss-help-done', last);
   }
   prev.onclick = () => { if (i > 0) { i -= 1; render(); } };
@@ -1575,7 +1584,7 @@ function buildHelpSlides() {
 
 function buildHelp() {
   const root = el('div', 'ss-help');
-  const openBtn = el('button', 'ss-set-btn ss-help-open', '📖 使い方ガイド（スライド）を開く');
+  const openBtn = el('button', 'ss-set-btn ss-help-open', L('📖 使い方ガイド（スライド）を開く'));
   openBtn.onclick = () => openHelp();
   root.appendChild(openBtn);
   const quick = el('div');
@@ -1593,7 +1602,7 @@ function buildHelp() {
       <li>項目が増えてバーが画面幅を超えたら、横スクロール（マウスホイール）で送れます。</li>
       <li>トレイ／メニューバーのアイコンでバーの表示／非表示。</li>
     </ul>`;
-  root.appendChild(el('div', 'ss-help-quick-label', 'クイックリファレンス'));
+  root.appendChild(el('div', 'ss-help-quick-label', L('クイックリファレンス')));
   root.appendChild(quick);
   return root;
 }
@@ -1603,18 +1612,18 @@ function buildTools() {
   const anchor = () => document.querySelector('.ss-menu') || document.getElementById('bar');
 
   const sys = el('div', 'ss-tools-sec');
-  sys.append(el('div', 'ss-tools-title', 'システム / デバイス'));
-  [['Windows 設定', 'settings'], ['コントロールパネル', 'control'], ['デバイスマネージャー', 'devmgr'],
-    ['God Mode', 'godmode'], ['プリンター', 'printers'], ['スキャナー', 'scanners']]
+  sys.append(el('div', 'ss-tools-title', L('システム / デバイス')));
+  [[L('Windows 設定'), 'settings'], [L('コントロールパネル'), 'control'], [L('デバイスマネージャー'), 'devmgr'],
+    ['God Mode', 'godmode'], [L('プリンター'), 'printers'], [L('スキャナー'), 'scanners']]
     .forEach(([label, key]) => { const b = el('button', 'ss-set-btn', label); b.onclick = () => window.system.open(key); sys.appendChild(b); });
 
   const tools = el('div', 'ss-tools-sec');
-  tools.append(el('div', 'ss-tools-title', 'ツール'));
-  [['🌐 ブラウザ（検索／URL）', { id: 'tool-browser', label: 'ブラウザ', icon: '🌐', type: 'browser', width: 560, url: 'https://www.google.com/' }],
-    ['📝 簡易エディタ', { id: 'tool-editor', label: 'エディタ', icon: '📝', type: 'tool', tool: 'editor', width: 480 }],
-    ['🧮 電卓', { id: 'tool-calc', label: '電卓', icon: '🧮', type: 'tool', tool: 'calc', width: 280 }],
-    ['📋 クリップボード', { id: 'tool-clip', label: 'クリップボード', icon: '📋', type: 'tool', tool: 'clipboard', width: 420 }],
-    ['🔖 ブックマーク', { id: 'tool-bm', label: 'ブックマーク', icon: '🔖', type: 'tool', tool: 'bookmarks', width: 440 }]]
+  tools.append(el('div', 'ss-tools-title', L('ツール')));
+  [[L('🌐 ブラウザ（検索／URL）'), { id: 'tool-browser', label: L('ブラウザ'), icon: '🌐', type: 'browser', width: 560, url: 'https://www.google.com/' }],
+    [L('📝 簡易エディタ'), { id: 'tool-editor', label: L('エディタ'), icon: '📝', type: 'tool', tool: 'editor', width: 480 }],
+    [L('🧮 電卓'), { id: 'tool-calc', label: L('電卓'), icon: '🧮', type: 'tool', tool: 'calc', width: 280 }],
+    [L('📋 クリップボード'), { id: 'tool-clip', label: L('クリップボード'), icon: '📋', type: 'tool', tool: 'clipboard', width: 420 }],
+    [L('🔖 ブックマーク'), { id: 'tool-bm', label: L('ブックマーク'), icon: '🔖', type: 'tool', tool: 'bookmarks', width: 440 }]]
     .forEach(([label, t]) => { const b = el('button', 'ss-set-btn', label); b.onclick = () => openTab(t, anchor()); tools.appendChild(b); });
 
   root.append(sys, tools);
@@ -1627,28 +1636,28 @@ function buildMenuPanel() {
   const acct = el('div', 'ss-acct');
   function renderAccounts() {
     acct.innerHTML = '';
-    acct.append(el('span', 'ss-acct-label', 'Google アカウント'));
+    acct.append(el('span', 'ss-acct-label', L('Google アカウント')));
     for (const a of accountsFull()) {
       const chip = el('div', 'ss-acct-chip');
       chip.append(el('span', 'ss-acct-name', a.name));
-      const inBtn = el('button', 'ss-acct-mini', 'ログイン');
+      const inBtn = el('button', 'ss-acct-mini', L('ログイン'));
       inBtn.onclick = () => window.auth.login(partitionFor(a.id));
       chip.append(inBtn);
       const reset = el('button', 'ss-acct-mini', '🔄');
-      reset.title = '履歴を消してログインし直す（「安全でない」ループの解除）';
+      reset.title = L('履歴を消してログインし直す（「安全でない」ループの解除）');
       reset.onclick = async () => { await window.auth.logout(partitionFor(a.id)); window.auth.login(partitionFor(a.id)); };
       chip.append(reset);
       if (a.id !== 'default') {
         const del = el('button', 'ss-acct-mini', '✕');
-        del.title = 'このアカウントを削除';
+        del.title = L('このアカウントを削除');
         del.onclick = () => { removeAccount(a.id); renderAccounts(); };
         chip.append(del);
       }
       acct.append(chip);
     }
     const addName = el('input', 'ss-set-input');
-    addName.placeholder = '追加するアカウント名';
-    const addBtn = el('button', 'ss-set-btn', '＋ 追加');
+    addName.placeholder = L('追加するアカウント名');
+    const addBtn = el('button', 'ss-set-btn', L('＋ 追加'));
     addBtn.onclick = () => {
       const name = addName.value.trim();
       if (!name) return;
@@ -1660,14 +1669,14 @@ function buildMenuPanel() {
   renderAccounts();
 
   const tabsBar = el('div', 'ss-menu-tabs');
-  const bSettings = el('button', 'ss-menu-tab', '⚙ 設定');
-  const bTools = el('button', 'ss-menu-tab', '🧰 ツール');
-  const bHelp = el('button', 'ss-menu-tab', '❔ ヘルプ');
+  const bSettings = el('button', 'ss-menu-tab', L('⚙ 設定'));
+  const bTools = el('button', 'ss-menu-tab', L('🧰 ツール'));
+  const bHelp = el('button', 'ss-menu-tab', L('❔ ヘルプ'));
   tabsBar.append(bSettings, bTools, bHelp);
   const view = el('div', 'ss-menu-view');
 
   const footer = el('div', 'ss-menu-foot');
-  const quitBtn = el('button', 'ss-set-btn ss-quit', '⏻ アプリを終了');
+  const quitBtn = el('button', 'ss-set-btn ss-quit', L('⏻ アプリを終了'));
   quitBtn.onclick = () => window.overlay.quit();
   footer.append(quitBtn);
 
@@ -1730,7 +1739,7 @@ function paneIcon(p) {
   return '🔗';
 }
 function paneToTab(p, baseId, k) {
-  const t = { id: baseId + '_' + k + Date.now().toString(36).slice(-3), label: p.label || 'タブ', icon: paneIcon(p), width: 460 };
+  const t = { id: baseId + '_' + k + Date.now().toString(36).slice(-3), label: p.label || L('タブ'), icon: paneIcon(p), width: 460 };
   ['type', 'url', 'mobile', 'account', 'path', 'tool', 'viewer', 'rtsp', 'text'].forEach((key) => { if (p[key] !== undefined) t[key] = p[key]; });
   if (!t.type) t.type = 'page';
   return t;
@@ -1809,7 +1818,7 @@ function deleteTab(id) {
 
 function addNewTab() {
   const arr = JSON.parse(JSON.stringify(tabs));
-  arr.push({ id: 'tab' + Date.now().toString(36), label: '新規', icon: '🔖', type: 'page', url: 'https://', mobile: true, width: 460 });
+  arr.push({ id: 'tab' + Date.now().toString(36), label: L('新規'), icon: '🔖', type: 'page', url: 'https://', mobile: true, width: 460 });
   commitTabs(arr);
 }
 
@@ -1825,7 +1834,7 @@ async function tabContextMenu(tab, btn) {
     { id: 'left', label: '← 左へ移動' },
     { id: 'right', label: '右へ移動 →' },
     { separator: true },
-    { id: 'del', label: '削除' },
+    { id: 'del', label: L('削除') },
   );
   const action = await window.system.menu(items);
   if (action === 'edit') openEditor(tab, btn);
@@ -1881,7 +1890,7 @@ function renderBar() {
 
   // logo / menu button — stays fixed at the left, doesn't scroll away
   const menuBtn = el('button', 'ss-btn ss-menu');
-  menuBtn.title = 'メニュー（設定・ヘルプ）';
+  menuBtn.title = L('メニュー（設定・ヘルプ）');
   menuBtn.innerHTML = logoMark('currentColor');
   menuBtn.addEventListener('click', () => openTab(MENU_TAB, menuBtn));
   bar.appendChild(menuBtn);
@@ -1933,8 +1942,8 @@ function renderBar() {
     reorderTabs(id, beforeId);
   });
   // ‹ › overflow buttons — shown only when the tabs overflow the bar width.
-  const navL = el('button', 'ss-btn ss-nav', '‹'); navL.title = '左へスクロール';
-  const navR = el('button', 'ss-btn ss-nav', '›'); navR.title = '右へスクロール';
+  const navL = el('button', 'ss-btn ss-nav', '‹'); navL.title = L('左へスクロール');
+  const navR = el('button', 'ss-btn ss-nav', '›'); navR.title = L('右へスクロール');
   navL.onclick = () => scroll.scrollBy({ left: -220, behavior: 'smooth' });
   navR.onclick = () => scroll.scrollBy({ left: 220, behavior: 'smooth' });
   function updateNav() {
@@ -1953,14 +1962,14 @@ function renderBar() {
 
   // right-end 🔍 search box (opens the system browser)
   const searchBtn = el('button', 'ss-btn ss-search-btn');
-  searchBtn.title = '検索 / URL（標準ブラウザで開く）';
+  searchBtn.title = L('検索 / URL（標準ブラウザで開く）');
   searchBtn.append(el('span', 'ss-ico', '🔍'));
   searchBtn.addEventListener('click', () => openSearch(searchBtn));
   bar.appendChild(searchBtn);
 
   // "other monitors' drawers" — small icon-only button, shown only when relevant
   const othersBtn = el('button', 'ss-btn ss-others-btn');
-  othersBtn.title = '別モニタのドロワー';
+  othersBtn.title = L('別モニタのドロワー');
   othersBtn.append(el('span', 'ss-ico', OTHERS_TAB.icon));
   othersBtn.style.display = 'none';
   othersBtn.addEventListener('click', () => openTab(OTHERS_TAB, othersBtn));
@@ -1973,14 +1982,14 @@ function renderBar() {
 
   // clip (temporary holding) button — also the drop target
   const clipBtn = el('button', 'ss-btn ss-clip-btn');
-  clipBtn.title = 'クリップ（一時置き）— ここにドロップ';
+  clipBtn.title = L('クリップ（一時置き）— ここにドロップ');
   clipBtn.append(el('span', 'ss-ico', CLIP_TAB.icon));
   clipBtn.addEventListener('click', () => openTab(CLIP_TAB, clipBtn));
   bar.appendChild(clipBtn);
 
   // temporary hide button — stays fixed at the right
   const hideBtn = el('button', 'ss-btn ss-hide', '▲');
-  hideBtn.title = '一時的に隠す（画面上端にカーソルを当てると再表示）';
+  hideBtn.title = L('一時的に隠す（画面上端にカーソルを当てると再表示）');
   hideBtn.onclick = () => {
     tempHidden = !tempHidden;
     hideBtn.classList.toggle('on', tempHidden);
@@ -2047,8 +2056,8 @@ window.overlay.onBlur(() => {
 window.overlay.onReserveStatus((status, requested) => {
   if (!requested || status === 'ok') return;
   toast(status === 'no-koffi'
-    ? '「領域を予約」には koffi が必要です。PowerShell で「npm install」を実行してください。'
-    : '領域の予約に失敗しました（' + status + '）。');
+    ? L('「領域を予約」には koffi が必要です。PowerShell で「npm install」を実行してください。')
+    : L('領域の予約に失敗しました（') + status + L('）。'));
 });
 
 applyDisplay(); // push the saved display mode to main and set initial visibility
