@@ -1,16 +1,28 @@
 name: release
 
-# Tag a version (e.g. v0.1.1) to build the Windows + macOS artifacts on GitHub's
-# hosted runners, publish a single GitHub Release with all of them, and
-# auto-submit/update the winget manifest.
+# Two ways to cut a release:
+#   1. Push a tag like v0.1.1  (normal flow once tag pushes are allowed), or
+#   2. Run this workflow manually (Actions tab / API) with a `version` input —
+#      action-gh-release then CREATES that tag at the current commit.
+# Either way: build Windows + macOS artifacts on GitHub's hosted runners,
+# publish one GitHub Release, and submit/update the winget manifest.
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Tag to create & release (e.g. v0.1.0)'
+        required: true
+        default: v0.1.0
 
 permissions:
   contents: write
+
+env:
+  # On a tag push this is empty -> falls back to the tag (github.ref_name).
+  RELEASE_TAG: ${{ github.event.inputs.version || github.ref_name }}
 
 jobs:
   build-windows:
@@ -25,9 +37,9 @@ jobs:
       - name: Build installer + portable
         run: npm run dist -- --publish never
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
           files: |
             dist/DeskHatch-Setup-*.exe
             dist/DeskHatch-Portable-*.exe
@@ -38,6 +50,8 @@ jobs:
   build-mac:
     # GitHub's hosted macOS runner (a real Mac VM in the cloud) — no Mac of your
     # own needed. Builds a universal (Intel + Apple Silicon) dmg + zip.
+    # Runs after Windows so the release/tag already exists (avoids a create race).
+    needs: build-windows
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,10 +66,10 @@ jobs:
           # No paid Apple Developer cert: build unsigned instead of failing while
           # hunting for a signing identity. Users open via right-click -> Open.
           CSC_IDENTITY_AUTO_DISCOVERY: false
-      - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Add macOS artifacts to the release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
           files: |
             dist/*.dmg
             dist/*.zip
@@ -66,7 +80,6 @@ jobs:
   # the package exists, this keeps it updated automatically on every release.
   winget:
     needs: build-windows
-    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - name: Submit / update winget manifest
@@ -75,6 +88,6 @@ jobs:
         with:
           identifier: Theta.Deskhatch
           installers-regex: 'Setup-.*\.exe$'
-          release-tag: ${{ github.ref_name }}
+          release-tag: ${{ env.RELEASE_TAG }}
           fork-user: kiwiman0706-beep
           token: ${{ secrets.WINGET_TOKEN }}
