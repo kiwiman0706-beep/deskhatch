@@ -31,6 +31,8 @@ jobs:
           files: |
             dist/DeskHatch-Setup-*.exe
             dist/DeskHatch-Portable-*.exe
+            dist/latest.yml
+            dist/*.blockmap
           generate_release_notes: true
 
   build-mac:
@@ -56,7 +58,7 @@ jobs:
         with:
           files: |
             dist/*.dmg
-            dist/*-mac.zip
+            dist/*.zip
           generate_release_notes: true
 
   # Submits a PR to microsoft/winget-pkgs. NOTE: the FIRST version must be

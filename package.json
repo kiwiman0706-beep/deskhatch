@@ -19,6 +19,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "electron-updater": "^6.3.9",
     "ffmpeg-static": "^5.2.0"
   },
   "devDependencies": {
@@ -34,6 +35,13 @@
     "appId": "com.deskhatch.app",
     "productName": "DeskHatch",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "kiwiman0706-beep",
+        "repo": "smartsuite.next"
+      }
+    ],
     "files": [
       "src/**/*",
       "assets/**/*",

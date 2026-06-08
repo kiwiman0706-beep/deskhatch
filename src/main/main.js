@@ -8,6 +8,7 @@ const auth = require('./auth');
 const system = require('./system');
 const camera = require('./camera');
 const fileserver = require('./fileserver');
+const updater = require('./updater');
 
 const BAR_HEIGHT = 44; // collapsed strip height (px)
 const INDEX = path.join(__dirname, '..', 'renderer', 'index.html');
@@ -432,6 +433,10 @@ app.whenReady().then(() => {
   screen.on('display-metrics-changed', onDisplaysChanged);
   screen.on('display-added', onDisplaysChanged);
   screen.on('display-removed', onDisplaysChanged);
+
+  // Windows: silent auto-update; macOS/other: a "newer release" notice. No-op in
+  // dev. Delay so the UI settles and we never block first paint on the network.
+  setTimeout(() => updater.init(), 4000);
 
   app.on('activate', () => { if (!bars.size) reconcile(); });
 });
