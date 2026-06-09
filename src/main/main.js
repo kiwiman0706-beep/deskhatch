@@ -298,6 +298,20 @@ function createTray() {
     { label: LM('終了', 'Quit'), click: () => app.quit() },
   ]));
   tray.on('click', toggleAll);
+
+  // macOS: drop files / text onto the menu-bar icon to add them to the Clip.
+  // (Tray drag/drop events are macOS-only; attaching elsewhere is harmless.)
+  const toBar = (channel, payload) => {
+    const e = [...bars.values()].find((b) => b.win && !b.win.isDestroyed());
+    if (e) e.win.webContents.send(channel, payload);
+  };
+  tray.on('drop-files', (_e, files) => toBar('clip:add-files', files));
+  tray.on('drop-text', (_e, text) => toBar('clip:add-text', text));
+  const dropTip = () => { try { tray.setToolTip('DeskHatch — ' + LM('ここにドロップで追加', 'Drop here to add to Clip')); } catch (_) {} };
+  const resetTip = () => { try { tray.setToolTip('DeskHatch'); } catch (_) {} };
+  tray.on('drag-enter', dropTip);
+  tray.on('drag-leave', resetTip);
+  tray.on('drag-end', resetTip);
 }
 
 // --- IPC (routed to the sending window) -------------------------------------

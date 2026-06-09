@@ -38,6 +38,9 @@ contextBridge.exposeInMainWorld('overlay', {
   onReserveStatus: (cb) => ipcRenderer.on('display:reserve-status', (_e, status, requested) => cb(status, requested)),
   onEdge: (cb) => ipcRenderer.on('overlay:edge', (_e, atTop) => cb(atTop)),
   onBlur: (cb) => ipcRenderer.on('overlay:blur', () => cb()),
+  // macOS menu-bar (Tray) drops -> add to the Clip.
+  onAddFiles: (cb) => ipcRenderer.on('clip:add-files', (_e, files) => cb(files)),
+  onAddText: (cb) => ipcRenderer.on('clip:add-text', (_e, text) => cb(text)),
 
   // Force the overlay to the very front (e.g. when revealing over a maximized window).
   raise: () => ipcRenderer.send('overlay:raise'),

@@ -2090,6 +2090,17 @@ window.overlay.onBlur(() => {
   for (const id of Object.keys(open)) if (!open[id].pinned) closeDrawer(id);
 });
 
+// macOS: files / text dropped on the menu-bar icon arrive here -> add to Clip.
+window.overlay.onAddFiles((files) => { addFilePaths(files || []); });
+window.overlay.onAddText((text) => {
+  const t = String(text || '').trim();
+  if (!t) return;
+  if (/^https?:\/\//i.test(t)) addClip({ kind: 'url', url: t, label: t });
+  else addClip({ kind: 'text', text: t, label: t.replace(/\s+/g, ' ').slice(0, 40) });
+  refreshClipUI();
+  toast(L('クリップに追加しました') + ' (1)');
+});
+
 // Surface why the top-edge reservation didn't take, if it was requested.
 window.overlay.onReserveStatus((status, requested) => {
   if (!requested || status === 'ok') return;
