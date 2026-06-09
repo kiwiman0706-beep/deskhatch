@@ -13,7 +13,7 @@
 // The drawer opens directly beneath its button (left edges aligned, clamped
 // into view). Drag the drawer's right/bottom/corner to resize; size is remembered.
 window.SS_TABS = [
-  { id: 'mail', label: L('メール'), icon: '✉', type: 'page', mobile: true, width: 420,
+  { id: 'mail', label: L('メール'), icon: '✉', type: 'page', mobile: false, width: 720,
     url: 'https://mail.google.com/' },
 
   { id: 'todo', label: 'ToDo', icon: '✓', type: 'page', mobile: true, width: 360,

@@ -661,7 +661,8 @@ async function handleDrop(e) {
     added++;
   }
 
-  if (added) refreshClipUI();
+  if (added) { refreshClipUI(); toast(L('クリップに追加しました') + ' (' + added + ')'); }
+  else if ((dt.files && dt.files.length) || uriList.length || plain) { toast(L('ドロップを受け取れませんでした（パスを取得できませんでした）')); }
 }
 
 let clipListEl = null; // the currently-open clip list, if any
@@ -2032,7 +2033,7 @@ renderBar();
 // Drag & drop intake. Prevent the window from navigating to dropped files, and
 // let the bar (which captures while it's the only thing showing) receive drops.
 document.addEventListener('dragover', (e) => { e.preventDefault(); });
-document.addEventListener('drop', (e) => { e.preventDefault(); clearDragFx(); });
+document.addEventListener('drop', (e) => { e.preventDefault(); clearDragFx(); handleDrop(e); });
 document.addEventListener('dragend', clearDragFx);
 bar.addEventListener('dragover', (e) => { e.preventDefault(); bar.classList.add('drop'); });
 bar.addEventListener('dragleave', (e) => { if (e.target === bar) bar.classList.remove('drop'); });
