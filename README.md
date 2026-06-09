@@ -10,6 +10,8 @@ notes, files and tools, one slam-to-the-top away.
 
 <em>画面最上部に常駐する万能ランチャーバー。ボタンを押すと真下にドロワーが開きます。</em>
 
+<sub>📁 drag in <b>files</b> · 🔗 <b>URLs</b> · ✂ <b>text</b> &nbsp;—&nbsp; stash anything in the Clip · browse &amp; open local files · pin folders</sub>
+
 [![Release](https://img.shields.io/github/v/release/kiwiman0706-beep/deskhatch?style=flat-square)](https://github.com/kiwiman0706-beep/deskhatch/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/kiwiman0706-beep/deskhatch/total?style=flat-square)](https://github.com/kiwiman0706-beep/deskhatch/releases)
 [![License: MIT](https://img.shields.io/github/license/kiwiman0706-beep/deskhatch?style=flat-square)](LICENSE)
@@ -31,9 +33,10 @@ notes, files and tools, one slam-to-the-top away.
 - **Any web app as a drawer.** Gmail, Calendar, Keep, Tasks, Drive, Maps,
   **Gemini**, LINE WORKS, internal tools… sign in to Google **once** and they're
   all signed in.
-- **Files, fast.** An Explorer-style browser (This PC → folders), pinned folder
-  buttons, an **Apps** shortcut (Windows Start Menu / macOS Applications), and a
-  **📎 Clip** for stashing files / URLs / text.
+- **Files & drag-and-drop.** **Drag a file, URL or selected text** onto the bar
+  (or the macOS menu-bar icon), or use **+File / +Folder** — it's stashed in the
+  **📎 Clip**. Plus an Explorer-style browser (This PC → folders), pinned folders
+  and an **Apps** shortcut (Windows Start Menu / macOS Applications).
 - **Built-in tools.** Editor, calculator, **timer**, **stopwatch**, clipboard
   history, bookmarks, quick web search.
 - **Yours to shape.** Add / remove / reorder / edit buttons, drag to merge into
