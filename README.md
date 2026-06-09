@@ -4,11 +4,11 @@
 
 # DeskHatch
 
-**Lotus SmartCenter, reborn.** A thin bar docks at the very **top edge** of your
-screen; click a button and a **drawer slides down right beneath it** — your mail,
-calendar, notes, files and tools, one slam-to-the-top away.
+A thin launcher bar that docks at the very **top edge** of your screen; click a
+button and a **drawer slides down right beneath it** — your mail, calendar,
+notes, files and tools, one slam-to-the-top away.
 
-<em>画面最上部に常駐する万能ランチャーバー。懐かしの Lotus SmartCenter を現代に。</em>
+<em>画面最上部に常駐する万能ランチャーバー。ボタンを押すと真下にドロワーが開きます。</em>
 
 [![Release](https://img.shields.io/github/v/release/kiwiman0706-beep/deskhatch?style=flat-square)](https://github.com/kiwiman0706-beep/deskhatch/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/kiwiman0706-beep/deskhatch/total?style=flat-square)](https://github.com/kiwiman0706-beep/deskhatch/releases)
@@ -44,12 +44,9 @@ calendar, notes, files and tools, one slam-to-the-top away.
 
 ## ⬇️ Install
 
-**Windows**
-```powershell
-winget install Theta.Deskhatch
-```
-…or grab `DeskHatch-Setup-x.y.z-x64.exe` (installer, auto-updates) or the
-portable `.exe` from the [**latest release**](https://github.com/kiwiman0706-beep/deskhatch/releases/latest).
+**Windows** — download `DeskHatch-Setup-x.y.z-x64.exe` (installer, auto-updates)
+or the portable `.exe` from the [**latest release**](https://github.com/kiwiman0706-beep/deskhatch/releases/latest).
+*(A winget package is on the way.)*
 
 **macOS** — download the universal `.dmg` from the
 [latest release](https://github.com/kiwiman0706-beep/deskhatch/releases/latest).
@@ -102,8 +99,8 @@ the values — it appears automatically in **Settings → Language**.
 - Pinned drawers can overlap; no auto-tiling yet.
 
 ## 🙏 Credits
-Inspired by **Lotus SmartCenter** (and the classic Mac menu bar). Built with
-[Electron](https://www.electronjs.org/).
+Built with [Electron](https://www.electronjs.org/). Inspired by the **SmartCenter**
+launcher bar from Lotus SuperOffice, and the classic Mac menu bar.
 
 ## 📄 License
 [MIT](LICENSE) © DeskHatch
