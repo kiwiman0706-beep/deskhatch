@@ -295,6 +295,7 @@ function createTray() {
     { label: LM('表示 / 非表示', 'Show / Hide'), click: toggleAll },
     { label: LM('Google にログイン', 'Sign in to Google'), click: () => auth.openLogin() },
     { type: 'separator' },
+    { label: LM('更新を確認', 'Check for updates…'), click: () => updater.checkNow() },
     { label: LM('再起動', 'Restart'), click: () => { app.relaunch(); app.quit(); } },
     { label: LM('終了', 'Quit'), click: () => app.quit() },
     { label: LM('強制終了', 'Force quit'), click: () => app.exit(0) },
