@@ -321,6 +321,8 @@ function createTray() {
 // transparent always-on-top overlay unresponsive; a clean relaunch doesn't).
 ipcMain.on('app:relaunch', () => { app.relaunch(); app.quit(); });
 
+ipcMain.handle('app:version', () => app.getVersion());
+
 ipcMain.on('overlay:set-ignore-mouse', (e, ignore) => {
   const w = BrowserWindow.fromWebContents(e.sender);
   if (w && !w.isDestroyed()) w.setIgnoreMouseEvents(!!ignore, { forward: true });

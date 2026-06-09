@@ -1520,11 +1520,15 @@ const HELP_SLIDES = [
     L('ファイルを<b>ドロワーの外へドラッグ</b>すると、他アプリへ渡せます。'),
     L('よく使うフォルダはショートカットとしてバーに置けます。'),
   ] },
-  { icon: '📎', title: L('クリップ（伝票ばさみ）'), lines: [
-    L('バーの📎へ<b>URL・ファイル・フォルダ・テキスト</b>をドロップして一時保管。'),
-    L('<b>再起動しても消えません</b>。気に入ったら正式な項目に昇格も。'),
+  { icon: '📎', title: L('クリップ（伝票ばさみ）'), lines: (window.overlay.platform === 'darwin' ? [
+    L('メニューバーの DeskHatch アイコンに<b>ファイルをドロップ</b>すると追加できます。'),
+    L('📎ドロワーの<b>「＋ファイル / ＋フォルダ」</b>ボタンからも追加できます。'),
+    L('<b>再起動しても消えません</b>。よく使う物は正式な項目へ昇格も。'),
+  ] : [
+    L('バーや📎へ<b>URL・ファイル・フォルダ・テキスト</b>をドロップ、または<b>＋ボタン</b>で追加。'),
+    L('<b>再起動しても消えません</b>。よく使う物は正式な項目へ昇格も。'),
     L('居酒屋の伝票ばさみのように、サッと挟んで後で使えます。'),
-  ] },
+  ]) },
   { icon: '🖥️', title: L('表示モードとマルチモニタ'), lines: [
     L('<b>常に表示＋領域を予約</b>：最大化ウィンドウがバーに重なりません。'),
     L('<b>自動で隠す</b>：普段は隠れ、上端にカーソルで出現。<b>▲</b>で一時的に隠すことも。'),
@@ -1770,9 +1774,14 @@ function buildMenuPanel() {
   const view = el('div', 'ss-menu-view');
 
   const footer = el('div', 'ss-menu-foot');
+  footer.style.display = 'flex'; footer.style.alignItems = 'center'; footer.style.gap = '8px';
+  const ver = el('span', 'ss-menu-ver', 'DeskHatch');
+  ver.style.cssText = 'font-size:11px;color:#6a8a8a;';
+  if (window.overlay.version) window.overlay.version().then((v) => { ver.textContent = 'DeskHatch v' + v; }).catch(() => {});
+  const verSp = el('span'); verSp.style.flex = '1';
   const quitBtn = el('button', 'ss-set-btn ss-quit', L('⏻ アプリを終了'));
   quitBtn.onclick = () => window.overlay.quit();
-  footer.append(quitBtn);
+  footer.append(ver, verSp, quitBtn);
 
   wrap.append(acct, tabsBar, view, footer);
 

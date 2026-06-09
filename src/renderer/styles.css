@@ -501,3 +501,8 @@ html, body {
 .ss-fb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ss-fb-empty, .ss-fb-err { color: #8aa; padding: 8px; }
 .ss-fb-err { color: #b55; }
+
+/* DeskHatch slide polish: friendlier title + soft card behind the art */
+.ss-help-title { color: var(--teal-dark); font-weight: 800; font-size: 19px; }
+.ss-help-art { background: linear-gradient(180deg, #ffffff, #eef5f5); border-radius: 14px; padding: 8px; }
+.ss-help-list li::before { color: var(--teal-light); }
