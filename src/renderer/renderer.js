@@ -565,6 +565,59 @@ function buildCalc() {
   return wrap;
 }
 
+// --- Stopwatch / Timer tools (renderer-only; self-cleaning when detached) ----
+function buildStopwatch() {
+  const wrap = el('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;height:100%;padding:16px;background:#f4f6f6;';
+  const disp = el('div', null, '00:00.0');
+  disp.style.cssText = 'font:600 40px/1 "Consolas",monospace;color:#14302f;letter-spacing:1px;';
+  let start = 0, acc = 0, timer = null;
+  const fmt = (ms) => { const t = Math.floor(ms / 100), cs = t % 10, sec = Math.floor(t / 10) % 60, min = Math.floor(t / 600) % 60, hr = Math.floor(t / 36000), p = (n) => String(n).padStart(2, '0'); return (hr ? p(hr) + ':' : '') + p(min) + ':' + p(sec) + '.' + cs; };
+  const render = () => { disp.textContent = fmt(acc + (start ? Date.now() - start : 0)); };
+  const tick = () => { if (!wrap.isConnected) { clearInterval(timer); timer = null; return; } render(); };
+  const startBtn = el('button', 'ss-set-btn', L('開始'));
+  const resetBtn = el('button', 'ss-set-btn', L('リセット'));
+  startBtn.onclick = () => {
+    if (timer) { acc += Date.now() - start; start = 0; clearInterval(timer); timer = null; startBtn.textContent = L('開始'); }
+    else { start = Date.now(); timer = setInterval(tick, 100); startBtn.textContent = L('停止'); }
+    render();
+  };
+  resetBtn.onclick = () => { clearInterval(timer); timer = null; start = 0; acc = 0; startBtn.textContent = L('開始'); render(); };
+  const row = el('div'); row.style.cssText = 'display:flex;gap:8px;'; row.append(startBtn, resetBtn);
+  wrap.append(disp, row); render();
+  return wrap;
+}
+
+function buildTimer() {
+  const wrap = el('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;height:100%;padding:16px;background:#f4f6f6;';
+  const disp = el('div', null, '05:00');
+  disp.style.cssText = 'font:600 40px/1 "Consolas",monospace;color:#14302f;';
+  let remain = 5 * 60 * 1000, end = 0, timer = null;
+  const fmt = (ms) => { const sec = Math.max(0, Math.ceil(ms / 1000)), m = Math.floor(sec / 60), s2 = sec % 60, p = (n) => String(n).padStart(2, '0'); return p(m) + ':' + p(s2); };
+  const render = () => { const ms = end ? end - Date.now() : remain; disp.textContent = fmt(ms); disp.style.color = (end && ms <= 0) ? '#c0392b' : '#14302f'; };
+  function beep() { try { const AC = window.AudioContext || window.webkitAudioContext; const ac = new AC(); const o = ac.createOscillator(), g = ac.createGain(); o.connect(g); g.connect(ac.destination); o.type = 'sine'; o.frequency.value = 880; g.gain.value = 0.15; o.start(); let n = 0; const iv = setInterval(() => { o.frequency.value = (n % 2 ? 660 : 990); if (++n > 7) { clearInterval(iv); o.stop(); ac.close(); } }, 170); } catch (_) { /* no audio */ } }
+  const startBtn = el('button', 'ss-set-btn', L('開始'));
+  const tick = () => {
+    if (!wrap.isConnected) { clearInterval(timer); timer = null; return; }
+    if (end && Date.now() >= end) { clearInterval(timer); timer = null; remain = 0; end = 0; render(); beep(); toast(L('タイマー終了')); startBtn.textContent = L('開始'); return; }
+    render();
+  };
+  startBtn.onclick = () => {
+    if (timer) { remain = Math.max(0, end - Date.now()); end = 0; clearInterval(timer); timer = null; startBtn.textContent = L('開始'); }
+    else { if (remain <= 0) return; end = Date.now() + remain; timer = setInterval(tick, 200); startBtn.textContent = L('停止'); }
+    render();
+  };
+  const resetBtn = el('button', 'ss-set-btn', L('リセット'));
+  resetBtn.onclick = () => { clearInterval(timer); timer = null; end = 0; remain = 5 * 60 * 1000; startBtn.textContent = L('開始'); render(); };
+  const adj = (secs) => () => { if (timer) return; remain = Math.min(99 * 60 * 1000, Math.max(0, remain + secs * 1000)); render(); };
+  const adjRow = el('div'); adjRow.style.cssText = 'display:flex;gap:6px;';
+  [['-1m', -60], ['-10s', -10], ['+10s', 10], ['+1m', 60]].forEach(([lbl, sec]) => { const b = el('button', 'ss-set-btn', lbl); b.onclick = adj(sec); adjRow.append(b); });
+  const row = el('div'); row.style.cssText = 'display:flex;gap:8px;'; row.append(startBtn, resetBtn);
+  wrap.append(disp, adjRow, row); render();
+  return wrap;
+}
+
 function buildBookmarks() {
   const wrap = el('div', 'ss-bm');
   const search = document.createElement('input');
@@ -947,6 +1000,8 @@ function buildBody(tab) {
     else if (tab.tool === 'calc') body.appendChild(buildCalc());
     else if (tab.tool === 'clipboard') body.appendChild(buildClipboard());
     else if (tab.tool === 'bookmarks') body.appendChild(buildBookmarks());
+    else if (tab.tool === 'stopwatch') body.appendChild(buildStopwatch());
+    else if (tab.tool === 'timer') body.appendChild(buildTimer());
   } else if (tab.type === 'menu') {
     body.appendChild(buildMenuPanel());
   } else if (tab.type === 'browser') {
@@ -1659,6 +1714,8 @@ function buildTools() {
   [[L('🌐 ブラウザ（検索／URL）'), { id: 'tool-browser', label: L('ブラウザ'), icon: '🌐', type: 'browser', width: 560, url: 'https://www.google.com/' }],
     [L('📝 簡易エディタ'), { id: 'tool-editor', label: L('エディタ'), icon: '📝', type: 'tool', tool: 'editor', width: 480 }],
     [L('🧮 電卓'), { id: 'tool-calc', label: L('電卓'), icon: '🧮', type: 'tool', tool: 'calc', width: 280 }],
+    [L('⏱ ストップウォッチ'), { id: 'tool-stopwatch', label: L('ストップウォッチ'), icon: '⏱', type: 'tool', tool: 'stopwatch', width: 260 }],
+    [L('⏲ タイマー'), { id: 'tool-timer', label: L('タイマー'), icon: '⏲', type: 'tool', tool: 'timer', width: 300 }],
     [L('📋 クリップボード'), { id: 'tool-clip', label: L('クリップボード'), icon: '📋', type: 'tool', tool: 'clipboard', width: 420 }],
     [L('🔖 ブックマーク'), { id: 'tool-bm', label: L('ブックマーク'), icon: '🔖', type: 'tool', tool: 'bookmarks', width: 440 }]]
     .forEach(([label, t]) => { const b = el('button', 'ss-set-btn', label); b.onclick = () => openTab(t, anchor()); tools.appendChild(b); });

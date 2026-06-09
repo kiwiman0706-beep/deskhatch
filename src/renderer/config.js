@@ -43,6 +43,9 @@ window.SS_TABS = [
   { id: 'translate', label: L('翻訳'), icon: '🌐', type: 'page', mobile: true, width: 420,
     url: 'https://translate.google.com/' },
 
+  { id: 'gemini', label: 'Gemini', icon: '✨', type: 'page', mobile: false, width: 600,
+    url: 'https://gemini.google.com/app' },
+
   { id: 'photos', label: L('フォト'), icon: '🖼', type: 'page', mobile: false, width: 560,
     url: 'https://photos.google.com/' },
 

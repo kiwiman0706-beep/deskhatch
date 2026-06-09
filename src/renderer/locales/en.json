@@ -190,5 +190,13 @@
   "ドロップを受け取れませんでした（パスを取得できませんでした）": "Couldn't accept the drop (no file path)",
   "＋ ファイル": "+ File",
   "＋ フォルダ": "+ Folder",
-  "＋で追加（D&D可：Win/常に表示）": "Add with +  (drag & drop: Windows / always-on)"
+  "＋で追加（D&D可：Win/常に表示）": "Add with +  (drag & drop: Windows / always-on)",
+  "開始": "Start",
+  "停止": "Stop",
+  "リセット": "Reset",
+  "タイマー終了": "Timer finished",
+  "⏱ ストップウォッチ": "⏱ Stopwatch",
+  "⏲ タイマー": "⏲ Timer",
+  "ストップウォッチ": "Stopwatch",
+  "タイマー": "Timer"
 }
