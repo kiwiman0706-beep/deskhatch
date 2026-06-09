@@ -1,148 +1,109 @@
+<div align="center">
+
+<img src="assets/logo.svg" alt="DeskHatch" width="84" />
+
 # DeskHatch
 
-A modern take on the classic **Lotus SmartCenter** bar: a thin strip docks at the
-**top edge** of the screen, and clicking a button **slides a single drawer down
-directly beneath it**. Built with **Electron** so any web page (Google services,
-LINE WORKS, internal tools…) can be embedded as a drawer.
+**Lotus SmartCenter, reborn.** A thin bar docks at the very **top edge** of your
+screen; click a button and a **drawer slides down right beneath it** — your mail,
+calendar, notes, files and tools, one slam-to-the-top away.
 
-> Status: early scaffold. The drawer UX is functional; the native Windows AppBar
-> space-reservation and the macOS menu-bar shell are stubbed/experimental (see
-> "Platform shell" below).
+<em>画面最上部に常駐する万能ランチャーバー。懐かしの Lotus SmartCenter を現代に。</em>
 
-## Behaviour (the agreed spec)
+[![Release](https://img.shields.io/github/v/release/kiwiman0706-beep/deskhatch?style=flat-square)](https://github.com/kiwiman0706-beep/deskhatch/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/kiwiman0706-beep/deskhatch/total?style=flat-square)](https://github.com/kiwiman0706-beep/deskhatch/releases)
+[![License: MIT](https://img.shields.io/github/license/kiwiman0706-beep/deskhatch?style=flat-square)](LICENSE)
+![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white)
+![macOS](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white)
 
-- Thin top bar with buttons: `メール / ToDo / トーク / カレンダー / メモ / My Documents`.
-- Click a button → its drawer slides in **right below the button**, with the
-  **button's left edge aligned to the drawer's left edge**. Button width and
-  drawer width are independent.
-- If a left-aligned drawer would run off the right of the screen, it is
-  **clamped left** so it stays fully visible (option 1).
-- **One drawer at a time by default.** Switching buttons closes the previous one.
-- **Pin (📌)** keeps a drawer open so you can lay out several side by side — the
-  classic "all drawers open" look is simply *everything pinned*. Nothing opens
-  multiple drawers automatically.
-- Embedded pages request the **mobile layout** (`mobile: true`) so narrow phone
-  views fit the drawer nicely.
-- **My Documents** is an Explorer-style file browser: start at **This PC** (drive
-  list), navigate folders, **double-click to open/run** files, and use the native
-  **right-click menu** (open / reveal in Explorer / copy path / copy to a chosen
-  folder / move to trash). Shortcut "places" (PC, Desktop, Documents, Downloads,
-  Home) plus a **＋ to pin your own folders** (remembered via localStorage). Real
-  native file icons via `app.getFileIcon`.
-- A **☰ menu button** at the left end opens **設定 / ヘルプ**. Settings let you
-  **add / delete / reorder / edit** the drawers (icon, label, type, URL, mobile,
-  width) — saved to localStorage; "既定に戻す" restores `config.js`.
-- Drawers are **resizable** (drag the right edge, bottom edge, or corner); each
-  drawer's size is **remembered per id**. (Drawer height is based on the screen
-  size, not the collapsed bar.)
-- File access comes in two flavours: a **`files`** drawer (browse from *This PC*)
-  and **`folder`** drawers pinned to a specific path (`@desktop`, `@documents`,
-  … or any folder you pick) — add as many folder buttons as you like in 設定.
-- **Display modes** (設定 → 表示): *常に表示* (optionally **領域を予約** so maximized
-  windows don't overlap the bar, via the AppBar) or *自動で隠す* (reveal by moving
-  the cursor to the top edge). A **▲ temp-hide** button is on the right of the bar.
-- The tab area **scrolls horizontally** (mouse wheel) when items overflow; the
-  logo and temp-hide buttons stay pinned.
-- A **tray icon** (Windows) toggles the bar; on macOS this becomes a menu-bar item.
+<img src="docs/media/hero.svg" alt="DeskHatch demo" width="720" />
 
-## Run
+</div>
+
+---
+
+## ✨ Why DeskHatch
+
+- **Always within reach.** The bar lives at the screen's top edge — *slam* your
+  mouse upward and you hit it without aiming (Fitts's law). Auto-hide or always-on.
+- **One drawer at a time.** Click a button → a single drawer slides down beneath
+  it. Pin 📌 to keep several open side by side.
+- **Any web app as a drawer.** Gmail, Calendar, Keep, Tasks, Drive, Maps,
+  **Gemini**, LINE WORKS, internal tools… sign in to Google **once** and they're
+  all signed in.
+- **Files, fast.** An Explorer-style browser (This PC → folders), pinned folder
+  buttons, an **Apps** shortcut (Windows Start Menu / macOS Applications), and a
+  **📎 Clip** for stashing files / URLs / text.
+- **Built-in tools.** Editor, calculator, **timer**, **stopwatch**, clipboard
+  history, bookmarks, quick web search.
+- **Yours to shape.** Add / remove / reorder / edit buttons, drag to merge into
+  tabs, themes (incl. classic-Mac rounded corners), multi-monitor.
+- **Polished plumbing.** Windows AppBar space-reservation, **auto-update**
+  (Windows), **English / 日本語** UI (auto-detected, switchable; drop-in language
+  packs), system-tray Restart / Quit.
+
+## ⬇️ Install
+
+**Windows**
+```powershell
+winget install Theta.Deskhatch
+```
+…or grab `DeskHatch-Setup-x.y.z-x64.exe` (installer, auto-updates) or the
+portable `.exe` from the [**latest release**](https://github.com/kiwiman0706-beep/deskhatch/releases/latest).
+
+**macOS** — download the universal `.dmg` from the
+[latest release](https://github.com/kiwiman0706-beep/deskhatch/releases/latest).
+It's unsigned, so on first launch **right-click the app → Open**.
+
+> Unsigned builds may show a SmartScreen / Gatekeeper prompt on first run
+> (choose *More info → Run* / *Open*). The app then updates itself on Windows.
+
+## 🖼️ Screenshots
+
+> Drop real captures into `docs/media/` and they'll show here
+> (`shot-bar.png`, `shot-drawer.png`, `shot-settings.png`).
+
+<img src="docs/media/hero.svg" alt="Bar and drawer" width="640" />
+
+## 🧠 How it works
+
+A **transparent, frameless, always-on-top** strip pinned to the top edge. The
+renderer toggles **click pass-through** so the desktop stays usable except over
+the bar / an open drawer, and **resizes the window** to fit open drawers. Web
+pages embed via `<webview>` on a shared session, so logins persist.
+
+## 🛠️ Build from source
 
 ```bash
 npm install
-npm start
+npm start            # run
+npm test             # unit tests (pure logic)
+npm run dist         # Windows installer + portable
+npm run dist:mac     # macOS dmg + zip (run on a Mac)
 ```
+Releases are cut by tagging `vX.Y.Z` (GitHub Actions builds Windows + macOS and
+publishes them, plus the winget update). See `docs/PUBLISHING.md`.
 
-`npm install` pulls Electron (and, optionally, `koffi` for the native AppBar).
-
-## Testing
-
-```bash
-npm test          # Vitest unit tests (pure logic, runs anywhere incl. headless/CI)
-npm run test:e2e  # Playwright drives the real Electron app (needs a display)
-```
-
-- **Unit tests** (`tests/`) cover the pure logic extracted into
-  `src/renderer/lib/` — drawer placement (`computeLeft` left-align + right-edge
-  clamp, `computeHeight`) and the click state machine (`resolveClick`:
-  open/close/focus + which drawers to close). No DOM or Electron needed.
-- **E2E** (`e2e/`) launches Electron via Playwright, clicks buttons, and asserts
-  a drawer opens **aligned beneath its button**, that **only one unpinned drawer**
-  is open at a time, and saves a screenshot. It uses the offline *My Documents*
-  drawer, so it needs **no network**. On a Windows/macOS desktop it just runs; on
-  headless Linux wrap it: `xvfb-run -a npm run test:e2e`.
-
-Claude Code can run both and read the results/screenshot; the live "feel" of the
-overlay is the one thing only a human can judge.
-
-## Project layout
-
-```
-src/
-  main/
-    main.js      Electron main process: overlay window, tray, IPC
-    appbar.js    Windows AppBar (SHAppBarMessage) via koffi — guarded, optional
-  preload/
-    preload.js   Safe bridge: mouse pass-through, window height, file paths
-  renderer/
-    index.html
-    config.js    ← edit this to add/remove drawers
-    renderer.js  Bar, button-anchored slide-in, pinning, files drop zone
-    styles.css
-    lib/
-      layout.js  Pure placement math (computeLeft / computeHeight)
-      drawers.js Pure click state machine (resolveClick)
-tests/           Vitest unit tests for src/renderer/lib
-e2e/             Playwright + Electron end-to-end tests
-scripts/
-  generate-icons.js   Builds assets/tray.png & icon.png (no deps)
-```
-
-### Adding a drawer
-
+### Add a drawer
 Edit `src/renderer/config.js`:
-
 ```js
-{ id: 'sheet', label: '集計表', icon: '📊', type: 'page', mobile: false, width: 900,
+{ id: 'sheet', label: 'Sheet', icon: '📊', type: 'page', mobile: false, width: 900,
   url: 'https://docs.google.com/spreadsheets/d/XXXX' }
 ```
+`type: 'page'` embeds a URL, `'folder'` pins a folder, `'files'` opens *This PC*.
 
-`type: 'page'` embeds a URL; `type: 'files'` makes a drop-zone folder.
+### Add a language
+Copy `src/renderer/locales/en.json` to e.g. `fr.json`, set `"__name__"`, translate
+the values — it appears automatically in **Settings → Language**.
 
-## How the overlay works
+## 📋 Notes & limitations
+- Embedded Google **Keep / Tasks** have no public API (pages only).
+- The file browser is a custom cross-platform UI (not the native shell view).
+- Pinned drawers can overlap; no auto-tiling yet.
 
-The window is a **transparent, frameless, always-on-top** strip pinned to the top.
-The renderer:
+## 🙏 Credits
+Inspired by **Lotus SmartCenter** (and the classic Mac menu bar). Built with
+[Electron](https://www.electronjs.org/).
 
-1. toggles **click pass-through** (`setIgnoreMouse`) so the desktop stays usable
-   everywhere except over the bar / an open drawer, and
-2. **resizes the window height** to fit open drawers, so nothing below them is
-   blocked.
-
-Embedded pages use a shared `persist:smartsuite` session so you stay logged in.
-
-## Platform shell (follow-ups)
-
-- **Windows AppBar (space reservation).** `src/main/appbar.js` wires
-  `SHAppBarMessage` through `koffi` so maximized windows sit *below* the bar. It is
-  fully guarded: without koffi / off-Windows / on any error it falls back to the
-  plain top overlay. The native path is **unverified on Windows hardware** — treat
-  as experimental.
-- **macOS.** The idiomatic equivalent of a top drawer is a **menu-bar (status
-  item) dropdown**. The shared web UI is portable; only this launch shell needs a
-  mac implementation.
-
-## Known limitations / TODO
-
-- **Google sign-in (multi-account):** each account gets its own session
-  partition (its own cookie jar), so two Gmail/Calendar accounts can be open side
-  by side. The default account uses `persist:smartsuite`; add more in 設定 → Google
-  アカウント, then assign each `page` drawer to an account. Every partition gets a
-  desktop Chrome UA and sign-in happens in a dedicated window, sidestepping the
-  "this browser may not be secure" wall.
-- **Google Keep / Tasks** have no consumer API; they're embedded as pages only.
-- The file browser embeds a **custom** Explorer-like UI (Node `fs` + Electron
-  `shell`), not the native Windows Explorer control — this keeps it cross-platform
-  and gives us the right-click menu, at the cost of not being the literal shell view.
-- Pinned drawers can overlap horizontally; no auto-tiling yet.
-- Multi-monitor: the bar lives on the primary display (target monitor is a future
-  setting).
+## 📄 License
+[MIT](LICENSE) © DeskHatch

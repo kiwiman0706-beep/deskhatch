@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DeskHatch — Lotus SmartCenter, reborn</title>
+<meta name="description" content="A thin top-edge launcher bar for Windows & macOS. Click a button, a drawer slides down: mail, calendar, files, tools — one slam to the top away." />
+<meta property="og:title" content="DeskHatch" />
+<meta property="og:description" content="Lotus SmartCenter, reborn — a top-edge drawer launcher for Windows & macOS." />
+<meta property="og:image" content="media/hero.svg" />
+<link rel="icon" href="../assets/icon.png" />
+<style>
+  :root{
+    --teal:#1f6f6f; --teal-d:#145252; --teal-l:#2e8b8b; --ink:#14302f;
+    --paper:#f4f6f6; --line:#dbe7e7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;color:var(--ink);background:var(--paper);line-height:1.7}
+  a{color:var(--teal-d)}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(160deg,#ffffff,#e7f1f1 60%,#d7e8e8);padding:54px 0 40px;border-bottom:1px solid var(--line)}
+  .logo{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:8px}
+  .logo img{width:48px;height:48px}
+  .logo h1{font-size:30px;margin:0;letter-spacing:.5px}
+  .tag{text-align:center;font-size:20px;font-weight:700;color:var(--teal-d);margin:6px 0 2px}
+  .sub{text-align:center;color:#557;margin:0 0 22px}
+  .heroart{display:block;width:100%;max-width:760px;margin:8px auto 0;border-radius:16px;
+    box-shadow:0 18px 50px rgba(20,48,47,.22)}
+  .cta{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:26px 0 4px}
+  .btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:700;
+    padding:12px 20px;border-radius:10px;border:2px solid var(--teal-d)}
+  .btn.primary{background:var(--teal);color:#fff}
+  .btn.primary:hover{background:var(--teal-d)}
+  .btn.ghost{background:#fff;color:var(--teal-d)}
+  .winget{max-width:520px;margin:14px auto 0;background:#0f2423;color:#d7faf7;border-radius:10px;
+    padding:12px 14px;font:14px/1.5 "Consolas",monospace;display:flex;justify-content:space-between;gap:10px;align-items:center}
+  .winget code{color:#9fe};.copy{cursor:pointer;border:none;background:#1f6f6f;color:#fff;border-radius:6px;padding:6px 10px;font-size:12px}
+  section{padding:46px 0}
+  h2{font-size:24px;text-align:center;margin:0 0 26px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px}
+  .card .ic{font-size:24px}
+  .card h3{margin:8px 0 6px;font-size:16px}
+  .card p{margin:0;color:#456;font-size:14px}
+  .note{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;color:#456;font-size:14px;max-width:760px;margin:0 auto}
+  footer{border-top:1px solid var(--line);padding:26px 0;text-align:center;color:#789;font-size:13px}
+  @media(max-width:520px){.logo h1{font-size:24px}.tag{font-size:17px}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div class="logo"><img src="../assets/logo.svg" alt="" /><h1>DeskHatch</h1></div>
+    <p class="tag">Lotus SmartCenter, reborn.</p>
+    <p class="sub">A thin launcher bar at the very top of your screen — click a button, a drawer slides down.<br>画面最上部に常駐する万能ランチャー。懐かしの SmartCenter を現代に。</p>
+    <img class="heroart" src="media/hero.svg" alt="DeskHatch demo" />
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/kiwiman0706-beep/deskhatch/releases/latest">⬇ Download (Win / macOS)</a>
+      <a class="btn ghost" href="https://github.com/kiwiman0706-beep/deskhatch">★ Star on GitHub</a>
+    </div>
+    <div class="winget">
+      <code>winget install Theta.Deskhatch</code>
+      <button class="copy" onclick="navigator.clipboard&&navigator.clipboard.writeText('winget install Theta.Deskhatch')">Copy</button>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>What it does</h2>
+    <div class="grid">
+      <div class="card"><div class="ic">🎯</div><h3>Slam to the top</h3><p>The bar hugs the screen's top edge — hit it without aiming. Auto-hide or always-on, with optional space reservation.</p></div>
+      <div class="card"><div class="ic">🗄️</div><h3>One-click drawers</h3><p>Each button slides a drawer down beneath it. Pin to lay several side by side; drag to reorder or merge into tabs.</p></div>
+      <div class="card"><div class="ic">🔑</div><h3>Sign in once</h3><p>Gmail, Calendar, Keep, Tasks, Drive, Maps, Gemini, LINE WORKS… one Google login covers them all.</p></div>
+      <div class="card"><div class="ic">🗂️</div><h3>Files &amp; Clip</h3><p>Explorer-style browser, pinned folders, an Apps shortcut, and a 📎 Clip to stash files / URLs / text.</p></div>
+      <div class="card"><div class="ic">🧰</div><h3>Built-in tools</h3><p>Editor, calculator, timer, stopwatch, clipboard history, bookmarks and a quick web search.</p></div>
+      <div class="card"><div class="ic">⚙️</div><h3>Polished</h3><p>Auto-update on Windows, English / 日本語 UI, themes, multi-monitor, tray Restart / Quit.</p></div>
+    </div>
+  </div>
+</section>
+
+<section style="background:#eef5f5">
+  <div class="wrap">
+    <h2>Get started</h2>
+    <div class="note">
+      <p><strong>Windows:</strong> <code>winget install Theta.Deskhatch</code> — or download the installer (auto-updates) / portable build from the <a href="https://github.com/kiwiman0706-beep/deskhatch/releases/latest">latest release</a>.</p>
+      <p><strong>macOS:</strong> download the universal <code>.dmg</code> from the <a href="https://github.com/kiwiman0706-beep/deskhatch/releases/latest">latest release</a>; on first launch <em>right-click → Open</em> (unsigned build).</p>
+      <p style="margin-bottom:0">Free &amp; open source (MIT). Inspired by Lotus SmartCenter.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    DeskHatch · <a href="https://github.com/kiwiman0706-beep/deskhatch">GitHub</a> ·
+    <a href="https://github.com/kiwiman0706-beep/deskhatch/releases">Releases</a> ·
+    MIT License
+  </div>
+</footer>
+</body>
+</html>
