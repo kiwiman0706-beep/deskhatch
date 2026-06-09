@@ -127,6 +127,11 @@ function register(getWin) {
   ipcMain.handle('files:reveal', (_e, p) => { shell.showItemInFolder(p); return true; });
   ipcMain.handle('files:copy-path', (_e, p) => { clipboard.writeText(p); return true; });
 
+  ipcMain.handle('files:pick-files', async () => {
+    const r = await dialog.showOpenDialog(getWin(), { properties: ['openFile', 'multiSelections'] });
+    return r.canceled ? [] : r.filePaths;
+  });
+
   ipcMain.handle('files:pick-folder', async () => {
     const r = await dialog.showOpenDialog(getWin(), { properties: ['openDirectory'] });
     return r.canceled ? null : r.filePaths[0];

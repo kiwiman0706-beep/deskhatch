@@ -62,6 +62,7 @@ contextBridge.exposeInMainWorld('files', {
   reveal: (p) => ipcRenderer.invoke('files:reveal', p),
   copyPath: (p) => ipcRenderer.invoke('files:copy-path', p),
   pickFolder: () => ipcRenderer.invoke('files:pick-folder'),
+  pickFiles: () => ipcRenderer.invoke('files:pick-files'),
   copyTo: (src, dir) => ipcRenderer.invoke('files:copy-to', src, dir),
   trash: (p) => ipcRenderer.invoke('files:trash', p),
   saveText: (text) => ipcRenderer.invoke('files:save-text', text),

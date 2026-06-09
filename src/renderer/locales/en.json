@@ -187,5 +187,8 @@
   "ブラウザを開けませんでした:\n": "Couldn't open the browser:\n",
   " アプリ/デスクトップ切替時にドロワーを閉じる": " Close drawers when leaving the app / switching desktop",
   "クリップに追加しました": "Added to Clip",
-  "ドロップを受け取れませんでした（パスを取得できませんでした）": "Couldn't accept the drop (no file path)"
+  "ドロップを受け取れませんでした（パスを取得できませんでした）": "Couldn't accept the drop (no file path)",
+  "＋ ファイル": "+ File",
+  "＋ フォルダ": "+ Folder",
+  "＋で追加（D&D可：Win/常に表示）": "Add with +  (drag & drop: Windows / always-on)"
 }

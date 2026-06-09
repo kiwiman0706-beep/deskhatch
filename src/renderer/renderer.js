@@ -633,6 +633,23 @@ function addClip(item) {
   Store.saveClips(clips);
 }
 
+// Add real filesystem paths (from the native picker, or a drop) to the clip.
+// Reliable everywhere — macOS transparent windows can't receive file drops, so
+// the picker is the primary intake there.
+async function addFilePaths(paths) {
+  let added = 0;
+  for (const p of (paths || [])) {
+    if (!p) continue;
+    const st = await window.files.stat(p);
+    if (st.error) continue;
+    if (st.isDir) addClip({ kind: 'folder', path: p, label: st.name });
+    else addClip({ kind: 'file', path: p, label: st.name, viewer: viewerForExt(st.ext) });
+    added++;
+  }
+  if (added) { refreshClipUI(); toast(L('クリップに追加しました') + ' (' + added + ')'); }
+  return added;
+}
+
 async function handleDrop(e) {
   e.preventDefault();
   e.stopPropagation();
@@ -814,7 +831,11 @@ function buildClipPanel() {
   const head = el('div', 'ss-clip-head');
   const clear = el('button', 'ss-set-btn', L('全クリア'));
   clear.onclick = () => { if (Store.getClips().length) { Store.saveClips([]); renderClipList(list); } };
-  head.append(el('span', 'ss-clip-hint', L('ドラッグ＆ドロップで追加')), clear);
+  const addFileBtn = el('button', 'ss-set-btn', L('＋ ファイル'));
+  addFileBtn.onclick = async () => { await addFilePaths(await window.files.pickFiles()); };
+  const addFolderBtn = el('button', 'ss-set-btn', L('＋ フォルダ'));
+  addFolderBtn.onclick = async () => { const d = await window.files.pickFolder(); if (d) await addFilePaths([d]); };
+  head.append(el('span', 'ss-clip-hint', L('＋で追加（D&D可：Win/常に表示）')), addFileBtn, addFolderBtn, clear);
   wrap.append(head, list);
   const stop = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
   ['dragenter', 'dragover'].forEach((ev) => wrap.addEventListener(ev, (e) => { stop(e); wrap.classList.add('over'); }));
