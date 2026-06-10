@@ -35,15 +35,19 @@ function ensureWin() {
       console.warn('[update] ' + (e && e.message));
       if (manual) { manual = false; const ja = isJa();
         box({ type: 'warning', buttons: ['OK'], title: ja ? 'アップデート' : 'Update',
-          message: ja ? '更新の確認に失敗しました。' : 'Could not check for updates.',
-          detail: (e && e.message) || '' }); }
+          message: ja ? '更新に失敗しました。' : 'Update failed.',
+          detail: ((e && e.message) || '') + (ja ? '\n\n※ ポータブル版は自動更新できません。インストーラ版（Setup）をご利用ください。' : '\n\nNote: the portable build cannot auto-update — use the Setup installer.') }); }
     });
     autoUpdater.on('update-available', (info) => {
-      if (manual) { manual = false; const ja = isJa();
+      // Keep `manual` set here: the download is still in flight, so a later
+      // download error must still surface — otherwise the user is left staring
+      // at "downloading…" with nothing happening.
+      if (manual) { const ja = isJa();
         box({ type: 'info', buttons: ['OK'], title: ja ? 'アップデート' : 'Update',
           message: ja ? ('新しいバージョン ' + info.version + ' をダウンロード中…') : ('Downloading version ' + info.version + '…'),
-          detail: ja ? '完了したら再起動を促します。' : "You'll be prompted to restart when it's ready." }); }
+          detail: ja ? '数十MBあるため少し時間がかかります。完了したら再起動を促します。' : "It's ~100MB, so this may take a minute. You'll be prompted to restart when it's ready." }); }
     });
+    autoUpdater.on('download-progress', (p) => { try { console.log('[update] ' + Math.round((p && p.percent) || 0) + '%'); } catch (_) {} });
     autoUpdater.on('update-not-available', () => {
       if (manual) { manual = false; const ja = isJa();
         box({ type: 'info', buttons: ['OK'], title: ja ? 'アップデート' : 'Update',

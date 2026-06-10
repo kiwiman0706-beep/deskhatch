@@ -1315,9 +1315,10 @@ function createDrawer(tab) {
   const gripE = el('div', 'ss-resize-e');   // right edge: width
   const gripS = el('div', 'ss-resize-s');   // bottom edge: height
   const gripSE = el('div', 'ss-resize-se'); // corner: both
+  const gripSW = el('div', 'ss-resize-sw'); // corner: width(left) + height
   gripSE.title = L('ドラッグでサイズ変更');
 
-  d.append(head, buildBody(tab), gripW, gripE, gripS, gripSE);
+  d.append(head, buildBody(tab), gripW, gripE, gripS, gripSE, gripSW);
 
   pin.addEventListener('click', () => togglePin(tab.id));
   close.addEventListener('click', () => closeDrawer(tab.id));
@@ -1326,6 +1327,7 @@ function createDrawer(tab) {
   attachResize(gripE, d, tab, true, false);
   attachResize(gripS, d, tab, false, true);
   attachResize(gripSE, d, tab, true, true);
+  attachResize(gripSW, d, tab, false, true, true);
   return d;
 }
 

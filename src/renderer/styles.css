@@ -337,6 +337,17 @@ html, body {
   position: absolute; right: 0; bottom: 0;
   width: 18px; height: 18px; cursor: nwse-resize; z-index: 6;
 }
+.ss-resize-sw {
+  position: absolute; left: 0; bottom: 0;
+  width: 18px; height: 18px; cursor: nesw-resize; z-index: 6;
+}
+.ss-resize-sw::after {
+  content: "";
+  position: absolute; left: 3px; bottom: 3px;
+  width: 9px; height: 9px;
+  border-left: 2px solid #9bbcbc;
+  border-bottom: 2px solid #9bbcbc;
+}
 .ss-resize-se::after {
   content: "";
   position: absolute; right: 3px; bottom: 3px;
