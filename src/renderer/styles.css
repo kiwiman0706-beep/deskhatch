@@ -131,6 +131,22 @@ html, body {
 .ss-btn.merge { outline: 2px solid #ffd86b; outline-offset: -2px; background: rgba(255, 216, 107, 0.25); }
 
 /* --- Drawer ---------------------------------------------------------------- */
+.ss-picker {
+  position: absolute; top: var(--bar-h); margin-top: 2px;
+  display: flex; gap: 6px; flex-wrap: wrap;
+  max-width: calc(100vw - 12px);
+  padding: 6px; z-index: 40;
+  background: #fff; border: 1px solid #cfe0e0; border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .18);
+}
+.ss-picker-chip {
+  padding: 8px 12px; border-radius: 8px;
+  background: #eef6f6; border: 1px solid #d4e6e6; color: #2b4a4a;
+  font: 13px "Segoe UI", sans-serif; white-space: nowrap;
+  cursor: default; user-select: none; transition: transform .08s ease;
+}
+.ss-picker-chip.over { background: #1f9f9f; color: #fff; border-color: #1f9f9f; transform: scale(1.06); }
+.ss-btn.folder-drop-target { outline: 2px solid #1f9f9f; outline-offset: -2px; }
 .ss-drawer {
   position: fixed;
   top: var(--bar-h);

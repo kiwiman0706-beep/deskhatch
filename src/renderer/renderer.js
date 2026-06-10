@@ -212,6 +212,7 @@ window.overlay.setIgnoreMouse(true);
 function pushHit() {
   if (!barShouldShow()) return window.overlay.setHit('none', []);
   if (dragging) return window.overlay.setHit('all', []);
+  if (dragIntake) return window.overlay.setHit('all', []);
   const interactive = [bar, ...Object.keys(open).map((id) => open[id].el)];
   if (searchEl) interactive.push(searchEl);
   if (interactive.length === 1) return window.overlay.setHit('all', []); // bar only
@@ -228,6 +229,7 @@ const isHiddenMode = () => display.mode === 'autohide' || tempHidden;
 function barShouldShow() {
   if (DEMO) return true;                       // demo: keep the bar on screen
   if (searchEl) return true;                   // search popover is open
+  if (pickerEl) return true;                   // drag-intake picker is open
   if (Object.keys(open).length) return true; // a drawer is open
   if (!isHiddenMode()) return true;           // always-show mode
   return hovering || atEdge;                  // hidden mode: reveal at top edge
@@ -241,6 +243,7 @@ function reflowHeight() {
   else {
     const heights = Object.keys(open).map((id) => open[id].el.offsetHeight);
     if (searchEl) heights.push(searchEl.offsetHeight); // fit the search popover
+    if (pickerEl) heights.push(pickerEl.offsetHeight); // fit the drag-intake picker
     window.overlay.setHeight(window.SSLayout.computeHeight(BAR_H, heights));
   }
   // Re-report the interactive geometry whenever visibility/size changes; the
@@ -690,6 +693,7 @@ function addClip(item) {
   item.id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
   clips.push(item);
   Store.saveClips(clips);
+  return item.id;
 }
 
 // Add real filesystem paths (from the native picker, or a drop) to the clip.
@@ -713,32 +717,126 @@ async function handleDrop(e) {
   e.preventDefault();
   e.stopPropagation();
   const dt = e.dataTransfer;
-  if ([...(dt.types || [])].includes('ss-tab')) return; // internal reorder, not intake
-  let added = 0;
+  if ([...(dt.types || [])].includes('ss-tab')) return []; // internal reorder, not intake
 
+  // ②: dropped directly onto a folder-type bar button -> straight into that folder.
+  const btnEl = e.target && e.target.closest ? e.target.closest('.ss-btn[data-id]') : null;
+  if (btnEl) {
+    const t = tabs.find((x) => x.id === btnEl.dataset.id);
+    if (t && t.type === 'folder' && t.path) { await dropIntoFolder(dt, t.path); return []; }
+  }
+
+  const ids = [];
   const uriList = (dt.getData('text/uri-list') || '').split('\n').map((s) => s.trim()).filter(Boolean);
   const plain = (dt.getData('text/plain') || '').trim();
   const url = uriList.find((l) => /^https?:\/\//i.test(l)) || (/^https?:\/\//i.test(plain) ? plain : '');
-  if (url && (!dt.files || !dt.files.length)) { addClip({ kind: 'url', url, label: url }); added++; }
+  if (url && (!dt.files || !dt.files.length)) { ids.push(addClip({ kind: 'url', url, label: url })); }
 
   for (const f of (dt.files || [])) {
     const p = window.overlay.getPathForFile(f);
     if (!p) continue;
     const st = await window.files.stat(p);
     if (st.error) continue;
-    if (st.isDir) addClip({ kind: 'folder', path: p, label: st.name });
-    else addClip({ kind: 'file', path: p, label: st.name, viewer: viewerForExt(st.ext) });
-    added++;
+    if (st.isDir) ids.push(addClip({ kind: 'folder', path: p, label: st.name }));
+    else ids.push(addClip({ kind: 'file', path: p, label: st.name, viewer: viewerForExt(st.ext) }));
   }
 
   // Plain selected text (not a URL, no files) -> a text snippet.
   if (!url && plain && (!dt.files || !dt.files.length)) {
-    addClip({ kind: 'text', text: plain, label: plain.replace(/\s+/g, ' ').slice(0, 40) });
-    added++;
+    ids.push(addClip({ kind: 'text', text: plain, label: plain.replace(/\s+/g, ' ').slice(0, 40) }));
   }
 
-  if (added) { refreshClipUI(); toast(L('クリップに追加しました') + ' (' + added + ')'); }
+  if (ids.length) { refreshClipUI(); toast(L('クリップに追加しました') + ' (' + ids.length + ')'); }
   else if ((dt.files && dt.files.length) || uriList.length || plain) { toast(L('ドロップを受け取れませんでした（パスを取得できませんでした）')); }
+  return ids;
+}
+
+// --- Phase 2: drag-intake box picker (Windows) + folder-button drop ---------
+// The transparent overlay only receives drag events where it's hit-testable, so
+// while an external drag is in flight we flip the whole window to capture (see
+// pushHit) and float a strip of "boxes" just under the bar. Dropping on a box
+// files the item there; dropping anywhere else (or leaving) keeps it in Clip.
+// macOS can't receive window drops at all -> Windows only.
+const IS_WIN = (window.overlay && window.overlay.platform) === 'win32';
+let dragIntake = false;
+let pickerEl = null;
+let pickerBoxes = [];
+
+function isExternalDrag(dt) {
+  const types = [...((dt && dt.types) || [])];
+  if (types.includes('ss-tab')) return false;
+  return types.includes('Files') || types.includes('text/uri-list') || types.includes('text/plain');
+}
+
+// Write dropped content into a folder (files copied; url/text saved as a note).
+// All dataTransfer reads happen synchronously up front (it's neutered after an await).
+async function dropIntoFolder(dt, dir) {
+  const paths = [];
+  for (const f of (dt.files || [])) { const p = window.overlay.getPathForFile(f); if (p) paths.push(p); }
+  const uriList = (dt.getData('text/uri-list') || '').split('\n').map((s) => s.trim()).filter(Boolean);
+  const plain = (dt.getData('text/plain') || '').trim();
+  const url = uriList.find((l) => /^https?:\/\//i.test(l)) || (/^https?:\/\//i.test(plain) ? plain : '');
+  let n = 0;
+  for (const p of paths) { const r = await window.files.copyTo(p, dir); if (!(r && r.error)) n++; }
+  if (!paths.length && url) { await window.files.writePath(scrapJoin(dir, scrapSanit(url) + '.md'), '# ' + url + '\n\n' + url); n++; }
+  else if (!paths.length && plain) { await window.files.writePath(scrapJoin(dir, scrapSanit(plain.split('\n')[0]) + '.md'), plain); n++; }
+  if (n) toast(L('フォルダへ保存しました') + ' (' + n + ')');
+  return n;
+}
+
+function makePickerChip(label, action) {
+  const c = el('div', 'ss-picker-chip', label);
+  c.addEventListener('dragover', (ev) => { ev.preventDefault(); ev.stopPropagation(); c.classList.add('over'); });
+  c.addEventListener('dragleave', () => c.classList.remove('over'));
+  c.addEventListener('drop', async (ev) => {
+    ev.preventDefault(); ev.stopPropagation();
+    // Intake to Clip first (instant, never lost), then move if a box was targeted.
+    const ids = await handleDrop(ev);
+    if (action === 'drawer') {
+      const clips = Store.getClips();
+      ids.forEach((id) => { const it = clips.find((x) => x.id === id); if (it) promoteClip(it); });
+    } else if (action.indexOf('box:') === 0) {
+      const b = pickerBoxes[Number(action.slice(4))];
+      if (b) { const clips = Store.getClips(); for (const id of ids) { const it = clips.find((x) => x.id === id); if (it) await moveClipToBox(it, b.path); } }
+    }
+    closePicker();
+    clearDragFx();
+  });
+  return c;
+}
+
+function positionPicker() {
+  if (!pickerEl) return;
+  const w = pickerEl.offsetWidth || 200;
+  pickerEl.style.left = Math.max(MARGIN, Math.min((window.innerWidth - w) / 2, window.innerWidth - w - MARGIN)) + 'px';
+}
+
+function openPicker() {
+  if (pickerEl) return;
+  dragIntake = true;
+  const p = el('div', 'ss-picker ss-interactive');
+  pickerEl = p;
+  p.appendChild(makePickerChip('📎 ' + L('クリップ'), 'clip'));
+  p.appendChild(makePickerChip(L('➕ ドロワー'), 'drawer'));
+  document.body.appendChild(p);
+  positionPicker();
+  reflowHeight();
+  scrapBoxes().then((boxes) => {
+    if (!pickerEl) return;
+    pickerBoxes = boxes;
+    boxes.forEach((b, i) => p.appendChild(makePickerChip('📁 ' + b.name, 'box:' + i)));
+    positionPicker();
+    reflowHeight();
+  });
+}
+
+function closePicker() {
+  if (!pickerEl) return;
+  pickerEl.remove();
+  pickerEl = null;
+  dragIntake = false;
+  pickerBoxes = [];
+  reflowHeight();
 }
 
 let clipListEl = null; // the currently-open clip list, if any
@@ -2357,9 +2455,11 @@ renderBar();
 
 // Drag & drop intake. Prevent the window from navigating to dropped files, and
 // let the bar (which captures while it's the only thing showing) receive drops.
-document.addEventListener('dragover', (e) => { e.preventDefault(); });
-document.addEventListener('drop', (e) => { e.preventDefault(); clearDragFx(); handleDrop(e); });
-document.addEventListener('dragend', clearDragFx);
+document.addEventListener('dragenter', (e) => { if (IS_WIN && isExternalDrag(e.dataTransfer)) openPicker(); });
+document.addEventListener('dragover', (e) => { e.preventDefault(); if (IS_WIN && !pickerEl && isExternalDrag(e.dataTransfer)) openPicker(); });
+document.addEventListener('drop', (e) => { e.preventDefault(); clearDragFx(); if (pickerEl) closePicker(); handleDrop(e); });
+document.addEventListener('dragleave', (e) => { if (pickerEl && !e.relatedTarget) closePicker(); });
+document.addEventListener('dragend', () => { clearDragFx(); if (pickerEl) closePicker(); });
 bar.addEventListener('dragover', (e) => { e.preventDefault(); bar.classList.add('drop'); });
 bar.addEventListener('dragleave', (e) => { if (e.target === bar) bar.classList.remove('drop'); });
 bar.addEventListener('drop', (e) => { bar.classList.remove('drop'); handleDrop(e); });
