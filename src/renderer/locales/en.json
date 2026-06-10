@@ -202,5 +202,13 @@
   "メニューバーの DeskHatch アイコンに<b>ファイルをドロップ</b>すると追加できます。": "Drop files onto the DeskHatch <b>menu-bar icon</b> to add them.",
   "📎ドロワーの<b>「＋ファイル / ＋フォルダ」</b>ボタンからも追加できます。": "Or use the <b>+File / +Folder</b> buttons in the 📎 Clip drawer.",
   "<b>再起動しても消えません</b>。よく使う物は正式な項目へ昇格も。": "<b>It survives restarts.</b> Promote favorites to permanent items.",
-  "バーや📎へ<b>URL・ファイル・フォルダ・テキスト</b>をドロップ、または<b>＋ボタン</b>で追加。": "Drop a <b>URL / file / folder / text</b> on the bar or 📎, or use the <b>+</b> buttons."
+  "バーや📎へ<b>URL・ファイル・フォルダ・テキスト</b>をドロップ、または<b>＋ボタン</b>で追加。": "Drop a <b>URL / file / folder / text</b> on the bar or 📎, or use the <b>+</b> buttons.",
+  "スクラップブック": "Scrapbook",
+  "保存先フォルダを選んでください（Googleドライブの同期フォルダにするとクラウド保存）": "Pick a folder to save in (use your Google Drive sync folder for cloud backup).",
+  "保存先を変更": "Change folder",
+  "新しい箱": "New box",
+  "＋ ノート": "+ Note",
+  "（ノートなし）": "(No notes)",
+  "ノートを選択、またはここにドラッグ＆ドロップ": "Select a note, or drag & drop here",
+  "スクラップ": "Scrap"
 }

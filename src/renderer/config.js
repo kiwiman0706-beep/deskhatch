@@ -63,5 +63,7 @@ window.SS_TABS = [
   // Installed apps: Windows Start Menu programs / macOS Applications (auto per-OS).
   { id: 'apps', label: L('アプリ'), icon: '🚀', type: 'folder', path: '@apps', width: 460 },
 
+  { id: 'scrap', label: 'Scrap', icon: '📒', type: 'scrap', width: 560 },
+
   { id: 'pc', label: 'My Computer', icon: '💻', type: 'files', width: 460 },
 ];
