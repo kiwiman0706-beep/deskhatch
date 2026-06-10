@@ -329,6 +329,7 @@ function createTray() {
 ipcMain.on('app:relaunch', () => { app.relaunch(); app.quit(); });
 
 ipcMain.handle('app:version', () => app.getVersion());
+ipcMain.on('app:check-updates', () => updater.checkNow());
 
 ipcMain.on('overlay:set-ignore-mouse', (e, ignore) => {
   const w = BrowserWindow.fromWebContents(e.sender);

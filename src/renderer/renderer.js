@@ -1960,9 +1960,13 @@ function buildMenuPanel() {
   ver.style.cssText = 'font-size:11px;color:#6a8a8a;';
   if (window.overlay.version) window.overlay.version().then((v) => { ver.textContent = 'DeskHatch v' + v; }).catch(() => {});
   const verSp = el('span'); verSp.style.flex = '1';
+  const updBtn = el('button', 'ss-set-btn', L('🔄 更新を確認'));
+  updBtn.onclick = () => { if (window.overlay.checkUpdates) window.overlay.checkUpdates(); };
+  const demoBtn = el('button', 'ss-set-btn', DEMO ? L('🎬 デモ終了') : L('🎬 デモ'));
+  demoBtn.onclick = () => { try { if (localStorage.getItem('ss.demo') === '1') localStorage.removeItem('ss.demo'); else localStorage.setItem('ss.demo', '1'); } catch (_) {} window.overlay.relaunch(); };
   const quitBtn = el('button', 'ss-set-btn ss-quit', L('⏻ アプリを終了'));
   quitBtn.onclick = () => window.overlay.quit();
-  footer.append(ver, verSp, quitBtn);
+  footer.append(ver, verSp, updBtn, demoBtn, quitBtn);
 
   wrap.append(acct, tabsBar, view, footer);
 

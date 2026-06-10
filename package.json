@@ -1,6 +1,6 @@
 {
   "name": "deskhatch",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "DeskHatch — a SmartCenter-style top-edge drawer launcher (Electron). A thin bar docks at the top of the screen; clicking a button slides a drawer down directly beneath it.",
   "main": "src/main/main.js",
   "author": "DeskHatch",
@@ -35,13 +35,11 @@
     "appId": "com.deskhatch.app",
     "productName": "DeskHatch",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "kiwiman0706-beep",
-        "repo": "deskhatch"
-      }
-    ],
+    "publish": {
+      "provider": "github",
+      "owner": "kiwiman0706-beep",
+      "repo": "deskhatch"
+    },
     "files": [
       "src/**/*",
       "assets/**/*",
