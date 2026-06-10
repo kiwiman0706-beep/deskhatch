@@ -220,5 +220,6 @@
   "移動できませんでした": "Couldn't move",
   "先に📎パネルで箱を作成してください": "Create a box first (＋ in the Clip panel)",
   "保存先": "Folder",
-  "箱へ保存しました": "Saved to box"
+  "箱へ保存しました": "Saved to box",
+  "ドラッグで箱へ移動": "Drag to a box"
 }

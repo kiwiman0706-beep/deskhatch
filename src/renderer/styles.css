@@ -262,6 +262,8 @@ html, body {
 .ss-clip-row { display: flex; align-items: center; gap: 8px; padding: 6px 6px; border-radius: 6px; cursor: pointer; }
 .ss-clip-row:hover { background: #e8f3f3; }
 .ss-clip-ico { flex: 0 0 18px; text-align: center; }
+.ss-clip-grip { flex: 0 0 10px; cursor: grab; color: #9fb3b3; user-select: none; text-align: center; }
+.ss-clip-grip:active { cursor: grabbing; }
 .ss-clip-iconimg { flex: 0 0 16px; width: 16px; height: 16px; }
 .ss-clip-thumb { flex: 0 0 26px; width: 26px; height: 26px; object-fit: cover; border-radius: 3px; background: #ddd; }
 .ss-clip-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--ink); }
@@ -321,6 +323,10 @@ html, body {
 /* resize handles: right edge, bottom edge, and corner */
 .ss-resize-e {
   position: absolute; top: 0; right: 0;
+  width: 7px; height: 100%; cursor: ew-resize; z-index: 5;
+}
+.ss-resize-w {
+  position: absolute; top: 0; left: 0;
   width: 7px; height: 100%; cursor: ew-resize; z-index: 5;
 }
 .ss-resize-s {

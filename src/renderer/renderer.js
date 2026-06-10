@@ -17,7 +17,7 @@ const drawerHeight = () => Math.min(720, Math.floor(window.screen.availHeight * 
 const MENU_TAB = { id: '__menu', label: L('メニュー'), icon: '☰', type: 'menu', width: 380 };
 
 // The "clip" (temporary holding) pseudo-tab — a drop target / bin.
-const CLIP_TAB = { id: '__clip', label: L('クリップ'), icon: '📎', type: 'clip', width: 380 };
+const CLIP_TAB = { id: '__clip', label: L('クリップ'), icon: '📎', type: 'clip', width: 640 };
 // The "other monitors' drawers" pseudo-tab — open another monitor's items here.
 const OTHERS_TAB = { id: '__others', label: L('別モニタのドロワー'), icon: '🖥', type: 'others', width: 320 };
 // The "how-to guide" pseudo-tab — an HTML feature-overview slideshow.
@@ -767,7 +767,10 @@ function renderClipList(list) {
         ico.replaceWith(img);
       });
     }
-    li.append(ico, el('span', 'ss-clip-name', it.label));
+    const grip = el('span', 'ss-clip-grip', '⠿');
+    grip.draggable = true; grip.title = L('ドラッグで箱へ移動');
+    grip.addEventListener('dragstart', (ev) => { ev.dataTransfer.setData('ss-clip-move', it.id); ev.dataTransfer.effectAllowed = 'move'; });
+    li.append(grip, ico, el('span', 'ss-clip-name', it.label));
     li.title = it.url || it.path || (it.text ? it.text.slice(0, 80) : '');
     li.addEventListener('click', () => openClipItem(it));
     if (it.kind === 'file') {
@@ -949,6 +952,9 @@ function buildClipPanel() {
       const d = el('div', null, '📁 ' + b.name);
       d.style.cssText = 'padding:6px 8px;border-radius:6px;cursor:pointer' + (cur === b.path ? ';background:#d7ecec;font-weight:700' : '');
       d.onclick = () => { cur = b.path; renderRail(); renderContent(); };
+      d.addEventListener('dragover', (ev) => { if ([...(ev.dataTransfer.types || [])].includes('ss-clip-move')) { ev.preventDefault(); d.style.outline = '2px solid #1f9f9f'; } });
+      d.addEventListener('dragleave', () => { d.style.outline = ''; });
+      d.addEventListener('drop', async (ev) => { ev.preventDefault(); d.style.outline = ''; const id = ev.dataTransfer.getData('ss-clip-move'); if (!id) return; const it = Store.getClips().find((c) => c.id === id); if (it) { await moveClipToBox(it, b.path); renderRail(); renderContent(); } });
       rail.appendChild(d);
     });
     const row = el('div'); row.style.cssText = 'display:flex;gap:4px;margin-top:8px';
@@ -1235,13 +1241,13 @@ function buildBody(tab) {
   return body;
 }
 
-function attachResize(handle, d, tab, ax, ay) {
+function attachResize(handle, d, tab, ax, ay, aw) {
   handle.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     handle.setPointerCapture(e.pointerId);
     dragging = true;
     pushHit(); // capture the whole window while resizing (cursor may leave the rect)
-    const sx = e.clientX, sy = e.clientY, sw = d.offsetWidth, sh = d.offsetHeight;
+    const sx = e.clientX, sy = e.clientY, sw = d.offsetWidth, sh = d.offsetHeight, sLeft = d.offsetLeft;
 
     const move = (ev) => {
       const bounds = {
@@ -1249,12 +1255,13 @@ function attachResize(handle, d, tab, ax, ay) {
         maxW: window.innerWidth - 2 * MARGIN,
         maxH: window.screen.availHeight - BAR_H - MARGIN,
       };
-      const w = ax ? sw + (ev.clientX - sx) : sw;
+      const w = aw ? sw - (ev.clientX - sx) : ax ? sw + (ev.clientX - sx) : sw;
       const h = ay ? sh + (ev.clientY - sy) : sh;
       const s = window.SSLayout.clampSize(w, h, bounds);
       d.style.width = s.width + 'px';
       d.style.height = s.height + 'px';
-      d.style.left = window.SSLayout.computeLeft(d.offsetLeft, s.width, window.innerWidth, MARGIN) + 'px';
+      if (aw) { let left = (sLeft + sw) - s.width; if (left < MARGIN) left = MARGIN; d.style.left = left + 'px'; }
+      else { d.style.left = window.SSLayout.computeLeft(d.offsetLeft, s.width, window.innerWidth, MARGIN) + 'px'; }
       reflowHeight();
     };
     const up = () => {
@@ -1304,16 +1311,18 @@ function createDrawer(tab) {
   }
   head.append(pin, close);
 
+  const gripW = el('div', 'ss-resize-w');   // left edge: width (grow leftward)
   const gripE = el('div', 'ss-resize-e');   // right edge: width
   const gripS = el('div', 'ss-resize-s');   // bottom edge: height
   const gripSE = el('div', 'ss-resize-se'); // corner: both
   gripSE.title = L('ドラッグでサイズ変更');
 
-  d.append(head, buildBody(tab), gripE, gripS, gripSE);
+  d.append(head, buildBody(tab), gripW, gripE, gripS, gripSE);
 
   pin.addEventListener('click', () => togglePin(tab.id));
   close.addEventListener('click', () => closeDrawer(tab.id));
   d.addEventListener('mousedown', () => bringToFront(d));
+  attachResize(gripW, d, tab, false, false, true);
   attachResize(gripE, d, tab, true, false);
   attachResize(gripS, d, tab, false, true);
   attachResize(gripSE, d, tab, true, true);
