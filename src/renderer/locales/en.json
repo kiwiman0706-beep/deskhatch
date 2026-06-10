@@ -223,5 +223,6 @@
   "箱へ保存しました": "Saved to box",
   "ドラッグで箱へ移動": "Drag to a box",
   "➕ ドロワー": "➕ Drawer",
-  "フォルダへ保存しました": "Saved to folder"
+  "フォルダへ保存しました": "Saved to folder",
+  "ドロップ後に箱の振り分けメニューを出す": "Show box picker after a drop"
 }

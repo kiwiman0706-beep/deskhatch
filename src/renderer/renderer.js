@@ -91,6 +91,9 @@ const Store = {
   // screenshot tools / Alt-Tab don't dismiss a drawer you're capturing).
   getCloseOnLeave() { return localStorage.getItem('ss.closeOnLeave') === '1'; },
   setCloseOnLeave(v) { if (v) localStorage.setItem('ss.closeOnLeave', '1'); else localStorage.removeItem('ss.closeOnLeave'); },
+  // Post-drop box-picker popup (on by default).
+  getDropMenu() { return localStorage.getItem('ss.dropMenu') !== '0'; },
+  setDropMenu(v) { if (v) localStorage.removeItem('ss.dropMenu'); else localStorage.setItem('ss.dropMenu', '0'); },
   getScrapRoot() { return localStorage.getItem('ss.scrap.root') || ''; },
   setScrapRoot(p) { if (p) localStorage.setItem('ss.scrap.root', p); else localStorage.removeItem('ss.scrap.root'); },
   // Search engine for the right-end 🔍 box (id into SEARCH_ENGINES).
@@ -700,17 +703,16 @@ function addClip(item) {
 // Reliable everywhere — macOS transparent windows can't receive file drops, so
 // the picker is the primary intake there.
 async function addFilePaths(paths) {
-  let added = 0;
+  const ids = [];
   for (const p of (paths || [])) {
     if (!p) continue;
     const st = await window.files.stat(p);
     if (st.error) continue;
-    if (st.isDir) addClip({ kind: 'folder', path: p, label: st.name });
-    else addClip({ kind: 'file', path: p, label: st.name, viewer: viewerForExt(st.ext) });
-    added++;
+    if (st.isDir) ids.push(addClip({ kind: 'folder', path: p, label: st.name }));
+    else ids.push(addClip({ kind: 'file', path: p, label: st.name, viewer: viewerForExt(st.ext) }));
   }
-  if (added) { refreshClipUI(); toast(L('クリップに追加しました') + ' (' + added + ')'); }
-  return added;
+  if (ids.length) { refreshClipUI(); toast(L('クリップに追加しました') + ' (' + ids.length + ')'); }
+  return ids;
 }
 
 async function handleDrop(e) {
@@ -761,6 +763,7 @@ const IS_WIN = (window.overlay && window.overlay.platform) === 'win32';
 let dragIntake = false;
 let pickerEl = null;
 let pickerBoxes = [];
+let pickerShown = false; // a picker was shown during the current drag
 
 function isExternalDrag(dt) {
   const types = [...((dt && dt.types) || [])];
@@ -800,6 +803,7 @@ function makePickerChip(label, action) {
       if (b) { const clips = Store.getClips(); for (const id of ids) { const it = clips.find((x) => x.id === id); if (it) await moveClipToBox(it, b.path); } }
     }
     closePicker();
+    pickerShown = false;
     clearDragFx();
   });
   return c;
@@ -814,6 +818,7 @@ function positionPicker() {
 function openPicker() {
   if (pickerEl) return;
   dragIntake = true;
+  pickerShown = true;
   const p = el('div', 'ss-picker ss-interactive');
   pickerEl = p;
   p.appendChild(makePickerChip('📎 ' + L('クリップ'), 'clip'));
@@ -837,6 +842,24 @@ function closePicker() {
   dragIntake = false;
   pickerBoxes = [];
   reflowHeight();
+}
+
+// Post-drop native popup: file the just-added clips into a box. Used on macOS
+// (tray intake has no in-flight picker) and as a Windows fallback when the
+// drag-intake picker didn't show. Dismiss = keep in Clip.
+async function offerBoxMenu(ids) {
+  if (!ids || !ids.length) return;
+  if (!Store.getDropMenu()) return;
+  const boxes = await scrapBoxes();
+  if (!boxes.length) return;
+  const items = boxes.map((b, i) => ({ id: 'box:' + i, label: '📁 ' + b.name }));
+  items.push({ separator: true }, { id: 'drawer', label: L('➕ ドロワーとして追加') });
+  const action = await window.system.menu(items);
+  if (!action) return;
+  const clips = Store.getClips();
+  const picked = ids.map((id) => clips.find((x) => x.id === id)).filter(Boolean);
+  if (action === 'drawer') { picked.forEach((it) => promoteClip(it)); return; }
+  if (action.indexOf('box:') === 0) { const b = boxes[Number(action.slice(4))]; if (b) for (const it of picked) await moveClipToBox(it, b.path); }
 }
 
 let clipListEl = null; // the currently-open clip list, if any
@@ -1653,6 +1676,14 @@ function buildDisplaySettings() {
   colWrap.append(colChk, document.createTextNode(L(' アプリ/デスクトップ切替時にドロワーを閉じる')));
   root.append(colWrap);
 
+  // Post-drop box-picker popup (Mac intake / Windows fallback).
+  const dmWrap = el('label', 'ss-set-check');
+  const dmChk = document.createElement('input');
+  dmChk.type = 'checkbox'; dmChk.checked = Store.getDropMenu();
+  dmChk.onchange = () => Store.setDropMenu(dmChk.checked);
+  dmWrap.append(dmChk, document.createTextNode(L(' ドロップ後に箱の振り分けメニューを出す')));
+  root.append(dmWrap);
+
   // Launch at login
   const startWrap = el('label', 'ss-set-check');
   const startup = document.createElement('input');
@@ -2457,9 +2488,15 @@ renderBar();
 // let the bar (which captures while it's the only thing showing) receive drops.
 document.addEventListener('dragenter', (e) => { if (IS_WIN && isExternalDrag(e.dataTransfer)) openPicker(); });
 document.addEventListener('dragover', (e) => { e.preventDefault(); if (IS_WIN && !pickerEl && isExternalDrag(e.dataTransfer)) openPicker(); });
-document.addEventListener('drop', (e) => { e.preventDefault(); clearDragFx(); if (pickerEl) closePicker(); handleDrop(e); });
+document.addEventListener('drop', async (e) => {
+  e.preventDefault(); clearDragFx();
+  const shown = pickerShown; pickerShown = false;
+  if (pickerEl) closePicker();
+  const ids = await handleDrop(e);
+  if (!shown) offerBoxMenu(ids); // picker wasn't shown (Mac / Win fallback) -> post-drop menu
+});
 document.addEventListener('dragleave', (e) => { if (pickerEl && !e.relatedTarget) closePicker(); });
-document.addEventListener('dragend', () => { clearDragFx(); if (pickerEl) closePicker(); });
+document.addEventListener('dragend', () => { clearDragFx(); pickerShown = false; if (pickerEl) closePicker(); });
 bar.addEventListener('dragover', (e) => { e.preventDefault(); bar.classList.add('drop'); });
 bar.addEventListener('dragleave', (e) => { if (e.target === bar) bar.classList.remove('drop'); });
 bar.addEventListener('drop', (e) => { bar.classList.remove('drop'); handleDrop(e); });
@@ -2495,15 +2532,15 @@ window.overlay.onBlur(() => {
 });
 
 // macOS: files / text dropped on the menu-bar icon arrive here -> add to Clip.
-window.overlay.onAddFiles((files) => { addFilePaths(files || []); });
+window.overlay.onAddFiles(async (files) => { const ids = await addFilePaths(files || []); offerBoxMenu(ids); });
 if (window.overlay.onDemoToggle) window.overlay.onDemoToggle(() => { try { if (localStorage.getItem('ss.demo') === '1') localStorage.removeItem('ss.demo'); else localStorage.setItem('ss.demo', '1'); } catch (_) {} window.overlay.relaunch(); });
 window.overlay.onAddText((text) => {
   const t = String(text || '').trim();
   if (!t) return;
-  if (/^https?:\/\//i.test(t)) addClip({ kind: 'url', url: t, label: t });
-  else addClip({ kind: 'text', text: t, label: t.replace(/\s+/g, ' ').slice(0, 40) });
+  const id = /^https?:\/\//i.test(t) ? addClip({ kind: 'url', url: t, label: t }) : addClip({ kind: 'text', text: t, label: t.replace(/\s+/g, ' ').slice(0, 40) });
   refreshClipUI();
   toast(L('クリップに追加しました') + ' (1)');
+  offerBoxMenu([id]);
 });
 
 // Surface why the top-edge reservation didn't take, if it was requested.
