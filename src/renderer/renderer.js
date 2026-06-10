@@ -50,6 +50,9 @@ const logoMark = (color) =>
 // This window's display id (from main via ?d=). Bar items are stored per display
 // so each monitor can have a different bar; everything else is shared.
 const MY_DISPLAY = new URLSearchParams(location.search).get('d') || '';
+// Demo mode (for screen recording): show SAMPLE content instead of real web
+// apps/files, keep the bar visible, and auto-cycle drawers. Toggle from the tray.
+const DEMO = (() => { try { return localStorage.getItem('ss.demo') === '1' || new URLSearchParams(location.search).get('demo') === '1'; } catch (_) { return false; } })();
 const TABS_KEY = MY_DISPLAY ? 'ss.tabs.' + MY_DISPLAY : 'ss.tabs';
 
 // --- Persistence (localStorage) -------------------------------------------
@@ -221,6 +224,7 @@ function pushHit() {
 const isHiddenMode = () => display.mode === 'autohide' || tempHidden;
 
 function barShouldShow() {
+  if (DEMO) return true;                       // demo: keep the bar on screen
   if (searchEl) return true;                   // search popover is open
   if (Object.keys(open).length) return true; // a drawer is open
   if (!isHiddenMode()) return true;           // always-show mode
@@ -962,9 +966,89 @@ function buildClipboard() {
   return wrap;
 }
 
+
+// --- Demo mode: sample (fake) content so recordings show no personal data ----
+function buildDemo(tab) {
+  const t = tab.type;
+  if (!['page', 'tabs', 'split', 'files', 'folder', 'clip'].includes(t)) return null; // tools etc. are safe as-is
+  const wrap = el('div'); wrap.style.cssText = 'height:100%;display:flex;flex-direction:column;background:#fff';
+  const hd = el('div'); hd.style.cssText = 'height:28px;display:flex;align-items:center;gap:8px;padding:0 12px;background:linear-gradient(#2e8b8b,#1f6f6f);color:#eafafa;font:700 12px "Segoe UI",sans-serif';
+  hd.textContent = (tab.icon || '🌐') + ' ' + (tab.label || '');
+  const tag = el('span', null, 'SAMPLE'); tag.style.cssText = 'margin-left:auto;font-size:10px;background:rgba(255,255,255,.25);padding:1px 6px;border-radius:8px';
+  hd.appendChild(tag);
+  const bd = el('div'); bd.style.cssText = 'flex:1;overflow:auto;padding:12px;font:13px "Segoe UI",sans-serif;color:#33484a';
+  wrap.append(hd, bd);
+  const id = (tab.id || '').toLowerCase();
+  if (t === 'files' || t === 'folder') demoFiles(bd);
+  else if (t === 'clip') demoClip(bd);
+  else if (/mail/.test(id)) demoMail(bd);
+  else if (/cal/.test(id)) demoCal(bd);
+  else if (/keep|memo|note/.test(id)) demoNotes(bd);
+  else demoGeneric(bd, tab.icon || '🌐', tab.label || 'App');
+  return wrap;
+}
+function demoMail(bd) {
+  const subs = ['Weekly report', 'Lunch plans?', 'Invoice #1042', 'Welcome to DeskHatch', 'Re: meeting notes'];
+  const cols = ['#5aa0c0', '#c98b5a', '#8a7fc0', '#5ab0a0', '#c05a7a'];
+  bd.innerHTML = subs.map((s, i) => '<div style="display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid #eef3f3">'
+    + '<div style="width:26px;height:26px;border-radius:50%;background:' + cols[i] + ';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">' + 'ABCMS'[i] + '</div>'
+    + '<div style="flex:1"><div style="font-weight:700;color:#36505a">Sample sender ' + (i + 1) + '</div><div style="color:#8fa8a8">' + s + '</div></div>'
+    + (i < 2 ? '<span style="width:8px;height:8px;border-radius:50%;background:#1f9d6b"></span>' : '') + '</div>').join('');
+}
+function demoCal(bd) {
+  let g = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">';
+  ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach((d) => { g += '<div style="text-align:center;font-size:11px;color:#7a9a9a">' + d + '</div>'; });
+  for (let c = 1; c <= 35; c++) { const day = c - 2; const today = day === 15;
+    g += '<div style="height:42px;border:1px solid #eef3f3;border-radius:5px;padding:3px;font-size:11px;color:#567;' + (today ? 'outline:2px solid #1f6f6f' : '') + '">'
+      + (day > 0 && day <= 30 ? day : '')
+      + ([5, 15, 22].includes(day) ? '<div style="margin-top:3px;height:7px;border-radius:3px;background:#2e8b8b"></div>' : '') + '</div>';
+  }
+  g += '</div>'; bd.innerHTML = g;
+}
+function demoNotes(bd) {
+  const notes = [['Shopping', '#fff3bf'], ['Ideas', '#d3f9d8'], ['TODO', '#e7f5ff'], ['Trip', '#ffe8cc']];
+  bd.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+    + notes.map((n) => '<div style="background:' + n[1] + ';border-radius:8px;padding:10px;min-height:74px"><div style="font-weight:700;margin-bottom:6px">' + n[0]
+      + '</div><div style="height:6px;background:rgba(0,0,0,.08);border-radius:3px;margin:4px 0"></div><div style="height:6px;width:70%;background:rgba(0,0,0,.08);border-radius:3px"></div></div>').join('') + '</div>';
+}
+function demoFiles(bd) {
+  const rows = [['📁', 'Documents'], ['📁', 'Pictures'], ['📁', 'Downloads'], ['📄', 'readme.txt'], ['📄', 'notes.md'], ['🖼', 'photo.png']];
+  bd.innerHTML = rows.map((r) => '<div style="display:flex;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid #f0f4f4"><span style="font-size:16px">' + r[0] + '</span><span>' + r[1] + '</span></div>').join('');
+}
+function demoClip(bd) {
+  bd.innerHTML = '<div style="display:flex;gap:8px;margin-bottom:10px">'
+    + '<span style="background:#eaf3f3;border:1px solid #cfdede;color:#1f6f6f;border-radius:5px;padding:4px 10px;font-weight:700;font-size:12px">＋ File</span>'
+    + '<span style="background:#eaf3f3;border:1px solid #cfdede;color:#1f6f6f;border-radius:5px;padding:4px 10px;font-weight:700;font-size:12px">＋ Folder</span></div>'
+    + [['📄', 'report.pdf'], ['🔗', 'example.com/page'], ['✂', 'Meeting notes — sample text']].map((r) => '<div style="display:flex;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid #f0f4f4"><span style="font-size:15px">' + r[0] + '</span><span>' + r[1] + '</span></div>').join('')
+    + '<div style="margin-top:12px;border:1.5px dashed #9cc6c6;border-radius:8px;padding:18px;text-align:center;color:#5c8c8c;background:#f1f8f8">Drop a file · URL · text</div>';
+}
+function demoGeneric(bd, icon, label) {
+  bd.innerHTML = '<div style="text-align:center;padding:18px 8px"><div style="font-size:40px">' + icon + '</div>'
+    + '<div style="font-weight:800;font-size:16px;color:#1f6f6f;margin:6px 0 2px">' + label + '</div>'
+    + '<div style="color:#8fa8a8;font-size:12px;margin-bottom:14px">Sample preview (demo mode)</div></div>'
+    + [82, 64, 90, 70, 50].map((w) => '<div style="height:9px;width:' + w + '%;background:#e7efef;border-radius:4px;margin:9px auto"></div>').join('');
+}
+
+// Auto-play: cycle through a few drawers (+ the Clip) for the recording.
+function autoDemo() {
+  const tabs = window.SS_TABS || [];
+  const seq = ['mail', 'cal-month', 'drive', 'keep', 'gemini', 'pc'].map((id) => tabs.find((t) => t.id === id)).filter(Boolean);
+  let i = 0, demoTimer = null, stop = false;
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { stop = true; if (demoTimer) clearTimeout(demoTimer); } });
+  function step() {
+    if (stop) return;
+    const n = i % (seq.length + 1); i += 1;
+    if (n < seq.length) { const t = seq[n]; const btn = bar.querySelector('.ss-btn[data-id="' + t.id + '"]') || bar; openTab(t, btn); }
+    else { const b = bar.querySelector('.ss-clip-btn'); if (b) openTab(CLIP_TAB, b); }
+    demoTimer = setTimeout(step, 2600);
+  }
+  step();
+}
+
 function buildBody(tab) {
   const body = document.createElement('div');
   body.className = 'ss-drawer-body';
+  if (DEMO) { const d = buildDemo(tab); if (d) { body.appendChild(d); return body; } }
   const part = partitionFor(tab.account);
   if (tab.type === 'page') {
     body.appendChild(makeWebview(tab.url, tab.mobile, part));
@@ -2158,6 +2242,7 @@ window.overlay.onBlur(() => {
 
 // macOS: files / text dropped on the menu-bar icon arrive here -> add to Clip.
 window.overlay.onAddFiles((files) => { addFilePaths(files || []); });
+if (window.overlay.onDemoToggle) window.overlay.onDemoToggle(() => { try { if (localStorage.getItem('ss.demo') === '1') localStorage.removeItem('ss.demo'); else localStorage.setItem('ss.demo', '1'); } catch (_) {} window.overlay.relaunch(); });
 window.overlay.onAddText((text) => {
   const t = String(text || '').trim();
   if (!t) return;
@@ -2176,11 +2261,12 @@ window.overlay.onReserveStatus((status, requested) => {
 });
 
 applyDisplay(); // push the saved display mode to main and set initial visibility
+if (DEMO) setTimeout(autoDemo, 900);
 
 // First run: pop the guide once (until "don't show again" is ticked). Only on
 // the primary monitor, so it doesn't appear on every screen in a multi-monitor
 // setup. A short delay lets the bar settle first.
-if (!Store.getHelpSkip()) {
+if (!DEMO && !Store.getHelpSkip()) {
   const showIntro = () => setTimeout(openHelp, 600);
   window.overlay.getDisplays().then((ds) => {
     const prim = (ds || []).find((d) => d.primary);
