@@ -213,5 +213,12 @@
   "スクラップ": "Scrap",
   "🔄 更新を確認": "🔄 Check for updates",
   "🎬 デモ": "🎬 Demo",
-  "🎬 デモ終了": "🎬 Exit demo"
+  "🎬 デモ終了": "🎬 Exit demo",
+  "箱へ移動": "Move to box",
+  "箱へ移動…": "Move to box…",
+  "箱へ移動しました": "Moved to box",
+  "移動できませんでした": "Couldn't move",
+  "先に📎パネルで箱を作成してください": "Create a box first (＋ in the Clip panel)",
+  "保存先": "Folder",
+  "箱へ保存しました": "Saved to box"
 }

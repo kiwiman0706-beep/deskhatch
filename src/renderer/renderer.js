@@ -781,6 +781,7 @@ function renderClipList(list) {
       mk('▲', L('上へ'), () => moveClip(idx, -1, list)),
       mk('▼', L('下へ'), () => moveClip(idx, 1, list)),
       mk('⏱', L('一時的（再起動で消す）'), () => toggleTemp(it.id, list), it.temp ? ' on' : ''),
+      mk('📂', L('箱へ移動'), () => openBoxMenu(it, li, list)),
       mk('📌', L('バーに固定'), () => promoteClip(it)),
       mk('×', L('削除'), () => { Store.saveClips(Store.getClips().filter((c) => c.id !== it.id)); renderClipList(list); }, ' ss-clip-x'),
     );
@@ -884,100 +885,94 @@ function buildOthersPanel() {
   return wrap;
 }
 
-function demoScrap(bd) {
-  bd.innerHTML = '<div style="display:flex;height:100%">'
-    + '<div style="width:34%;border-right:1px solid #e3eded;padding:8px">'
-    + ['📁 Inbox', '📁 Ideas', '📁 Recipes', '📁 Travel'].map((b, i) => '<div style="padding:6px 8px;border-radius:6px;' + (i === 1 ? 'background:#d7ecec;font-weight:700' : '') + '">' + b + '</div>').join('') + '</div>'
-    + '<div style="flex:1;padding:10px">'
-    + ['📝 Great launcher idea', '📝 Color palette', '📝 Quote to remember'].map((n, i) => '<div style="padding:5px 8px;border-radius:6px;' + (i === 0 ? 'background:#eef6f6;font-weight:700' : '') + '">' + n + '</div>').join('')
-    + '<div style="margin-top:10px;border-top:1px solid #eef3f3;padding-top:8px;color:#456;font:13px/1.6 Consolas,monospace;white-space:pre-wrap">A top-edge launcher with drawers.\n\nDrag text, links or files here to keep them.</div>'
-    + '</div></div>';
+// --- Clip + Boxes (unified inbox / organizer) ------------------------------
+// Clip = the default, zero-config, in-app box (localStorage). Folder "boxes"
+// live under a user-chosen root (point it at a Drive sync folder for cloud
+// backup) and store notes as .md files / copied files. Drop on the bar -> Clip;
+// sort into boxes from this panel.
+function scrapSanit(x) { return String(x || '').replace(/[\\/:*?"<>|\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40) || 'note'; }
+function scrapJoin(a, b) { const sep = a.indexOf('\\') >= 0 ? '\\' : '/'; return a.replace(/[\\/]+$/, '') + sep + b; }
+async function scrapBoxes() {
+  const root = Store.getScrapRoot();
+  if (!root) return [];
+  const res = await window.files.list(root);
+  return ((res && res.entries) || []).filter((e) => e.isDir).map((e) => ({ name: e.name, path: e.path }));
 }
-
-// --- Scrapbook (紙copi-style): boxes = folders, notes = .md files on disk ----
-function buildScrapPanel() {
-  const wrap = el('div'); wrap.style.cssText = 'height:100%;display:flex;flex-direction:column;font:13px "Segoe UI",sans-serif;color:#33484a;background:#fff';
-  const reopen = () => { const fresh = buildScrapPanel(); wrap.replaceWith(fresh); };
-  const root0 = Store.getScrapRoot();
-  if (!root0) {
-    const c = el('div'); c.style.cssText = 'margin:auto;text-align:center;padding:24px;max-width:380px';
-    c.innerHTML = '<div style="font-size:40px">📒</div><div style="font-weight:800;font-size:16px;color:#1f6f6f;margin:8px 0 4px">' + L('スクラップブック') + '</div><div style="font-size:12px;color:#789;margin-bottom:16px">' + L('保存先フォルダを選んでください（Googleドライブの同期フォルダにするとクラウド保存）') + '</div>';
-    const b = el('button', 'ss-set-btn', L('フォルダを選択'));
-    b.onclick = async () => { const d = await window.files.pickFolder(); if (d) { Store.setScrapRoot(d); reopen(); } };
-    c.appendChild(b); wrap.appendChild(c); return wrap;
-  }
-  const root = root0;
-  const SEP = root.indexOf('\\') >= 0 ? '\\' : '/';
-  const join = (a, b) => a.replace(/[\\/]+$/, '') + SEP + b;
-  const sanit = (x) => (String(x || '').replace(/[\\/:*?"<>|\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40) || 'note');
-  let curBox = null, curNote = null, saveTimer = null;
-  const top = el('div'); top.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #e3eded;background:#f0f6f6';
-  const title = el('span', null, '📒 ' + (root.split(/[\\/]/).filter(Boolean).pop() || root));
-  title.style.cssText = 'font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
-  const chg = el('button', 'ss-set-btn', L('保存先を変更'));
-  chg.onclick = async () => { const d = await window.files.pickFolder(); if (d) { Store.setScrapRoot(d); reopen(); } };
-  top.append(title, chg);
-  const main = el('div'); main.style.cssText = 'flex:1;display:flex;min-height:0';
-  const boxes = el('div'); boxes.style.cssText = 'width:36%;max-width:210px;border-right:1px solid #e3eded;overflow:auto;padding:6px';
-  const right = el('div'); right.style.cssText = 'flex:1;display:flex;flex-direction:column;min-width:0';
-  const notes = el('div'); notes.style.cssText = 'max-height:42%;overflow:auto;border-bottom:1px solid #e3eded;padding:6px';
-  const ed = document.createElement('textarea'); ed.style.cssText = 'flex:1;border:0;outline:none;resize:none;padding:10px;font:13px/1.6 Consolas,monospace;color:#23323a';
-  ed.placeholder = L('ノートを選択、またはここにドラッグ＆ドロップ');
-  right.append(notes, ed); main.append(boxes, right); wrap.append(top, main);
-  async function loadBoxes() {
-    const res = await window.files.list(root);
-    let dirs = ((res && res.entries) || []).filter((e) => e.isDir);
-    if (!dirs.length) { const inbox = join(root, 'Inbox'); await window.files.mkdir(inbox); dirs = [{ name: 'Inbox', path: inbox }]; }
-    boxes.innerHTML = '';
-    dirs.forEach((d) => { const b = el('div', null, '📁 ' + d.name); b.style.cssText = 'padding:6px 8px;border-radius:6px;cursor:pointer' + (d.path === curBox ? ';background:#d7ecec;font-weight:700' : ''); b.onclick = () => selectBox(d.path); boxes.appendChild(b); });
-    const row = el('div'); row.style.cssText = 'display:flex;gap:4px;margin-top:8px';
-    const inp = document.createElement('input'); inp.placeholder = L('新しい箱'); inp.style.cssText = 'flex:1;min-width:0;border:1px solid #cfdede;border-radius:5px;padding:4px 6px';
-    const ab = el('button', 'ss-set-btn', '＋');
-    ab.onclick = async () => { if (!inp.value.trim()) return; const pth = join(root, sanit(inp.value)); await window.files.mkdir(pth); inp.value = ''; await loadBoxes(); selectBox(pth); };
-    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') ab.click(); });
-    row.append(inp, ab); boxes.appendChild(row);
-    if (!curBox && dirs[0]) selectBox(dirs[0].path);
-  }
-  async function selectBox(p) { curBox = p; curNote = null; ed.value = ''; await loadBoxes(); await loadNotes(); }
-  async function loadNotes() {
-    notes.innerHTML = '';
-    const nn = el('button', 'ss-set-btn', L('＋ ノート')); nn.style.cssText += ';margin-bottom:6px'; nn.onclick = () => newNote(''); notes.appendChild(nn);
-    if (!curBox) return;
-    const res = await window.files.list(curBox);
-    const md = ((res && res.entries) || []).filter((e) => e.isFile && /\.md$/i.test(e.name));
-    if (!md.length) { const m = el('div', null, L('（ノートなし）')); m.style.cssText = 'color:#9ab;padding:4px 8px'; notes.appendChild(m); }
-    md.forEach((fl) => { const r = el('div', null, '📝 ' + fl.name.replace(/\.md$/i, '')); r.style.cssText = 'padding:5px 8px;border-radius:6px;cursor:pointer' + (fl.path === curNote ? ';background:#eef6f6;font-weight:700' : ''); r.onclick = () => openNote(fl.path); notes.appendChild(r); });
-  }
-  async function openNote(p) { curNote = p; const t = await window.files.readText(p); ed.value = typeof t === 'string' ? t : ''; loadNotes(); ed.focus(); }
-  async function newNote(text) {
-    if (!curBox) return;
-    const base = sanit((text || '').split('\n')[0]);
-    let name = base + '.md';
-    const res = await window.files.list(curBox);
-    const names = ((res && res.entries) || []).map((e) => e.name.toLowerCase());
-    if (names.includes(name.toLowerCase())) name = base + '-' + Date.now().toString(36) + '.md';
-    const p = join(curBox, name);
-    await window.files.writePath(p, text || '');
-    curNote = p; await loadNotes(); ed.value = text || ''; ed.focus();
-  }
-  ed.addEventListener('input', () => { if (!curNote) return; clearTimeout(saveTimer); saveTimer = setTimeout(() => window.files.writePath(curNote, ed.value), 600); });
-  ['dragenter', 'dragover'].forEach((ev) => wrap.addEventListener(ev, (e) => { e.preventDefault(); }));
-  wrap.addEventListener('drop', async (e) => {
-    e.preventDefault(); e.stopPropagation();
-    if (!curBox) return;
-    const dt = e.dataTransfer;
-    if (dt.files && dt.files.length) { for (const fo of dt.files) { const p = window.overlay.getPathForFile(fo); if (p) await newNote('# ' + p.split(/[\\/]/).pop() + '\n\n' + p); } return; }
-    const uri = (dt.getData('text/uri-list') || '').split('\n').map((x) => x.trim()).filter(Boolean);
-    const plain = (dt.getData('text/plain') || '').trim();
-    if (uri.length || /^https?:\/\//i.test(plain)) await newNote(uri[0] || plain);
-    else if (plain) await newNote(plain);
+async function ensureScrapRoot() {
+  const root = Store.getScrapRoot();
+  if (root) return root;
+  const d = await window.files.pickFolder();
+  if (d) { Store.setScrapRoot(d); return d; }
+  return '';
+}
+async function moveClipToBox(it, boxPath) {
+  try {
+    if (it.kind === 'file') { const r = await window.files.copyTo(it.path, boxPath); if (r && r.error) throw new Error(r.error); }
+    else if (it.kind === 'folder') { await window.files.writePath(scrapJoin(boxPath, scrapSanit(it.label) + '.txt'), it.path); }
+    else {
+      const text = it.kind === 'url' ? it.url : (it.text || '');
+      const name = scrapSanit((it.label || text).split('\n')[0]) + '.md';
+      await window.files.writePath(scrapJoin(boxPath, name), it.kind === 'url' ? ('# ' + (it.label || it.url) + '\n\n' + it.url) : text);
+    }
+    Store.saveClips(Store.getClips().filter((c) => c.id !== it.id));
+    toast(L('箱へ移動しました'));
+    refreshClipUI();
+  } catch (_) { toast(L('移動できませんでした')); }
+}
+function openBoxMenu(it, row, list) {
+  scrapBoxes().then((boxes) => {
+    if (!boxes.length) { toast(L('先に📎パネルで箱を作成してください')); return; }
+    const sel = document.createElement('select'); sel.className = 'ss-set-type';
+    sel.appendChild(el('option', null, L('箱へ移動…')));
+    boxes.forEach((b) => { const o = el('option', null, '📁 ' + b.name); o.value = b.path; sel.appendChild(o); });
+    sel.onchange = () => { if (sel.value) moveClipToBox(it, sel.value); };
+    sel.addEventListener('blur', () => setTimeout(() => { if (sel.parentNode) sel.remove(); }, 150));
+    row.appendChild(sel); sel.focus();
   });
-  loadBoxes();
-  return wrap;
 }
 
 function buildClipPanel() {
   const wrap = el('div', 'ss-clip-bin');
+  wrap.style.cssText = 'height:100%;display:flex;flex-direction:row;min-height:0';
+  const rail = el('div'); rail.style.cssText = 'width:34%;max-width:180px;border-right:1px solid #e3eded;overflow:auto;padding:6px;background:#f6fafa';
+  const content = el('div'); content.style.cssText = 'flex:1;display:flex;flex-direction:column;min-width:0;min-height:0';
+  wrap.append(rail, content);
+  let cur = 'clip';
+  async function renderRail() {
+    rail.innerHTML = '';
+    const clipB = el('div', null, '📎 ' + L('クリップ'));
+    clipB.style.cssText = 'padding:6px 8px;border-radius:6px;cursor:pointer' + (cur === 'clip' ? ';background:#d7ecec;font-weight:700' : '');
+    clipB.onclick = () => { cur = 'clip'; renderRail(); renderContent(); };
+    rail.appendChild(clipB);
+    const boxes = await scrapBoxes();
+    boxes.forEach((b) => {
+      const d = el('div', null, '📁 ' + b.name);
+      d.style.cssText = 'padding:6px 8px;border-radius:6px;cursor:pointer' + (cur === b.path ? ';background:#d7ecec;font-weight:700' : '');
+      d.onclick = () => { cur = b.path; renderRail(); renderContent(); };
+      rail.appendChild(d);
+    });
+    const row = el('div'); row.style.cssText = 'display:flex;gap:4px;margin-top:8px';
+    const inp = document.createElement('input'); inp.placeholder = L('新しい箱'); inp.style.cssText = 'flex:1;min-width:0;border:1px solid #cfdede;border-radius:5px;padding:4px 6px';
+    const ab = el('button', 'ss-set-btn', '＋');
+    ab.onclick = async () => { if (!inp.value.trim()) return; const root = await ensureScrapRoot(); if (!root) return; const p = scrapJoin(root, scrapSanit(inp.value)); await window.files.mkdir(p); inp.value = ''; cur = p; await renderRail(); renderContent(); };
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') ab.click(); });
+    row.append(inp, ab); rail.appendChild(row);
+    if (Store.getScrapRoot()) {
+      const chg = el('button', 'ss-set-btn', L('保存先')); chg.style.cssText += ';margin-top:6px;width:100%;font-size:11px'; chg.title = Store.getScrapRoot();
+      chg.onclick = async () => { const d = await window.files.pickFolder(); if (d) { Store.setScrapRoot(d); cur = 'clip'; renderRail(); renderContent(); } };
+      rail.appendChild(chg);
+    }
+  }
+  function renderContent() {
+    content.innerHTML = '';
+    content.appendChild(cur === 'clip' ? buildClipBox() : buildFolderBox(cur));
+  }
+  renderRail(); renderContent();
+  return wrap;
+}
+
+function buildClipBox() {
+  const box = el('div'); box.style.cssText = 'flex:1;display:flex;flex-direction:column;min-height:0';
   const list = el('ul', 'ss-clip-list');
   const head = el('div', 'ss-clip-head');
   const clear = el('button', 'ss-set-btn', L('全クリア'));
@@ -987,14 +982,62 @@ function buildClipPanel() {
   const addFolderBtn = el('button', 'ss-set-btn', L('＋ フォルダ'));
   addFolderBtn.onclick = async () => { const d = await window.files.pickFolder(); if (d) await addFilePaths([d]); };
   head.append(el('span', 'ss-clip-hint', L('＋で追加（D&D可：Win/常に表示）')), addFileBtn, addFolderBtn, clear);
-  wrap.append(head, list);
+  box.append(head, list);
   const stop = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
-  ['dragenter', 'dragover'].forEach((ev) => wrap.addEventListener(ev, (e) => { stop(e); wrap.classList.add('over'); }));
-  ['dragleave', 'dragend'].forEach((ev) => wrap.addEventListener(ev, (e) => { stop(e); wrap.classList.remove('over'); }));
-  wrap.addEventListener('drop', (e) => { wrap.classList.remove('over'); handleDrop(e); });
+  ['dragenter', 'dragover'].forEach((ev) => box.addEventListener(ev, (e) => { stop(e); box.classList.add('over'); }));
+  ['dragleave', 'dragend'].forEach((ev) => box.addEventListener(ev, (e) => { stop(e); box.classList.remove('over'); }));
+  box.addEventListener('drop', (e) => { box.classList.remove('over'); handleDrop(e); });
   clipListEl = list;
   renderClipList(list);
-  return wrap;
+  return box;
+}
+
+function buildFolderBox(boxPath) {
+  const box = el('div'); box.style.cssText = 'flex:1;display:flex;flex-direction:column;min-height:0';
+  const notes = el('div'); notes.style.cssText = 'max-height:42%;overflow:auto;border-bottom:1px solid #e3eded;padding:6px';
+  const ed = document.createElement('textarea'); ed.style.cssText = 'flex:1;border:0;outline:none;resize:none;padding:10px;font:13px/1.6 Consolas,monospace;color:#23323a';
+  ed.placeholder = L('ノートを選択、またはここにドラッグ＆ドロップ');
+  box.append(notes, ed);
+  let curNote = null, saveTimer = null;
+  async function loadNotes() {
+    notes.innerHTML = '';
+    const nn = el('button', 'ss-set-btn', L('＋ ノート')); nn.style.cssText += ';margin-bottom:6px'; nn.onclick = () => newNote(''); notes.appendChild(nn);
+    const res = await window.files.list(boxPath);
+    const entries = ((res && res.entries) || []).filter((e) => e.isFile);
+    if (!entries.length) { const m = el('div', null, L('（ノートなし）')); m.style.cssText = 'color:#9ab;padding:4px 8px'; notes.appendChild(m); }
+    entries.forEach((fl) => {
+      const isText = /\.(md|txt)$/i.test(fl.name);
+      const r = el('div', null, (isText ? '📝 ' : '📎 ') + fl.name.replace(/\.(md|txt)$/i, ''));
+      r.style.cssText = 'padding:5px 8px;border-radius:6px;cursor:pointer' + (fl.path === curNote ? ';background:#eef6f6;font-weight:700' : '');
+      r.onclick = () => { if (isText) openNote(fl.path); else window.files.open(fl.path); };
+      notes.appendChild(r);
+    });
+  }
+  async function openNote(p) { curNote = p; const t = await window.files.readText(p); ed.value = typeof t === 'string' ? t : ''; loadNotes(); ed.focus(); }
+  async function newNote(text) {
+    const base = scrapSanit((text || '').split('\n')[0]);
+    let name = base + '.md';
+    const res = await window.files.list(boxPath);
+    const names = ((res && res.entries) || []).map((e) => e.name.toLowerCase());
+    if (names.includes(name.toLowerCase())) name = base + '-' + Date.now().toString(36) + '.md';
+    const p = scrapJoin(boxPath, name);
+    await window.files.writePath(p, text || '');
+    curNote = p; await loadNotes(); ed.value = text || ''; ed.focus();
+  }
+  ed.addEventListener('input', () => { if (!curNote) return; clearTimeout(saveTimer); saveTimer = setTimeout(() => window.files.writePath(curNote, ed.value), 600); });
+  ['dragenter', 'dragover'].forEach((ev) => box.addEventListener(ev, (e) => { e.preventDefault(); }));
+  box.addEventListener('drop', async (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const dt = e.dataTransfer;
+    if ([...(dt.types || [])].includes('ss-tab')) return;
+    if (dt.files && dt.files.length) { for (const fo of dt.files) { const p = window.overlay.getPathForFile(fo); if (p) await window.files.copyTo(p, boxPath); } await loadNotes(); toast(L('箱へ保存しました')); return; }
+    const uri = (dt.getData('text/uri-list') || '').split('\n').map((x) => x.trim()).filter(Boolean);
+    const plain = (dt.getData('text/plain') || '').trim();
+    if (uri.length || /^https?:\/\//i.test(plain)) await newNote('# ' + (uri[0] || plain) + '\n\n' + (uri[0] || plain));
+    else if (plain) await newNote(plain);
+  });
+  loadNotes();
+  return box;
 }
 
 // --- File viewer drawer ----------------------------------------------------
@@ -1064,7 +1107,7 @@ function buildClipboard() {
 // --- Demo mode: sample (fake) content so recordings show no personal data ----
 function buildDemo(tab) {
   const t = tab.type;
-  if (!['page', 'tabs', 'split', 'files', 'folder', 'clip', 'scrap'].includes(t)) return null; // tools etc. are safe as-is
+  if (!['page', 'tabs', 'split', 'files', 'folder', 'clip'].includes(t)) return null; // tools etc. are safe as-is
   const wrap = el('div'); wrap.style.cssText = 'height:100%;display:flex;flex-direction:column;background:#fff';
   const hd = el('div'); hd.style.cssText = 'height:28px;display:flex;align-items:center;gap:8px;padding:0 12px;background:linear-gradient(#2e8b8b,#1f6f6f);color:#eafafa;font:700 12px "Segoe UI",sans-serif';
   hd.textContent = (tab.icon || '🌐') + ' ' + (tab.label || '');
@@ -1073,8 +1116,7 @@ function buildDemo(tab) {
   const bd = el('div'); bd.style.cssText = 'flex:1;overflow:auto;padding:12px;font:13px "Segoe UI",sans-serif;color:#33484a';
   wrap.append(hd, bd);
   const id = (tab.id || '').toLowerCase();
-  if (t === 'scrap') demoScrap(bd);
-  else if (t === 'files' || t === 'folder') demoFiles(bd);
+  if (t === 'files' || t === 'folder') demoFiles(bd);
   else if (t === 'clip') demoClip(bd);
   else if (/mail/.test(id)) demoMail(bd);
   else if (/cal/.test(id)) demoCal(bd);
@@ -1169,7 +1211,7 @@ function buildBody(tab) {
   } else if (tab.type === 'clip') {
     body.appendChild(buildClipPanel());
   } else if (tab.type === 'scrap') {
-    body.appendChild(buildScrapPanel());
+    body.appendChild(buildClipPanel());
   } else if (tab.type === 'others') {
     body.appendChild(buildOthersPanel());
   } else if (tab.type === 'editbox') {
@@ -1539,7 +1581,7 @@ function buildTabFields(t, extras) {
   }
 
   const type = el('select', 'ss-set-type');
-  [['page', L('ページ')], ['browser', L('ブラウザ')], ['tabs', L('タブ')], ['files', L('PC全体')], ['folder', L('フォルダ')], ['tool', L('ツール')], ['scrap', L('スクラップ')], ['camera', L('カメラ')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; type.appendChild(op); });
+  [['page', L('ページ')], ['browser', L('ブラウザ')], ['tabs', L('タブ')], ['files', L('PC全体')], ['folder', L('フォルダ')], ['tool', L('ツール')], ['camera', L('カメラ')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; type.appendChild(op); });
   type.value = t.type;
   const mobileWrap = el('label', 'ss-set-check'); const mobile = document.createElement('input'); mobile.type = 'checkbox'; mobile.checked = !!t.mobile; mobile.onchange = () => { t.mobile = mobile.checked; }; mobileWrap.append(mobile, document.createTextNode(L(' スマホ表示')));
   const keepWrap = el('label', 'ss-set-check'); const keep = document.createElement('input'); keep.type = 'checkbox'; keep.checked = !!t.keepAlive; keep.onchange = () => { t.keepAlive = keep.checked; }; keepWrap.append(keep, document.createTextNode(L(' 閉じても止めない')));
