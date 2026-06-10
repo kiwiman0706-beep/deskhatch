@@ -137,6 +137,13 @@ function register(getWin) {
     return r.canceled ? null : r.filePaths[0];
   });
 
+  ipcMain.handle('files:write-path', async (_e, p, text) => {
+    try { await fsp.writeFile(p, text == null ? '' : String(text), 'utf8'); return true; } catch (e) { return { error: e.message }; }
+  });
+  ipcMain.handle('files:mkdir', async (_e, p) => {
+    try { await fsp.mkdir(p, { recursive: true }); return true; } catch (e) { return { error: e.message }; }
+  });
+
   ipcMain.handle('files:copy-to', async (_e, src, destDir) => {
     const dest = path.join(destDir, path.basename(src));
     await fsp.copyFile(src, dest);
