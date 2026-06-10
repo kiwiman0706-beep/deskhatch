@@ -29,6 +29,11 @@ function ensureWin() {
   catch (_) { autoUpdater = null; return null; }
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  // Differential (blockmap) downloads fire many HTTP range requests and are
+  // flaky behind some CDNs/proxies — they can stall with zero progress (the
+  // "downloading…" hang). Force a plain full download of the installer, which
+  // is slower but reliable.
+  try { autoUpdater.disableDifferentialDownload = true; } catch (_) {}
   if (!auWired) {
     auWired = true;
     autoUpdater.on('error', (e) => {
