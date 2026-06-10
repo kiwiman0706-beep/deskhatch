@@ -34,6 +34,10 @@ function ensureWin() {
   // "downloading…" hang). Force a plain full download of the installer, which
   // is slower but reliable.
   try { autoUpdater.disableDifferentialDownload = true; } catch (_) {}
+  // We ship UNSIGNED (no paid Authenticode cert), so electron-updater's Windows
+  // signature check rejects every update ("not signed by the application owner").
+  // Skip that check — the package is still fetched over HTTPS from GitHub Releases.
+  try { autoUpdater.verifyUpdateCodeSignature = () => Promise.resolve(null); } catch (_) {}
   if (!auWired) {
     auWired = true;
     autoUpdater.on('error', (e) => {
