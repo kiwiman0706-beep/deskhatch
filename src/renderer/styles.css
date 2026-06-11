@@ -568,3 +568,24 @@ html, body {
 .ss-fmenu hr { border: none; border-top: 1px solid #eef2f2; margin: 4px 2px; }
 .ss-stage-tip { position: absolute; left: 50%; bottom: 32px; transform: translateX(-50%); background: rgba(15,36,35,.93); color: #eafafa; padding: 11px 20px; border-radius: 22px; font: 600 15px "Segoe UI",sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.35); text-align: center; max-width: 80vw; }
 .ss-demo-exit { position: absolute; top: 12px; right: 14px; pointer-events: auto; background: rgba(0,0,0,.62); color: #fff; border: none; border-radius: 18px; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+
+/* Timer & stopwatch (combined clock tool) */
+.ss-clock { display: flex; flex-direction: column; height: 100%; background: #f4f6f6; }
+.ss-clock-head { display: flex; gap: 8px; padding: 8px; border-bottom: 1px solid #e3eded; }
+.ss-clock-list { flex: 1; overflow: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.ss-clock-empty { color: #9ab; text-align: center; padding: 26px 8px; }
+.ss-clock-row { background: #fff; border: 1px solid #dde7e7; border-radius: 10px; padding: 10px; }
+.ss-clock-row.timer { border-left: 4px solid #ff9f0a; }
+.ss-clock-row.sw { border-left: 4px solid #1f9f9f; }
+.ss-clock-top { display: flex; align-items: center; gap: 8px; }
+.ss-clock-ic { font-size: 15px; }
+.ss-clock-name { flex: 1; border: none; border-bottom: 1px solid transparent; background: transparent; font-size: 13px; color: #33484a; padding: 2px 0; }
+.ss-clock-name:focus { outline: none; border-bottom-color: #cfdede; }
+.ss-clock-disp { font: 600 34px/1 "Consolas", monospace; color: #14302f; text-align: center; padding: 8px 0 6px; letter-spacing: 1px; }
+.ss-clock-disp.running { color: #1f7a7a; }
+.ss-clock-disp.done { color: #c0392b; }
+.ss-clock-adj { display: flex; gap: 5px; justify-content: center; margin-bottom: 6px; }
+.ss-clock-mini { border: 1px solid #cfdede; background: #f1f8f8; color: #1f6f6f; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
+.ss-clock-ctr { display: flex; gap: 6px; justify-content: center; }
+.ss-clocklabel { font-variant-numeric: tabular-nums; font-weight: 700; }

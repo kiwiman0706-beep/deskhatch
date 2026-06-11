@@ -595,6 +595,94 @@ function buildCalc() {
   return wrap;
 }
 
+// --- Clock engine: persistent timers + stopwatches (survive drawer close) ----
+// State lives here (module level), not in the drawer DOM, so timers keep running
+// when the drawer is closed and still alert on completion. One combined drawer
+// (buildClock) shows any number of timers and stopwatches; the soonest value is
+// mirrored onto the bar button and the drawer title.
+let clockItems = [];
+let clockIv = null;
+const clockSubs = [];
+let clockSeq = 1;
+function clockBeep() { try { const AC = window.AudioContext || window.webkitAudioContext; const ac = new AC(); const o = ac.createOscillator(), g = ac.createGain(); o.connect(g); g.connect(ac.destination); o.type = 'sine'; o.frequency.value = 880; g.gain.value = 0.15; o.start(); let n = 0; const iv = setInterval(() => { o.frequency.value = (n % 2 ? 660 : 990); if (++n > 7) { clearInterval(iv); o.stop(); ac.close(); } }, 170); } catch (_) {} }
+function clockFmtTimer(ms) { const s = Math.max(0, Math.ceil(ms / 1000)), m = Math.floor(s / 60), ss = s % 60, p = (n) => String(n).padStart(2, '0'); return p(m) + ':' + p(ss); }
+function clockFmtSw(ms) { const t = Math.floor(ms / 100), cs = t % 10, s = Math.floor(t / 10) % 60, m = Math.floor(t / 600) % 60, h = Math.floor(t / 36000), p = (n) => String(n).padStart(2, '0'); return (h ? p(h) + ':' : '') + p(m) + ':' + p(s) + '.' + cs; }
+function clockValue(it) { if (it.kind === 'timer') return it.endAt ? Math.max(0, it.endAt - Date.now()) : it.remain; return it.acc + (it.startAt ? Date.now() - it.startAt : 0); }
+function clockRunning() { return clockItems.some((it) => it.endAt || it.startAt); }
+function clockTitleText() { const rt = clockItems.filter((it) => it.kind === 'timer' && it.endAt); if (rt.length) return clockFmtTimer(Math.max(0, Math.min.apply(null, rt.map((it) => it.endAt - Date.now())))); const sw = clockItems.find((it) => it.kind === 'sw' && it.startAt); return sw ? clockFmtSw(clockValue(sw)) : ''; }
+function clockUpdateBar() { const txt = clockTitleText(); document.querySelectorAll('.ss-btn.ss-clockbtn .ss-clocklabel').forEach((s) => { s.textContent = txt ? (' ' + txt) : ''; }); }
+function clockEnsureTick() { if (clockIv) return; clockIv = setInterval(clockTick, 200); }
+function clockTick() {
+  const now = Date.now();
+  clockItems.forEach((it) => { if (it.kind === 'timer' && it.endAt && now >= it.endAt) { it.endAt = 0; it.remain = 0; it.done = true; clockBeep(); toast(L('タイマー終了') + (it.label ? '：' + it.label : '')); } });
+  for (let i = clockSubs.length - 1; i >= 0; i--) { if (!clockSubs[i].el || !clockSubs[i].el.isConnected) clockSubs.splice(i, 1); else { try { clockSubs[i].fn(); } catch (_) {} } }
+  clockUpdateBar();
+  if (!clockRunning()) { clearInterval(clockIv); clockIv = null; }
+}
+function clockAddTimer(min) { clockItems.push({ id: 'k' + (clockSeq++), kind: 'timer', label: '', durMs: (min || 5) * 60000, remain: (min || 5) * 60000, endAt: 0, done: false }); }
+function clockAddSw() { clockItems.push({ id: 'k' + (clockSeq++), kind: 'sw', label: '', acc: 0, startAt: 0 }); }
+function clockStartPause(it) {
+  if (it.kind === 'timer') { if (it.endAt) { it.remain = Math.max(0, it.endAt - Date.now()); it.endAt = 0; } else { if (it.remain <= 0) it.remain = it.durMs; it.endAt = Date.now() + it.remain; it.done = false; clockEnsureTick(); } }
+  else { if (it.startAt) { it.acc += Date.now() - it.startAt; it.startAt = 0; } else { it.startAt = Date.now(); clockEnsureTick(); } }
+}
+function clockReset(it) { if (it.kind === 'timer') { it.endAt = 0; it.remain = it.durMs; it.done = false; } else { it.startAt = 0; it.acc = 0; } }
+function clockAdjust(it, secs) { if (it.kind !== 'timer' || it.endAt) return; it.remain = Math.min(99 * 3600000, Math.max(0, it.remain + secs * 1000)); it.durMs = it.remain; }
+function clockRemove(it) { clockItems = clockItems.filter((x) => x !== it); }
+
+function buildClock() {
+  const wrap = el('div', 'ss-clock');
+  const head = el('div', 'ss-clock-head');
+  const addT = el('button', 'ss-set-btn', L('＋ タイマー'));
+  const addS = el('button', 'ss-set-btn', L('＋ ストップウォッチ'));
+  head.append(addT, addS);
+  const list = el('div', 'ss-clock-list');
+  wrap.append(head, list);
+  let rows = [];
+  function update() {
+    rows.forEach(({ it, disp, startB }) => {
+      disp.textContent = it.kind === 'timer' ? clockFmtTimer(clockValue(it)) : clockFmtSw(clockValue(it));
+      const running = it.kind === 'timer' ? !!it.endAt : !!it.startAt;
+      startB.textContent = running ? L('停止') : L('開始');
+      disp.classList.toggle('done', it.kind === 'timer' && !!it.done);
+      disp.classList.toggle('running', running);
+    });
+    const dr = wrap.closest('.ss-drawer');
+    if (dr) { const t = dr.querySelector('.ss-drawer-title'); if (t && t.dataset.base) { const c = clockTitleText(); t.textContent = t.dataset.base + (c ? '  ' + c : ''); } }
+  }
+  function rebuild() {
+    list.innerHTML = ''; rows = [];
+    if (!clockItems.length) list.appendChild(el('div', 'ss-clock-empty', L('＋でタイマー／ストップウォッチを追加')));
+    clockItems.forEach((it) => {
+      const row = el('div', 'ss-clock-row ' + (it.kind === 'timer' ? 'timer' : 'sw'));
+      const top = el('div', 'ss-clock-top');
+      const name = document.createElement('input'); name.className = 'ss-clock-name'; name.value = it.label || ''; name.placeholder = it.kind === 'timer' ? L('タイマー') : L('ストップウォッチ'); name.oninput = () => { it.label = name.value; };
+      top.append(el('span', 'ss-clock-ic', it.kind === 'timer' ? '⏲' : '⏱'), name);
+      const disp = el('div', 'ss-clock-disp');
+      row.append(top, disp);
+      if (it.kind === 'timer') {
+        const adj = el('div', 'ss-clock-adj');
+        [['-1m', -60], ['-10s', -10], ['+10s', 10], ['+1m', 60]].forEach((a) => { const b = el('button', 'ss-clock-mini', a[0]); b.onclick = () => { clockAdjust(it, a[1]); update(); }; adj.appendChild(b); });
+        row.append(adj);
+      }
+      const ctr = el('div', 'ss-clock-ctr');
+      const startB = el('button', 'ss-set-btn', L('開始')); startB.onclick = () => { clockStartPause(it); update(); };
+      const resetB = el('button', 'ss-set-btn', L('リセット')); resetB.onclick = () => { clockReset(it); update(); };
+      const delB = el('button', 'ss-set-btn', '🗑'); delB.title = L('削除'); delB.onclick = () => { clockRemove(it); rebuild(); };
+      ctr.append(startB, resetB, delB);
+      row.append(ctr);
+      list.appendChild(row);
+      rows.push({ it, disp, startB });
+    });
+    update();
+  }
+  addT.onclick = () => { clockAddTimer(5); rebuild(); };
+  addS.onclick = () => { clockAddSw(); rebuild(); };
+  clockSubs.push({ el: wrap, fn: update });
+  setTimeout(() => { const dr = wrap.closest('.ss-drawer'); if (dr) { const t = dr.querySelector('.ss-drawer-title'); if (t && !t.dataset.base) t.dataset.base = t.textContent; } update(); }, 0);
+  rebuild();
+  return wrap;
+}
+
 // --- Stopwatch / Timer tools (renderer-only; self-cleaning when detached) ----
 function buildStopwatch() {
   const wrap = el('div');
@@ -1553,8 +1641,7 @@ function buildBody(tab) {
     else if (tab.tool === 'calc') body.appendChild(buildCalc());
     else if (tab.tool === 'clipboard') body.appendChild(buildClipboard());
     else if (tab.tool === 'bookmarks') body.appendChild(buildBookmarks());
-    else if (tab.tool === 'stopwatch') body.appendChild(buildStopwatch());
-    else if (tab.tool === 'timer') body.appendChild(buildTimer());
+    else if (tab.tool === 'stopwatch' || tab.tool === 'timer' || tab.tool === 'clock') body.appendChild(buildClock());
   } else if (tab.type === 'menu') {
     body.appendChild(buildMenuPanel());
   } else if (tab.type === 'browser') {
@@ -1928,7 +2015,7 @@ function buildTabFields(t, extras) {
   type.value = t.type;
   const mobileWrap = el('label', 'ss-set-check'); const mobile = document.createElement('input'); mobile.type = 'checkbox'; mobile.checked = !!t.mobile; mobile.onchange = () => { t.mobile = mobile.checked; }; mobileWrap.append(mobile, document.createTextNode(L(' スマホ表示')));
   const keepWrap = el('label', 'ss-set-check'); const keep = document.createElement('input'); keep.type = 'checkbox'; keep.checked = !!t.keepAlive; keep.onchange = () => { t.keepAlive = keep.checked; }; keepWrap.append(keep, document.createTextNode(L(' 閉じても止めない')));
-  const toolWrap = el('label', 'ss-set-check'); const toolSel = el('select', 'ss-set-type'); [['editor', L('簡易エディタ')], ['calc', L('電卓')], ['clipboard', L('クリップボード')], ['bookmarks', L('ブックマーク')], ['stopwatch', L('ストップウォッチ')], ['timer', L('タイマー')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; toolSel.appendChild(op); }); toolSel.value = t.tool || 'editor'; toolSel.onchange = () => { t.tool = toolSel.value; }; toolWrap.append(document.createTextNode(L('ツール ')), toolSel);
+  const toolWrap = el('label', 'ss-set-check'); const toolSel = el('select', 'ss-set-type'); [['editor', L('簡易エディタ')], ['calc', L('電卓')], ['clipboard', L('クリップボード')], ['bookmarks', L('ブックマーク')], ['clock', L('タイマー＆ストップウォッチ')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; toolSel.appendChild(op); }); toolSel.value = t.tool || 'editor'; toolSel.onchange = () => { t.tool = toolSel.value; }; toolWrap.append(document.createTextNode(L('ツール ')), toolSel);
   const acctWrap = el('label', 'ss-set-check'); const acctSel = el('select', 'ss-set-type'); accountsFull().forEach((a) => { const op = el('option', null, a.name); op.value = a.id; acctSel.appendChild(op); }); acctSel.value = t.account || 'default'; acctSel.onchange = () => { t.account = acctSel.value === 'default' ? undefined : acctSel.value; }; acctWrap.append(document.createTextNode(L('アカウント ')), acctSel);
   row2.append(type, mobileWrap, acctWrap, toolWrap, keepWrap, wlabel, width);
 
@@ -2284,8 +2371,7 @@ function buildTools() {
   [[L('🌐 ブラウザ（検索／URL）'), { id: 'tool-browser', label: L('ブラウザ'), icon: '🌐', type: 'browser', width: 560, url: 'https://www.google.com/' }],
     [L('📝 簡易エディタ'), { id: 'tool-editor', label: L('エディタ'), icon: '📝', type: 'tool', tool: 'editor', width: 480 }],
     [L('🧮 電卓'), { id: 'tool-calc', label: L('電卓'), icon: '🧮', type: 'tool', tool: 'calc', width: 280, height: 470 }],
-    [L('⏱ ストップウォッチ'), { id: 'tool-stopwatch', label: L('ストップウォッチ'), icon: '⏱', type: 'tool', tool: 'stopwatch', width: 260 }],
-    [L('⏲ タイマー'), { id: 'tool-timer', label: L('タイマー'), icon: '⏲', type: 'tool', tool: 'timer', width: 300 }],
+    [L('⏱ タイマー＆ストップウォッチ'), { id: 'tool-clock', label: L('タイマー'), icon: '⏲', type: 'tool', tool: 'clock', width: 340, height: 480 }],
     [L('📋 クリップボード'), { id: 'tool-clip', label: L('クリップボード'), icon: '📋', type: 'tool', tool: 'clipboard', width: 420 }],
     [L('🔖 ブックマーク'), { id: 'tool-bm', label: L('ブックマーク'), icon: '🔖', type: 'tool', tool: 'bookmarks', width: 440 }]]
     .forEach(([label, t]) => { const b = el('button', 'ss-set-btn', label); b.onclick = () => openTab(t, anchor()); tools.appendChild(b); });
@@ -2574,6 +2660,7 @@ function renderBar() {
     const btn = el('button', 'ss-btn');
     btn.dataset.id = tab.id;
     btn.append(el('span', 'ss-ico', tab.icon), el('span', null, tab.label));
+    if (tab.type === 'tool' && /timer|stopwatch|clock/.test(tab.tool || '')) { btn.classList.add('ss-clockbtn'); btn.appendChild(el('span', 'ss-clocklabel')); }
     btn.addEventListener('click', () => {
       if (tab.type === 'launch') window.files.open(tab.path); // open with default app
       else openTab(tab, btn);

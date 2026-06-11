@@ -249,5 +249,9 @@
   "メールを検索": "Search mail",
   "キーパッドを隠す": "Hide keypad",
   "キーパッドを表示": "Show keypad",
-  "登録したフォルダもドロワーで開ける": "Open the folder you added, in a drawer too"
+  "登録したフォルダもドロワーで開ける": "Open the folder you added, in a drawer too",
+  "＋ タイマー": "+ Timer",
+  "＋ ストップウォッチ": "+ Stopwatch",
+  "タイマー＆ストップウォッチ": "Timer & Stopwatch",
+  "＋でタイマー／ストップウォッチを追加": "Add a timer or stopwatch with +"
 }
