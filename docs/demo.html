@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DeskHatch — live demo</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body { font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+    background: radial-gradient(120% 120% at 30% 0%, #2f6f86, #224f63 55%, #173a4a); position: relative; user-select: none; }
+  /* bar */
+  #bar { position: absolute; top: 0; left: 0; right: 0; height: 40px; z-index: 20;
+    display: flex; align-items: stretch; gap: 2px; padding: 0 6px;
+    background: linear-gradient(#2e8b8b, #1f6f6f); border-bottom: 2px solid #145252; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+  .btn { display: flex; align-items: center; gap: 5px; padding: 0 9px; color: #eafafa; font-size: 12.5px; white-space: nowrap;
+    border: none; background: transparent; border-radius: 0; }
+  .btn .ic { font-size: 14px; }
+  .btn.menu { font-weight: 800; }
+  .spacer { flex: 1; }
+  .clocklbl { font-variant-numeric: tabular-nums; font-weight: 700; }
+  /* windows */
+  .win { position: absolute; background: #fff; border-radius: 10px; border: 1px solid #b9cccc; box-shadow: 0 22px 60px rgba(0,0,0,.45); overflow: hidden; z-index: 5; }
+  .win-tb { height: 28px; display: flex; align-items: center; gap: 9px; padding: 0 10px; background: #eef4f4; border-bottom: 1px solid #dde7e7; font-size: 12px; font-weight: 700; color: #456; }
+  .dots { display: flex; gap: 6px; } .dots i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+  .sel { background: #9ccbff; color: #06203a; }
+  /* drawer */
+  .drawer { position: absolute; top: 40px; z-index: 8; background: #fff; border: 1px solid #cfdcdc; border-top: none;
+    border-radius: 0 0 10px 10px; box-shadow: 0 16px 40px rgba(0,0,0,.35); overflow: hidden; display: flex; flex-direction: column; }
+  .drawer-hd { height: 26px; display: flex; align-items: center; padding: 0 10px; gap: 6px; background: #eef4f4; border-bottom: 1px solid #dfe7e7; font: 700 12px "Segoe UI", sans-serif; color: #2b4a4a; }
+  .drawer-bd { flex: 1; overflow: hidden; }
+  /* fx layer */
+  #fx { position: absolute; inset: 0; z-index: 60; pointer-events: none; }
+  #cur { position: absolute; width: 24px; height: 24px; transition: left .9s cubic-bezier(.45,.05,.25,1), top .9s cubic-bezier(.45,.05,.25,1); filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
+  .ripple { position: absolute; width: 26px; height: 26px; border-radius: 50%; border: 3px solid #fff; animation: rip .5s ease-out forwards; }
+  @keyframes rip { from { transform: scale(.3); opacity: .9; } to { transform: scale(1.5); opacity: 0; } }
+  .ghost { position: absolute; transform: translate(-10px,-10px); background: rgba(31,111,111,.96); color: #fff; padding: 5px 10px; border-radius: 6px; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.35); transition: left .9s ease, top .9s ease; white-space: nowrap; }
+  .fmenu { position: absolute; background: #fff; border: 1px solid #cfd8d8; border-radius: 8px; box-shadow: 0 12px 34px rgba(0,0,0,.32); padding: 5px; min-width: 180px; font-size: 13px; }
+  .fmenu div { padding: 7px 12px; border-radius: 5px; color: #2b3a3a; }
+  .fmenu div.hot { background: #1f9f9f; color: #fff; }
+  .fmenu hr { border: none; border-top: 1px solid #eef2f2; margin: 4px 2px; }
+  #tip { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); background: rgba(15,36,35,.93); color: #eafafa; padding: 10px 18px; border-radius: 22px; font: 600 14px "Segoe UI", sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.35); text-align: center; max-width: 80%; }
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div id="fx"><div id="cur"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M4 2l6 18 2.3-7.2L20 10.5z" fill="#fff" stroke="#1a1a1a" stroke-width="1.3" stroke-linejoin="round"/></svg></div><div id="tip"></div></div>
+<script>
+(function () {
+  var bar = document.getElementById('bar'), fx = document.getElementById('fx'), cur = document.getElementById('cur'), tip = document.getElementById('tip');
+  var W = function () { return window.innerWidth; }, H = function () { return window.innerHeight; };
+  function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function center(e) { var r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
+  function setTip(t) { tip.textContent = t; }
+  function moveTo(x, y) { cur.style.left = x + 'px'; cur.style.top = y + 'px'; return sleep(920); }
+  function moveToEl(e) { if (!e) return Promise.resolve(); var c = center(e); return moveTo(c.x, c.y); }
+  function ripple() { var c = center(cur); var r = el('div', 'ripple'); r.style.left = (c.x - 13) + 'px'; r.style.top = (c.y - 13) + 'px'; fx.appendChild(r); setTimeout(function () { r.remove(); }, 520); }
+
+  // ---- bar buttons -------------------------------------------------------
+  var TABS = [
+    { id: 'mail', ic: '✉', label: 'メール' }, { id: 'cal', ic: '📅', label: 'カレンダー' },
+    { id: 'meet', ic: '🎥', label: 'Meet' }, { id: 'todo', ic: '✓', label: 'ToDo' },
+    { id: 'docs', ic: '📁', label: 'マイドキュメント' }, { id: 'timer', ic: '⏲', label: 'タイマー' },
+    { id: 'calc', ic: '🧮', label: '電卓' }
+  ];
+  function renderBar() {
+    bar.innerHTML = '';
+    var mb = el('button', 'btn menu', '<span class="ic">☰</span>'); bar.appendChild(mb);
+    TABS.forEach(function (t) {
+      var b = el('button', 'btn', '<span class="ic">' + t.ic + '</span><span>' + t.label + '</span>' + (t.id === 'timer' ? '<span class="clocklbl" id="clocklbl"></span>' : ''));
+      b.dataset.id = t.id; bar.appendChild(b);
+    });
+    bar.appendChild(el('span', 'spacer'));
+    bar.appendChild(el('button', 'btn', '<span class="ic">🔍</span>'));
+    var clip = el('button', 'btn'); clip.dataset.id = '__clip'; clip.innerHTML = '<span class="ic">📎</span>'; bar.appendChild(clip);
+  }
+  function barBtn(id) { return bar.querySelector('.btn[data-id="' + id + '"]'); }
+  function clipBtn() { return bar.querySelector('.btn[data-id="__clip"]'); }
+
+  // ---- drawers -----------------------------------------------------------
+  var drawers = [];
+  function closeDrawers() { drawers.forEach(function (d) { d.remove(); }); drawers = []; }
+  function openDrawer(anchor, ic, label, width, height, contentFn) {
+    var d = el('div', 'drawer'); d.style.width = width + 'px'; d.style.height = height + 'px';
+    d.innerHTML = '<div class="drawer-hd"><span>' + ic + '</span><span id="dh">' + label + '</span></div><div class="drawer-bd"></div>';
+    var ar = anchor ? anchor.getBoundingClientRect() : { left: 60 };
+    var left = Math.max(6, Math.min(ar.left, W() - width - 6));
+    d.style.left = left + 'px';
+    document.body.appendChild(d); drawers.push(d);
+    contentFn(d.querySelector('.drawer-bd'), d);
+    return d;
+  }
+
+  // ---- fake content ------------------------------------------------------
+  function mailC(bd) {
+    bd.style.cssText = 'height:100%;overflow:hidden;background:#fff;font-size:12px';
+    var rows = [['G', '#d93025', 'Google', 'Security alert', 'New sign-in on Windows', '9:24', 1],
+      ['A', '#1a73e8', 'Acme Team', 'Weekly report', 'Here are this week numbers', '8:10', 1],
+      ['S', '#188038', 'Sara', 'Lunch plans?', 'Still on for 12:30 today', 'Wed', 0],
+      ['D', '#e37400', 'DeskHatch', 'Welcome aboard', 'Slam to the top to get started 🎉', 'Mon', 0]];
+    bd.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #eef2f2">'
+      + '<span style="background:#c2e7ff;border-radius:16px;padding:7px 14px;font-weight:700;color:#001d35">✎ 作成</span>'
+      + '<div style="flex:1;background:#eef3f4;border-radius:18px;padding:6px 14px;color:#5f6368">🔍 メールを検索</div></div>'
+      + rows.map(function (r) { return '<div style="display:flex;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid #f1f3f4;background:' + (r[6] ? '#fff' : '#fafafa') + '">'
+        + '<span style="color:#dadce0">☆</span><div style="width:28px;height:28px;border-radius:50%;background:' + r[1] + ';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">' + r[0] + '</div>'
+        + '<div style="width:96px;font-weight:' + (r[6] ? 700 : 400) + ';color:#202124;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r[2] + '</div>'
+        + '<div style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis"><b style="color:#202124">' + r[3] + '</b> <span style="color:#5f6368">— ' + r[4] + '</span></div>'
+        + '<span style="color:#5f6368">' + r[5] + '</span></div>'; }).join('');
+  }
+  function calC(bd) {
+    bd.style.cssText = 'height:100%;overflow:hidden;background:#fff;padding:10px;font-size:12px';
+    var ev = { 5: ['#1a73e8', '10:00 MTG'], 11: ['#188038', 'Lunch'], 15: ['#e8710a', 'Trip'], 22: ['#9334e6', 'Demo'] };
+    var g = '<div style="display:flex;align-items:center;margin-bottom:8px"><b style="font-size:15px;color:#202124">June 2026</b><span style="margin-left:auto;color:#5f6368">‹  ›</span></div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">';
+    ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(function (d) { g += '<div style="text-align:center;font-size:11px;color:#80868b">' + d + '</div>'; });
+    for (var c = 1; c <= 35; c++) { var day = c - 2, today = day === 11, e = ev[day];
+      g += '<div style="min-height:42px;border:1px solid #eef1f1;border-radius:6px;padding:3px;background:' + (today ? '#e8f0fe' : '#fff') + '"><div style="text-align:right;' + (today ? 'color:#1a73e8;font-weight:700' : 'color:#3c4043') + '">' + (day > 0 && day <= 30 ? day : '') + '</div>'
+        + (e ? '<div style="margin-top:2px;background:' + e[0] + ';color:#fff;border-radius:3px;padding:1px 4px;font-size:10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + e[1] + '</div>' : '') + '</div>';
+    }
+    bd.innerHTML = g + '</div>';
+  }
+  function articleC(bd) {
+    bd.style.cssText = 'height:100%;overflow:hidden;background:#fff;font-family:sans-serif;color:#222';
+    bd.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:#1f6f6f;color:#fff"><span style="font-size:18px">🌐</span><b>Example News</b><span style="margin-left:auto;font-size:12px;opacity:.85">Home · World · Tech · Life</span></div>'
+      + '<div style="padding:14px 18px"><h2 style="font-size:18px;margin:0 0 10px">Sample Article</h2>'
+      + '<div style="display:flex;gap:14px"><div style="width:120px;height:80px;border-radius:8px;background:linear-gradient(135deg,#8fd3c7,#37907f);display:flex;align-items:center;justify-content:center;font-size:40px;flex:0 0 auto">🏞️</div>'
+      + '<p style="flex:1;margin:0;font:14px/1.7 Georgia,serif;color:#333">DeskHatch keeps your tools one slam to the top away. You added this page as a drawer — same content, right here.</p></div>'
+      + '<div style="display:flex;gap:10px;margin-top:14px">' + ['🖼️', '📊', '📷'].map(function (e) { return '<div style="width:66px;height:46px;border-radius:6px;background:#eef3f3;display:flex;align-items:center;justify-content:center;font-size:24px">' + e + '</div>'; }).join('') + '</div></div>';
+  }
+  function folderC(bd) {
+    bd.style.cssText = 'height:100%;overflow:hidden;background:#fff;font-size:13px';
+    var rows = [['📁', 'Project'], ['📁', 'Photos'], ['📄', 'memo.txt'], ['📄', 'plan.md'], ['🖼', 'cover.png']];
+    bd.innerHTML = rows.map(function (r) { return '<div style="display:flex;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid #f0f4f4"><span style="font-size:16px">' + r[0] + '</span><span>' + r[1] + '</span></div>'; }).join('');
+  }
+  function calcC(bd) {
+    bd.style.cssText = 'height:100%;background:#000;display:flex;flex-direction:column;padding:10px;gap:8px';
+    var keys = [['AC', 'fn'], ['±', 'fn'], ['%', 'fn'], ['÷', 'op'], ['7'], ['8'], ['9'], ['×', 'op'], ['4'], ['5'], ['6'], ['−', 'op'], ['1'], ['2'], ['3'], ['+', 'op'], ['0', 'zero'], ['.'], ['=', 'op']];
+    bd.innerHTML = '<div style="text-align:right;color:#fff;font-size:38px;font-weight:300;padding:0 8px">408</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;flex:1">'
+      + keys.map(function (k) { var c = k[1] || ''; var bg = c === 'op' ? '#ff9f0a' : c === 'fn' ? '#a5a5a5' : '#333'; var col = c === 'fn' ? '#000' : '#fff';
+        return '<div style="background:' + bg + ';color:' + col + ';border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:18px;' + (c === 'zero' ? 'grid-column:span 2;border-radius:24px;justify-content:flex-start;padding-left:22px' : 'aspect-ratio:1/1') + '">' + k[0] + '</div>'; }).join('')
+      + '</div>';
+  }
+  var timerLeft = 154; // 02:34
+  function timerC(bd) {
+    bd.style.cssText = 'height:100%;background:#f4f6f6;padding:10px;display:flex;flex-direction:column;gap:8px';
+    function fmt(s) { var m = Math.floor(s / 60), ss = s % 60; return (m < 10 ? '0' : '') + m + ':' + (ss < 10 ? '0' : '') + ss; }
+    bd.innerHTML = '<div style="display:flex;gap:8px"><span style="background:#fff;border:1px solid #cfdede;border-radius:6px;padding:5px 10px;color:#1f6f6f">＋ タイマー</span><span style="background:#fff;border:1px solid #cfdede;border-radius:6px;padding:5px 10px;color:#1f6f6f">＋ ストップウォッチ</span></div>'
+      + '<div style="background:#fff;border:1px solid #dde7e7;border-left:4px solid #ff9f0a;border-radius:10px;padding:10px"><div style="font-size:12px;color:#789">⏲ 集中タイマー</div><div id="tdisp" style="font:600 34px/1 Consolas,monospace;color:#1f7a7a;text-align:center;padding:6px 0">' + fmt(timerLeft) + '</div><div style="display:flex;gap:6px;justify-content:center"><span style="background:#fff;border:1px solid #cfdede;border-radius:6px;padding:4px 12px">停止</span><span style="background:#fff;border:1px solid #cfdede;border-radius:6px;padding:4px 12px">リセット</span></div></div>'
+      + '<div style="background:#fff;border:1px solid #dde7e7;border-left:4px solid #1f9f9f;border-radius:10px;padding:10px"><div style="font-size:12px;color:#789">⏱ ストップウォッチ</div><div style="font:600 26px/1 Consolas,monospace;color:#14302f;text-align:center;padding:4px 0">00:48.6</div></div>';
+  }
+  var scrapBoxes = [
+    { ic: '📎', name: 'Clip', notes: [['📄', 'report.pdf', 'PDF をクリップ（サンプル）'], ['🔗', 'example.com/page', 'https://example.com/page']] },
+    { ic: '📁', name: 'アイデア', notes: [['📝', 'DeskHatch keeps…', 'DeskHatch keeps your tools one slam to the top away.   — scrapped from example.com —'], ['📝', 'ランチャー改善案', '・上端に固定  ・箱で仕分け  ・ピンで横並び'], ['📝', '配色メモ', 'teal #1f6f6f / orange #ff9f0a']] },
+    { ic: '📁', name: 'レシピ', notes: [['📝', 'ガトーショコラ', 'チョコ 200g / バター 100g / 卵 3個'], ['📝', 'タルト生地', '薄力粉 / バター / 砂糖'], ['📝', '週末の献立', '金: カレー / 土: パスタ']] },
+    { ic: '📁', name: '旅行', notes: [['📝', '京都メモ', '南禅寺 / 哲学の道 / 錦市場'], ['📝', '持ち物', '充電器 / 常備薬']] }
+  ];
+  function scrapC(bd) {
+    bd.style.cssText = 'height:100%;background:#fff;font-size:12px';
+    var sel = 1, note = 0;
+    bd.innerHTML = '<div style="display:flex;height:100%"><div id="rail" style="width:28%;max-width:120px;border-right:1px solid #e3eded;background:#f6fafa;padding:6px"></div><div id="list" style="width:40%;border-right:1px solid #e3eded;overflow:auto;padding:6px"></div><div id="prev" style="flex:1;padding:12px;color:#23323a"></div></div>';
+    var rail = bd.querySelector('#rail'), list = bd.querySelector('#list'), prev = bd.querySelector('#prev');
+    function rr() { rail.innerHTML = scrapBoxes.map(function (b, i) { return '<div data-b="' + i + '" style="padding:6px 7px;border-radius:6px;margin-bottom:2px;cursor:pointer;' + (i === sel ? 'background:#d7ecec;font-weight:700' : '') + '">' + b.ic + ' ' + b.name + ' <span style="color:#9ab;font-weight:400">' + b.notes.length + '</span></div>'; }).join(''); }
+    function rl() { list.innerHTML = scrapBoxes[sel].notes.map(function (n, i) { return '<div data-n="' + i + '" style="padding:6px 7px;border-radius:6px;cursor:pointer;' + (i === note ? 'background:#eef6f6;font-weight:700' : '') + '">' + n[0] + ' ' + n[1] + '</div>'; }).join(''); }
+    function rp() { var n = scrapBoxes[sel].notes[note] || ['', '', '']; prev.innerHTML = '<div style="font-weight:700;margin-bottom:8px;font-family:sans-serif">' + n[1] + '</div><div style="font:13px/1.8 Consolas,monospace">' + n[2] + '</div>'; }
+    rail.onclick = function (e) { var d = e.target.closest('[data-b]'); if (!d) return; sel = +d.dataset.b; note = 0; rr(); rl(); rp(); };
+    list.onclick = function (e) { var d = e.target.closest('[data-n]'); if (!d) return; note = +d.dataset.n; rl(); rp(); };
+    rr(); rl(); rp();
+    bd._selectBox = function (i) { sel = i; note = 0; rr(); rl(); rp(); };
+  }
+
+  // ---- stage windows -----------------------------------------------------
+  var browser, folder;
+  function buildStage() {
+    browser = el('div', 'win'); browser.style.cssText += 'left:4%;top:96px;width:46%;height:300px';
+    browser.innerHTML = '<div class="win-tb"><span class="dots"><i style="background:#e7675f"></i><i style="background:#f4be4f"></i><i style="background:#64c25a"></i></span><span id="url" style="flex:1;background:#fff;border:1px solid #dde;border-radius:12px;padding:3px 10px;color:#789;font-weight:400">https://example.com/article</span></div>'
+      + '<div style="font-family:sans-serif;color:#222"><div style="display:flex;align-items:center;gap:8px;padding:7px 14px;background:#1f6f6f;color:#fff"><span style="font-size:18px">🌐</span><b>Example News</b><span style="margin-left:auto;font-size:12px;opacity:.85">Home · World · Tech · Life</span></div>'
+      + '<div style="padding:12px 16px"><h2 style="font-size:17px;margin:0 0 8px">Sample Article</h2><div style="display:flex;gap:12px"><div style="width:110px;height:74px;border-radius:8px;background:linear-gradient(135deg,#8fd3c7,#37907f);display:flex;align-items:center;justify-content:center;font-size:38px;flex:0 0 auto">🏞️</div>'
+      + '<p id="txt" style="flex:1;margin:0;font:13px/1.6 Georgia,serif;color:#333">DeskHatch keeps your tools one slam to the top away.</p></div></div></div>';
+    document.body.appendChild(browser);
+    folder = el('div', 'win'); folder.style.cssText += 'right:4%;top:150px;width:280px;height:188px';
+    folder.innerHTML = '<div class="win-tb"><span class="dots"><i style="background:#e7675f"></i><i style="background:#f4be4f"></i><i style="background:#64c25a"></i></span><span>📁 マイドキュメント</span></div>'
+      + '<div style="padding:16px;display:flex;gap:24px"><div id="ffolder" style="text-align:center;width:80px"><div style="font-size:44px">📁</div><div style="font-size:12px">Project</div></div><div style="text-align:center;width:80px"><div style="font-size:44px">📄</div><div style="font-size:12px">memo.txt</div></div></div>';
+    document.body.appendChild(folder);
+  }
+
+  function ghost(text, fromEl, toEl) {
+    var g = el('div', 'ghost', text); var a = center(fromEl); g.style.left = a.x + 'px'; g.style.top = a.y + 'px'; fx.appendChild(g);
+    var b = center(toEl);
+    return sleep(80).then(function () { g.style.left = b.x + 'px'; g.style.top = b.y + 'px'; cur.style.left = b.x + 'px'; cur.style.top = b.y + 'px'; return sleep(950); }).then(function () { g.remove(); });
+  }
+  function fmenu(items) {
+    var cx = parseFloat(cur.style.left) || W() / 2, cy = parseFloat(cur.style.top) || 60;
+    var m = el('div', 'fmenu'); m.style.left = Math.max(6, Math.min(cx + 4, W() - 196)) + 'px'; m.style.top = Math.max(46, Math.min(cy + 10, H() - 160)) + 'px';
+    items.forEach(function (it) { if (it.sep) { m.appendChild(document.createElement('hr')); return; } m.appendChild(el('div', it.hot ? 'hot' : null, it.label)); });
+    fx.appendChild(m);
+    var hot = m.querySelector('.hot');
+    var p = Promise.resolve();
+    if (hot) { p = sleep(650).then(function () { var r = hot.getBoundingClientRect(); return moveTo(r.left + r.width / 2, r.top + r.height / 2); }).then(ripple); }
+    return p.then(function () { return sleep(520); }).then(function () { m.remove(); });
+  }
+
+  // ---- choreography ------------------------------------------------------
+  var stopped = false;
+  function addTab(t, before) { var i = before ? TABS.findIndex(function (x) { return x.id === before; }) : TABS.length; TABS.splice(i < 0 ? TABS.length : i, 0, t); renderBar(); }
+
+  async function act() {
+    TABS = [
+      { id: 'mail', ic: '✉', label: 'メール' }, { id: 'cal', ic: '📅', label: 'カレンダー' },
+      { id: 'meet', ic: '🎥', label: 'Meet' }, { id: 'todo', ic: '✓', label: 'ToDo' },
+      { id: 'docs', ic: '📁', label: 'マイドキュメント' }, { id: 'timer', ic: '⏲', label: 'タイマー' }, { id: 'calc', ic: '🧮', label: '電卓' }
+    ];
+    renderBar(); closeDrawers(); await sleep(700);
+
+    setTip('メールやカレンダーを上端からワンクリックで');
+    await moveToEl(barBtn('mail')); ripple(); openDrawer(barBtn('mail'), '✉', 'メール', 380, 250, mailC); await sleep(2300);
+    await moveToEl(barBtn('cal')); ripple(); openDrawer(barBtn('cal'), '📅', 'カレンダー', 360, 260, calC); await sleep(2400);
+    closeDrawers(); await sleep(400);
+
+    setTip('ブラウザのURLをバーへドラッグ → ドロワーとして追加');
+    await moveToEl(browser.querySelector('#url')); ripple();
+    await ghost('🔗 example.com/article', browser.querySelector('#url'), barBtn('docs'));
+    await fmenu([{ label: '📁 箱を選んで保存' }, { sep: true }, { label: '➕ ドロワーとして追加', hot: true }]);
+    addTab({ id: 'web', ic: '🔗', label: 'Article' }, 'timer'); await sleep(700);
+    setTip('登録したボタンを押すと、そのページがドロワーで開く');
+    await moveToEl(barBtn('web')); ripple(); openDrawer(barBtn('web'), '🔗', 'Article', 340, 230, articleC); await sleep(2600);
+    closeDrawers(); await sleep(400);
+
+    setTip('フォルダもバーへドラッグしてドロワー化');
+    await moveToEl(folder.querySelector('#ffolder')); ripple();
+    await ghost('📁 Project', folder.querySelector('#ffolder'), barBtn('docs'));
+    await fmenu([{ label: '➕ ドロワーとして追加', hot: true }]);
+    addTab({ id: 'proj', ic: '📁', label: 'Project' }, 'timer'); await sleep(900);
+
+    setTip('タイマーや電卓などのアクセサリも最初から');
+    await moveToEl(barBtn('timer')); ripple(); openDrawer(barBtn('timer'), '⏲', 'タイマー', 300, 270, timerC); await sleep(2400);
+    closeDrawers(); await sleep(300);
+    await moveToEl(barBtn('calc')); ripple(); openDrawer(barBtn('calc'), '🧮', '電卓', 230, 280, calcC); await sleep(2200);
+    closeDrawers(); await sleep(400);
+
+    setTip('テキストを選択してバーへ → スクラップブックの箱を選ぶ');
+    var t = browser.querySelector('#txt'); t.classList.add('sel');
+    await moveToEl(t); ripple();
+    await ghost('✂ DeskHatch keeps your tools…', t, clipBtn());
+    t.classList.remove('sel');
+    await fmenu([{ label: '📁 アイデア', hot: true }, { label: '📁 レシピ' }, { label: '📁 旅行' }, { sep: true }, { label: '➕ ドロワーとして追加' }]);
+    setTip('スクラップブックを開くと、取り込んだメモが箱に入っている');
+    var sd = openDrawer(clipBtn(), '📎', 'スクラップ', 420, 250, scrapC);
+    await moveToEl(clipBtn()); ripple(); await sleep(1800);
+    setTip('他の箱にも様々なサンプルメモが入っている');
+    var bd = sd.querySelector('.drawer-bd');
+    for (var bi = 0; bi < 3; bi++) {
+      var idx = [2, 3, 1][bi];
+      var box = bd.querySelector('#rail [data-b="' + idx + '"]');
+      if (box) { await moveToEl(box); ripple(); bd._selectBox(idx); await sleep(1600); }
+    }
+    closeDrawers(); await sleep(500);
+  }
+  async function loop() { buildStage(); cur.style.left = (W() / 2) + 'px'; cur.style.top = '230px'; while (!stopped) { try { await act(); } catch (e) {} await sleep(900); } }
+  window.addEventListener('load', loop);
+})();
+</script>
+</body>
+</html>
