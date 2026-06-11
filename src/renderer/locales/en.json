@@ -225,5 +225,12 @@
   "➕ ドロワー": "➕ Drawer",
   "フォルダへ保存しました": "Saved to folder",
   "ドロップ後に箱の振り分けメニューを出す": "Show box picker after a drop",
-  "📁 フォルダを選んで保存…": "📁 Pick a folder & save…"
+  "📁 フォルダを選んで保存…": "📁 Pick a folder & save…",
+  "1つのGoogleログインで Gmail・カレンダー・Keep・Drive…": "One Google login — Gmail, Calendar, Keep, Drive…",
+  "カレンダーも最上部から一発": "Your calendar, one slam to the top away",
+  "ローカルもDriveもすぐ開く": "Open local files and Drive in a snap",
+  "メモもドロワーで即": "Notes & memos, right in a drawer",
+  "AIもワンクリック": "AI, one click away",
+  "フォルダを固定、ファイルを開く": "Pin folders, open files",
+  "ファイル・URL・テキストをバーへ → 箱に仕分け": "Drag a file, URL or text to the bar → file it into a box"
 }

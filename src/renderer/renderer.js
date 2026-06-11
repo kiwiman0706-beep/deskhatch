@@ -1285,11 +1285,15 @@ function demoFiles(bd) {
   bd.innerHTML = rows.map((r) => '<div style="display:flex;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid #f0f4f4"><span style="font-size:16px">' + r[0] + '</span><span>' + r[1] + '</span></div>').join('');
 }
 function demoClip(bd) {
-  bd.innerHTML = '<div style="display:flex;gap:8px;margin-bottom:10px">'
-    + '<span style="background:#eaf3f3;border:1px solid #cfdede;color:#1f6f6f;border-radius:5px;padding:4px 10px;font-weight:700;font-size:12px">＋ File</span>'
-    + '<span style="background:#eaf3f3;border:1px solid #cfdede;color:#1f6f6f;border-radius:5px;padding:4px 10px;font-weight:700;font-size:12px">＋ Folder</span></div>'
-    + [['📄', 'report.pdf'], ['🔗', 'example.com/page'], ['✂', 'Meeting notes — sample text']].map((r) => '<div style="display:flex;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid #f0f4f4"><span style="font-size:15px">' + r[0] + '</span><span>' + r[1] + '</span></div>').join('')
-    + '<div style="margin-top:12px;border:1.5px dashed #9cc6c6;border-radius:8px;padding:18px;text-align:center;color:#5c8c8c;background:#f1f8f8">Drop a file · URL · text</div>';
+  bd.style.padding = '0';
+  bd.innerHTML = '<div style="display:flex;height:100%;min-height:180px;font-size:12px">'
+    + '<div style="width:38%;border-right:1px solid #e3eded;padding:6px;background:#f6fafa">'
+      + ['📎 Clip', '📁 Research', '📁 Recipes', '📁 Obsidian'].map((b, i) => '<div style="padding:6px 8px;border-radius:6px;margin-bottom:2px;' + (i === 0 ? 'background:#d7ecec;font-weight:700' : '') + '">' + b + '</div>').join('')
+    + '</div>'
+    + '<div style="flex:1;padding:8px">'
+      + [['📄', 'report.pdf'], ['🔗', 'example.com/page'], ['✂', 'Meeting notes — sample']].map((r) => '<div style="display:flex;gap:10px;align-items:center;padding:6px 4px;border-bottom:1px solid #f0f4f4"><span style="font-size:14px">' + r[0] + '</span><span>' + r[1] + '</span></div>').join('')
+      + '<div style="margin-top:10px;border:1.5px dashed #9cc6c6;border-radius:8px;padding:14px;text-align:center;color:#5c8c8c;background:#f1f8f8">Drop a file · URL · text → pick a box</div>'
+    + '</div></div>';
 }
 function demoGeneric(bd, icon, label) {
   bd.innerHTML = '<div style="text-align:center;padding:18px 8px"><div style="font-size:40px">' + icon + '</div>'
@@ -1302,14 +1306,26 @@ function demoGeneric(bd, icon, label) {
 function autoDemo() {
   const tabs = window.SS_TABS || [];
   const seq = ['mail', 'cal-month', 'drive', 'keep', 'gemini', 'pc'].map((id) => tabs.find((t) => t.id === id)).filter(Boolean);
+  const caps = {
+    mail: '1つのGoogleログインで Gmail・カレンダー・Keep・Drive…',
+    'cal-month': 'カレンダーも最上部から一発',
+    drive: 'ローカルもDriveもすぐ開く',
+    keep: 'メモもドロワーで即',
+    gemini: 'AIもワンクリック',
+    pc: 'フォルダを固定、ファイルを開く',
+  };
+  const cap = el('div');
+  cap.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:rgba(15,36,35,.92);color:#eafafa;padding:10px 18px;border-radius:22px;font:600 14px "Segoe UI",sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:2147483646;max-width:82vw;text-align:center;transition:opacity .3s;opacity:0';
+  document.body.appendChild(cap);
   let i = 0, demoTimer = null, stop = false;
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { stop = true; if (demoTimer) clearTimeout(demoTimer); } });
+  function setCap(text) { cap.style.opacity = '0'; setTimeout(() => { cap.textContent = text; cap.style.opacity = '1'; }, 200); }
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { stop = true; if (demoTimer) clearTimeout(demoTimer); cap.remove(); } });
   function step() {
     if (stop) return;
     const n = i % (seq.length + 1); i += 1;
-    if (n < seq.length) { const t = seq[n]; const btn = bar.querySelector('.ss-btn[data-id="' + t.id + '"]') || bar; openTab(t, btn); }
-    else { const b = bar.querySelector('.ss-clip-btn'); if (b) openTab(CLIP_TAB, b); }
-    demoTimer = setTimeout(step, 2600);
+    if (n < seq.length) { const t = seq[n]; const btn = bar.querySelector('.ss-btn[data-id="' + t.id + '"]') || bar; openTab(t, btn); setCap(L(caps[t.id] || ((t.icon || '') + ' ' + (t.label || '')))); }
+    else { const b = bar.querySelector('.ss-clip-btn'); if (b) openTab(CLIP_TAB, b); setCap(L('ファイル・URL・テキストをバーへ → 箱に仕分け')); }
+    demoTimer = setTimeout(step, 2800);
   }
   step();
 }
