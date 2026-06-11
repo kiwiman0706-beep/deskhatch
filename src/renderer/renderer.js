@@ -852,14 +852,18 @@ async function offerBoxMenu(ids) {
   if (!ids || !ids.length) return;
   if (!Store.getDropMenu()) return;
   const boxes = await scrapBoxes();
-  if (!boxes.length) return;
   const items = boxes.map((b, i) => ({ id: 'box:' + i, label: '📁 ' + b.name }));
-  items.push({ separator: true }, { id: 'drawer', label: L('➕ ドロワーとして追加') });
+  if (boxes.length) items.push({ separator: true });
+  items.push({ id: 'newbox', label: L('📁 フォルダを選んで保存…') });
+  items.push({ id: 'drawer', label: L('➕ ドロワーとして追加') });
+  // (dismiss the menu = keep it in Clip)
   const action = await window.system.menu(items);
   if (!action) return;
   const clips = Store.getClips();
   const picked = ids.map((id) => clips.find((x) => x.id === id)).filter(Boolean);
+  if (!picked.length) return;
   if (action === 'drawer') { picked.forEach((it) => promoteClip(it)); return; }
+  if (action === 'newbox') { const dir = await window.files.pickFolder(); if (dir) for (const it of picked) await moveClipToBox(it, dir); return; }
   if (action.indexOf('box:') === 0) { const b = boxes[Number(action.slice(4))]; if (b) for (const it of picked) await moveClipToBox(it, b.path); }
 }
 
