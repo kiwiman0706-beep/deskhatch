@@ -1386,11 +1386,18 @@ function demoMail(bd) {
       + '<div style="color:#5f6368;font-size:12px">' + r[5] + '</div></div>').join('');
 }
 function demoArticle(bd) {
-  bd.style.cssText += ';padding:16px 22px;font:15px/1.9 Georgia,serif;color:#222;background:#fff';
-  bd.innerHTML = '<h2 style="font-size:20px;margin:0 0 10px">Sample Article</h2>'
-    + '<p>DeskHatch keeps your tools one slam to the top away.</p>'
-    + '<p>You just added this page as a drawer — clicking the button shows the same page, right here.</p>'
-    + '<p style="color:#1a7a5a">— a dummy web page —</p>';
+  bd.style.padding = '0';
+  bd.innerHTML = '<div style="font-family:sans-serif;color:#222;background:#fff">'
+    + '<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:#1f6f6f;color:#fff"><span style="font-size:18px">🌐</span><b>Example News</b><span style="margin-left:auto;font-size:12px;opacity:.85">Home · World · Tech · Life</span></div>'
+    + '<div style="padding:14px 18px">'
+      + '<h2 style="font-size:19px;margin:0 0 10px">Sample Article</h2>'
+      + '<div style="display:flex;gap:14px">'
+        + '<div style="width:130px;height:88px;border-radius:8px;background:linear-gradient(135deg,#8fd3c7,#37907f);display:flex;align-items:center;justify-content:center;font-size:44px;flex:0 0 auto">🏞️</div>'
+        + '<p style="flex:1;margin:0;font:14px/1.7 Georgia,serif;color:#333">DeskHatch keeps your tools one slam to the top away. You added this page as a drawer — same content, right here.</p>'
+      + '</div>'
+      + '<div style="display:flex;gap:10px;margin-top:14px">'
+        + ['🖼️', '📊', '📷'].map((e) => '<div style="width:74px;height:52px;border-radius:6px;background:#eef3f3;display:flex;align-items:center;justify-content:center;font-size:26px">' + e + '</div>').join('')
+      + '</div></div></div>';
 }
 function demoCal(bd) {
   bd.style.cssText += ';padding:10px;background:#fff';
@@ -1488,6 +1495,8 @@ function demoBarTabs() {
     { id: 'd-meet', label: 'Meet', icon: '🎥', type: 'page', url: '#', width: 460 },
     { id: 'd-todo', label: 'ToDo', icon: '✓', type: 'page', url: '#', width: 360 },
     { id: 'd-docs', label: L('マイドキュメント'), icon: '📁', type: 'folder', path: '@documents', width: 460 },
+    { id: 'd-timer', label: L('タイマー'), icon: '⏲', type: 'tool', tool: 'clock', width: 340, height: 480 },
+    { id: 'd-calc', label: L('電卓'), icon: '🧮', type: 'tool', tool: 'calc', width: 280, height: 470 },
   ];
 }
 function stageDemo() {
@@ -1596,13 +1605,11 @@ function stageDemo() {
     setTip(L('登録したフォルダもドロワーで開ける'));
     await moveToEl(barBtn('d-proj')); ripple(); openTab(tabs.find((t) => t.id === 'd-proj'), barBtn('d-proj')); await sleep(2400); if (stopped) return;
     Object.keys(open).slice().forEach((id) => closeDrawer(id)); await sleep(600);
-    setTip(L('バーを右クリックして、タイマーなどのアクセサリを追加'));
-    const lastB = barBtn('d-proj') || barBtn('d-docs') || bar;
-    const lr = lastB.getBoundingClientRect();
-    await moveTo(Math.min(lr.right + 26, window.innerWidth - 130), lr.top + lr.height / 2); ripple();
-    await fakeMenu([{ label: L('新規項目を追加') }, { label: '⏲ ' + L('タイマー'), hot: true }, { sep: true }, { label: L('削除') }]);
-    if (stopped) return;
-    tabs.push({ id: 'd-timer', label: L('タイマー'), icon: '⏲', type: 'tool', tool: 'clock', width: 340, height: 480 }); renderBar(); await sleep(1500); if (stopped) return;
+    setTip(L('タイマーや電卓などのアクセサリも最初から使える'));
+    await moveToEl(barBtn('d-timer')); ripple(); openTab(tabs.find((t) => t.id === 'd-timer'), barBtn('d-timer')); await sleep(2200); if (stopped) return;
+    Object.keys(open).slice().forEach((id) => closeDrawer(id)); await sleep(400);
+    await moveToEl(barBtn('d-calc')); ripple(); openTab(tabs.find((t) => t.id === 'd-calc'), barBtn('d-calc')); await sleep(2000); if (stopped) return;
+    Object.keys(open).slice().forEach((id) => closeDrawer(id)); await sleep(400);
     setTip(L('ボタンはドラッグで並べ替えできる'));
     await moveToEl(barBtn('d-timer')); ripple();
     await ghostDrag('⏱ ' + L('タイマー'), barBtn('d-timer'), barBtn('d-web') || bar);

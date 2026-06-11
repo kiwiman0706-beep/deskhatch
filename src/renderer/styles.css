@@ -567,7 +567,8 @@ html, body {
 .ss-fmenu div.hot { background: #1f9f9f; color: #fff; }
 .ss-fmenu hr { border: none; border-top: 1px solid #eef2f2; margin: 4px 2px; }
 .ss-stage-tip { position: absolute; left: 50%; bottom: 32px; transform: translateX(-50%); background: rgba(15,36,35,.93); color: #eafafa; padding: 11px 20px; border-radius: 22px; font: 600 15px "Segoe UI",sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.35); text-align: center; max-width: 80vw; }
-.ss-demo-exit { position: absolute; top: 12px; right: 14px; pointer-events: auto; background: rgba(0,0,0,.62); color: #fff; border: none; border-radius: 18px; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.ss-demo-exit { position: absolute; bottom: 22px; right: 22px; pointer-events: auto; background: rgba(192,57,43,.95); color: #fff; border: none; border-radius: 26px; padding: 13px 26px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+.ss-demo-exit:hover { background: #c0392b; }
 
 
 /* Timer & stopwatch (combined clock tool) */
