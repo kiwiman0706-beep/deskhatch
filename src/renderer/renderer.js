@@ -887,10 +887,27 @@ async function embedImages(html) {
     return doc.body ? doc.body.innerHTML : html;
   } catch (_) { return html; }
 }
+// Download <img> sources into a "<base>_files" folder and rewrite to relative
+// paths (for Markdown clips that Obsidian renders from local files).
+async function localizeToFolder(html, dir, base) {
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('source').forEach((n) => n.remove());
+    doc.querySelectorAll('[srcset]').forEach((n) => n.removeAttribute('srcset'));
+    const rel = base + '_files';
+    for (const img of [...doc.querySelectorAll('img')]) {
+      const src = img.getAttribute('src') || '';
+      if (!/^https?:\/\//i.test(src)) continue;
+      const name = await window.files.fetchAsset(src, scrapJoin(dir, rel));
+      if (name) img.setAttribute('src', rel + '/' + name); else img.removeAttribute('src');
+    }
+    return doc.body ? doc.body.innerHTML : html;
+  } catch (_) { return html; }
+}
 async function writeScrapHtml(dir, labelText, html) {
   const base = scrapSanit((labelText || 'web-clip').split('\n')[0]);
   const clean = sanitizeHtml(html);
-  if (Store.getScrapFormat() === 'md') { await window.files.writePath(scrapJoin(dir, base + '.md'), htmlToMarkdown(clean)); }
+  if (Store.getScrapFormat() === 'md') { const local = await localizeToFolder(clean, dir, base); await window.files.writePath(scrapJoin(dir, base + '.md'), htmlToMarkdown(local)); }
   else { const embedded = await embedImages(clean); await window.files.writePath(scrapJoin(dir, base + '.html'), wrapHtmlDoc(embedded, labelText)); }
 }
 function buildRichHtml(html) {

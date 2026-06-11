@@ -8,6 +8,29 @@ const { ipcMain, shell, clipboard, dialog, Menu, app, nativeImage, net } = requi
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
+const crypto = require('crypto');
+function downloadBuf(url, cap) {
+  return new Promise((resolve, reject) => {
+    try {
+      const req = net.request(url);
+      req.on('response', (res) => {
+        if (res.statusCode >= 400) { reject(new Error('http ' + res.statusCode)); return; }
+        const ct = String(res.headers['content-type'] || 'application/octet-stream').split(';')[0].trim();
+        const chunks = []; let size = 0;
+        res.on('data', (d) => { size += d.length; if (size > (cap || 8 * 1024 * 1024)) { try { req.abort(); } catch (_) {} reject(new Error('too big')); return; } chunks.push(d); });
+        res.on('end', () => resolve({ buf: Buffer.concat(chunks), mime: ct }));
+      });
+      req.on('error', reject);
+      req.end();
+    } catch (e) { reject(e); }
+  });
+}
+function extFromMime(mime, url) {
+  const m = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp', 'image/svg+xml': '.svg', 'image/bmp': '.bmp', 'image/avif': '.avif' };
+  if (m[mime]) return m[mime];
+  const x = String(url).split('?')[0].match(/\.(jpe?g|png|gif|webp|svg|bmp|avif)$/i);
+  return x ? '.' + x[1].toLowerCase().replace('jpeg', 'jpg') : '.img';
+}
 
 const PC = '::pc'; // virtual root: "This PC" (drive list)
 
@@ -155,20 +178,22 @@ function register(getWin) {
   ipcMain.handle('files:fetch-data-uri', async (_e, url) => {
     try {
       if (!/^https?:\/\//i.test(String(url || ''))) return null;
-      const { buf, mime } = await new Promise((resolve, reject) => {
-        const req = net.request(url);
-        req.on('response', (res) => {
-          if (res.statusCode >= 400) { reject(new Error('http ' + res.statusCode)); return; }
-          const ct = String(res.headers['content-type'] || 'application/octet-stream').split(';')[0].trim();
-          const chunks = []; let size = 0;
-          res.on('data', (d) => { size += d.length; if (size > 8 * 1024 * 1024) { try { req.abort(); } catch (_) {} reject(new Error('too big')); return; } chunks.push(d); });
-          res.on('end', () => resolve({ buf: Buffer.concat(chunks), mime: ct }));
-        });
-        req.on('error', reject);
-        req.end();
-      });
+      const { buf, mime } = await downloadBuf(url);
       if (!buf || !buf.length) return null;
       return 'data:' + (mime || 'application/octet-stream') + ';base64,' + buf.toString('base64');
+    } catch (_) { return null; }
+  });
+  // Download a remote image into destDir and return the saved file name (for
+  // Markdown clips that reference images by relative path).
+  ipcMain.handle('files:fetch-asset', async (_e, url, destDir) => {
+    try {
+      if (!/^https?:\/\//i.test(String(url || ''))) return null;
+      const { buf, mime } = await downloadBuf(url);
+      if (!buf || !buf.length) return null;
+      const name = crypto.createHash('sha1').update(String(url)).digest('hex').slice(0, 16) + extFromMime(mime, url);
+      await fsp.mkdir(destDir, { recursive: true });
+      await fsp.writeFile(path.join(destDir, name), buf);
+      return name;
     } catch (_) { return null; }
   });
 

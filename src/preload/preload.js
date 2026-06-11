@@ -79,6 +79,7 @@ contextBridge.exposeInMainWorld('files', {
   readText: (p) => ipcRenderer.invoke('files:read-text', p),
   serve: (p) => ipcRenderer.invoke('file:serve', p),
   fetchDataUri: (url) => ipcRenderer.invoke('files:fetch-data-uri', url),
+  fetchAsset: (url, dir) => ipcRenderer.invoke('files:fetch-asset', url, dir),
   startDrag: (p) => ipcRenderer.send('files:start-drag', p),
   contextMenu: (info) => ipcRenderer.invoke('files:context-menu', info),
 });
