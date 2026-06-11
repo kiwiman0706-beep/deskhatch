@@ -215,7 +215,6 @@ window.overlay.setIgnoreMouse(true);
 function pushHit() {
   if (!barShouldShow()) return window.overlay.setHit('none', []);
   if (dragging) return window.overlay.setHit('all', []);
-  if (dragIntake) return window.overlay.setHit('all', []);
   const interactive = [bar, ...Object.keys(open).map((id) => open[id].el)];
   if (searchEl) interactive.push(searchEl);
   if (interactive.length === 1) return window.overlay.setHit('all', []); // bar only
@@ -816,6 +815,8 @@ function positionPicker() {
 }
 
 function openPicker() {
+  return; // disabled (see drag listeners) — kept for a future, safer re-implementation
+  /* eslint-disable no-unreachable */
   if (pickerEl) return;
   dragIntake = true;
   pickerShown = true;
@@ -2486,8 +2487,11 @@ renderBar();
 
 // Drag & drop intake. Prevent the window from navigating to dropped files, and
 // let the bar (which captures while it's the only thing showing) receive drops.
-document.addEventListener('dragenter', (e) => { if (IS_WIN && isExternalDrag(e.dataTransfer)) openPicker(); });
-document.addEventListener('dragover', (e) => { e.preventDefault(); if (IS_WIN && !pickerEl && isExternalDrag(e.dataTransfer)) openPicker(); });
+// Drag-intake picker DISABLED: capturing the whole window during a drag froze
+// all input when the drop landed on another app (drop/dragend never came back
+// to us, so capture never released). Box filing now uses the safe post-drop
+// native popup (offerBoxMenu) instead.
+document.addEventListener('dragover', (e) => { e.preventDefault(); });
 document.addEventListener('drop', async (e) => {
   e.preventDefault(); clearDragFx();
   const shown = pickerShown; pickerShown = false;
