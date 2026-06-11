@@ -220,11 +220,18 @@ html, body {
 .ss-editor-bar { display: flex; gap: 6px; padding: 6px; border-bottom: 1px solid #dfe7e7; background: #f0f6f6; }
 .ss-editor-area { flex: 1; border: 0; outline: none; resize: none; padding: 10px; font: 13px/1.6 "Consolas", monospace; }
 
-.ss-calc { display: flex; flex-direction: column; height: 100%; padding: 8px; gap: 8px; background: #f4f6f6; outline: none; }
-.ss-calc-disp { font-size: 22px; text-align: right; padding: 10px; border: 1px solid #cfdcdc; border-radius: 6px; background: #fff; }
-.ss-calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; flex: 1; }
-.ss-calc-key { font-size: 16px; border: 1px solid #cfdcdc; border-radius: 8px; background: #fff; cursor: pointer; }
-.ss-calc-key:hover { background: #e8f3f3; }
+.ss-calc { display: flex; flex-direction: column; height: 100%; padding: 10px; gap: 6px; background: #000; outline: none; }
+.ss-calc-top { display: flex; justify-content: flex-end; min-height: 18px; }
+.ss-calc-toggle { background: transparent; border: none; color: #8a8a8e; font-size: 15px; cursor: pointer; padding: 0 6px; line-height: 1; }
+.ss-calc-disp { font-size: 42px; font-weight: 300; text-align: right; padding: 4px 8px 8px; border: none; background: #000; color: #fff; width: 100%; }
+.ss-calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+.ss-calc.keypad-hidden .ss-calc-grid { display: none; }
+.ss-calc-key { font-size: 21px; border: none; border-radius: 999px; aspect-ratio: 1 / 1; background: #333; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: filter .1s; }
+.ss-calc-key:hover { filter: brightness(1.25); }
+.ss-calc-key:active { filter: brightness(1.5); }
+.ss-calc-key.op { background: #ff9f0a; }
+.ss-calc-key.fn { background: #a5a5a5; color: #000; }
+.ss-calc-key.zero { grid-column: span 2; aspect-ratio: auto; border-radius: 999px; justify-content: flex-start; padding-left: 26px; }
 
 /* right-end 🔍 search popover (opens the system browser) */
 .ss-search {

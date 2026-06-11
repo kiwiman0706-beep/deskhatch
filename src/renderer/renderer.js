@@ -557,27 +557,41 @@ function calcEval(expr) {
 function buildCalc() {
   const wrap = el('div', 'ss-calc');
   wrap.tabIndex = 0;
+  const top = el('div', 'ss-calc-top');
+  const toggle = el('button', 'ss-calc-toggle', '▾'); toggle.title = L('キーパッドを隠す');
+  top.appendChild(toggle);
   const disp = document.createElement('input');
-  disp.className = 'ss-calc-disp';
-  disp.readOnly = true;
+  disp.className = 'ss-calc-disp'; disp.readOnly = true; disp.value = '0';
   const grid = el('div', 'ss-calc-grid');
   const press = (k) => {
-    if (k === 'C') { disp.value = ''; return; }
-    if (k === '←') { disp.value = disp.value.slice(0, -1); return; }
+    if (k === 'AC') { disp.value = '0'; return; }
+    if (k === '←') { disp.value = disp.value.length > 1 ? disp.value.slice(0, -1) : '0'; return; }
+    if (k === '±') { disp.value = disp.value.startsWith('-') ? disp.value.slice(1) : '-' + disp.value; return; }
+    if (k === '%') { disp.value = String((parseFloat(calcEval(disp.value)) || 0) / 100); return; }
     if (k === '=') { disp.value = calcEval(disp.value); return; }
-    if (disp.value === 'Error') disp.value = '';
-    disp.value += k;
+    if (disp.value === 'Error') disp.value = '0';
+    if (/[0-9.]/.test(k)) { if (disp.value === '0' && k !== '.') disp.value = k; else disp.value += k; }
+    else disp.value += k;
   };
-  ['C', '←', '(', ')', '7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', '0', '.', '=', '+']
-    .forEach((k) => { const b = el('button', 'ss-calc-key', k); b.onclick = () => press(k); grid.appendChild(b); });
+  const keys = [
+    ['AC', 'fn'], ['±', 'fn'], ['%', 'fn'], ['/', 'op'],
+    ['7'], ['8'], ['9'], ['*', 'op'],
+    ['4'], ['5'], ['6'], ['-', 'op'],
+    ['1'], ['2'], ['3'], ['+', 'op'],
+    ['0', 'zero'], ['.'], ['=', 'op'],
+  ];
+  const sym = { '/': '÷', '*': '×', '-': '−' };
+  keys.forEach(([k, cls]) => { const b = el('button', 'ss-calc-key' + (cls ? ' ' + cls : ''), sym[k] || k); b.onclick = () => press(k); grid.appendChild(b); });
+  toggle.onclick = () => { const hidden = wrap.classList.toggle('keypad-hidden'); toggle.textContent = hidden ? '▸' : '▾'; toggle.title = hidden ? L('キーパッドを表示') : L('キーパッドを隠す'); wrap.focus(); };
   wrap.addEventListener('keydown', (e) => {
     const k = e.key;
     if ('0123456789+-*/.()'.includes(k)) press(k);
     else if (k === 'Enter' || k === '=') press('=');
     else if (k === 'Backspace') press('←');
-    else if (k === 'Escape') press('C');
+    else if (k === 'Escape') press('AC');
+    else if (k === '%') press('%');
   });
-  wrap.append(disp, grid);
+  wrap.append(top, disp, grid);
   return wrap;
 }
 
@@ -1369,8 +1383,8 @@ function autoDemo() {
 // ===========================================================================
 function demoBarTabs() {
   return [
-    { id: 'd-mail', label: L('メール'), icon: '✉', type: 'page', url: '#', width: 680 },
-    { id: 'd-cal', label: L('カレンダー'), icon: '📅', type: 'page', url: '#', width: 600 },
+    { id: 'd-mail', label: L('メール'), icon: '✉', type: 'page', url: '#', width: 680, height: 440 },
+    { id: 'd-cal', label: L('カレンダー'), icon: '📅', type: 'page', url: '#', width: 600, height: 440 },
     { id: 'd-meet', label: 'Meet', icon: '🎥', type: 'page', url: '#', width: 460 },
     { id: 'd-todo', label: 'ToDo', icon: '✓', type: 'page', url: '#', width: 360 },
     { id: 'd-docs', label: L('マイドキュメント'), icon: '📁', type: 'folder', path: '@documents', width: 460 },
@@ -1461,7 +1475,7 @@ function stageDemo() {
     await ghostDrag('🔗 example.com/article', stage.querySelector('#ssd-url'), bar);
     await fakeMenu([{ label: '📁 ' + L('箱を選んで保存') }, { sep: true }, { label: L('➕ ドロワーとして追加'), hot: true }]);
     if (stopped) return;
-    tabs.push({ id: 'd-web', label: 'Article', icon: '🔗', type: 'page', url: '#', width: 460 }); renderBar(); await sleep(1000);
+    tabs.push({ id: 'd-web', label: 'Article', icon: '🔗', type: 'page', url: '#', width: 460, height: 360 }); renderBar(); await sleep(1000);
     setTip(L('登録したボタンを押すと、そのページがドロワーで開く'));
     await moveToEl(barBtn('d-web')); ripple(); openTab(tabs.find((t) => t.id === 'd-web'), barBtn('d-web')); await sleep(2600); if (stopped) return;
     Object.keys(open).slice().forEach((id) => closeDrawer(id)); await sleep(600);
@@ -1470,12 +1484,15 @@ function stageDemo() {
     await ghostDrag('📁 Project', stage.querySelector('#ssd-folder'), bar);
     await fakeMenu([{ label: L('➕ ドロワーとして追加'), hot: true }]);
     if (stopped) return;
-    tabs.push({ id: 'd-proj', label: 'Project', icon: '📁', type: 'folder', path: '@documents', width: 460 }); renderBar(); await sleep(1500); if (stopped) return;
+    tabs.push({ id: 'd-proj', label: 'Project', icon: '📁', type: 'folder', path: '@documents', width: 460, height: 380 }); renderBar(); await sleep(1000);
+    setTip(L('登録したフォルダもドロワーで開ける'));
+    await moveToEl(barBtn('d-proj')); ripple(); openTab(tabs.find((t) => t.id === 'd-proj'), barBtn('d-proj')); await sleep(2400); if (stopped) return;
+    Object.keys(open).slice().forEach((id) => closeDrawer(id)); await sleep(600);
     setTip(L('右クリックからタイマーなどのアクセサリを追加'));
     await moveToEl(barBtn('d-todo')); ripple();
     await fakeMenu([{ label: L('新規項目を追加') }, { label: '⏱ ' + L('タイマー'), hot: true }, { sep: true }, { label: L('削除') }]);
     if (stopped) return;
-    tabs.push({ id: 'd-timer', label: L('タイマー'), icon: '⏱', type: 'tool', tool: 'calc', width: 300 }); renderBar(); await sleep(1500); if (stopped) return;
+    tabs.push({ id: 'd-timer', label: L('タイマー'), icon: '⏱', type: 'tool', tool: 'calc', width: 300, height: 470 }); renderBar(); await sleep(1500); if (stopped) return;
     setTip(L('ボタンはドラッグで並べ替えできる'));
     await moveToEl(barBtn('d-timer')); ripple();
     await ghostDrag('⏱ ' + L('タイマー'), barBtn('d-timer'), barBtn('d-web') || bar);
@@ -1590,7 +1607,7 @@ function createDrawer(tab) {
   d.dataset.id = tab.id;
   const saved = Store.getSize(tab.id);
   d.style.width = ((saved && saved.width) || tab.width) + 'px';
-  d.style.height = ((saved && saved.height) || drawerHeight()) + 'px';
+  d.style.height = ((saved && saved.height) || tab.height || drawerHeight()) + 'px';
 
   const head = document.createElement('div');
   head.className = 'ss-drawer-head';
@@ -2266,7 +2283,7 @@ function buildTools() {
   tools.append(el('div', 'ss-tools-title', L('ツール')));
   [[L('🌐 ブラウザ（検索／URL）'), { id: 'tool-browser', label: L('ブラウザ'), icon: '🌐', type: 'browser', width: 560, url: 'https://www.google.com/' }],
     [L('📝 簡易エディタ'), { id: 'tool-editor', label: L('エディタ'), icon: '📝', type: 'tool', tool: 'editor', width: 480 }],
-    [L('🧮 電卓'), { id: 'tool-calc', label: L('電卓'), icon: '🧮', type: 'tool', tool: 'calc', width: 280 }],
+    [L('🧮 電卓'), { id: 'tool-calc', label: L('電卓'), icon: '🧮', type: 'tool', tool: 'calc', width: 280, height: 470 }],
     [L('⏱ ストップウォッチ'), { id: 'tool-stopwatch', label: L('ストップウォッチ'), icon: '⏱', type: 'tool', tool: 'stopwatch', width: 260 }],
     [L('⏲ タイマー'), { id: 'tool-timer', label: L('タイマー'), icon: '⏲', type: 'tool', tool: 'timer', width: 300 }],
     [L('📋 クリップボード'), { id: 'tool-clip', label: L('クリップボード'), icon: '📋', type: 'tool', tool: 'clipboard', width: 420 }],

@@ -246,5 +246,8 @@
   "登録したボタンを押すと、そのページがドロワーで開く": "Click the new button — the page opens in a drawer",
   "ボタンはドラッグで並べ替えできる": "Drag buttons to reorder them",
   "作成": "Compose",
-  "メールを検索": "Search mail"
+  "メールを検索": "Search mail",
+  "キーパッドを隠す": "Hide keypad",
+  "キーパッドを表示": "Show keypad",
+  "登録したフォルダもドロワーで開ける": "Open the folder you added, in a drawer too"
 }
