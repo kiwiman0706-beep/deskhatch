@@ -1416,13 +1416,16 @@ function demoFiles(bd) {
 }
 function demoClip(bd) {
   bd.style.padding = '0';
-  bd.innerHTML = '<div style="display:flex;height:100%;min-height:180px;font-size:12px">'
-    + '<div style="width:38%;border-right:1px solid #e3eded;padding:6px;background:#f6fafa">'
-      + ['📎 Clip', '📁 Research', '📁 Recipes', '📁 Obsidian'].map((b, i) => '<div style="padding:6px 8px;border-radius:6px;margin-bottom:2px;' + (i === 0 ? 'background:#d7ecec;font-weight:700' : '') + '">' + b + '</div>').join('')
+  bd.innerHTML = '<div style="display:flex;height:100%;min-height:240px;font-size:12px">'
+    + '<div style="width:30%;max-width:128px;border-right:1px solid #e3eded;background:#f6fafa;padding:6px">'
+      + [['📎', 'Clip'], ['📁', 'アイデア'], ['📁', 'レシピ'], ['📁', '旅行']].map((b, i) => '<div style="padding:6px 7px;border-radius:6px;margin-bottom:2px;' + (i === 1 ? 'background:#d7ecec;font-weight:700' : '') + '">' + b[0] + ' ' + b[1] + '</div>').join('')
     + '</div>'
-    + '<div style="flex:1;padding:8px">'
-      + [['📄', 'report.pdf'], ['🔗', 'example.com/page'], ['✂', 'Meeting notes — sample']].map((r) => '<div style="display:flex;gap:10px;align-items:center;padding:6px 4px;border-bottom:1px solid #f0f4f4"><span style="font-size:14px">' + r[0] + '</span><span>' + r[1] + '</span></div>').join('')
-      + '<div style="margin-top:10px;border:1.5px dashed #9cc6c6;border-radius:8px;padding:14px;text-align:center;color:#5c8c8c;background:#f1f8f8">Drop a file · URL · text → pick a box</div>'
+    + '<div style="width:40%;border-right:1px solid #e3eded;overflow:auto;padding:6px">'
+      + ['📝 DeskHatch keeps your…', '📝 ランチャーの改善案', '📝 配色メモ'].map((n, i) => '<div style="padding:6px 7px;border-radius:6px;' + (i === 0 ? 'background:#eef6f6;font-weight:700' : '') + '">' + n + '</div>').join('')
+    + '</div>'
+    + '<div style="flex:1;padding:12px;color:#23323a">'
+      + '<div style="font-weight:700;margin-bottom:8px;font-family:sans-serif">DeskHatch keeps your tools</div>'
+      + '<div style="font:13px/1.7 Consolas,monospace">DeskHatch keeps your tools one slam to the top away.<br><br><span style="color:#8aa">— scrapped from example.com —</span></div>'
     + '</div></div>';
 }
 function demoGeneric(bd, icon, label) {
@@ -1486,13 +1489,22 @@ function stageDemo() {
   demoStageH = STAGE_H;
 
   const stage = el('div', 'ss-stage'); stage.style.height = STAGE_H + 'px';
-  const browser = el('div', 'ss-win'); browser.style.cssText += 'left:5%;top:92px;width:46%;height:300px';
+  const browser = el('div', 'ss-win'); browser.style.cssText += 'left:5%;top:92px;width:48%;height:350px';
   browser.innerHTML = '<div class="ss-win-tb"><span class="ss-win-dots"><i style="background:#e7675f"></i><i style="background:#f4be4f"></i><i style="background:#64c25a"></i></span>'
     + '<span id="ssd-url" style="flex:1;background:#fff;border:1px solid #dde;border-radius:12px;padding:3px 10px;color:#789;font-weight:400">https://example.com/article</span></div>'
-    + '<div style="padding:18px 24px;font:15px/1.9 Georgia,serif;color:#222">'
-    + '<h2 style="font-size:21px;margin:0 0 10px">Sample Article</h2>'
-    + '<p id="ssd-text">DeskHatch keeps your tools one slam to the top away.</p>'
-    + '<p style="color:#1a7a5a">— a dummy web page —</p></div>';
+    + '<div style="height:calc(100% - 30px);overflow:hidden;background:#fff;font-family:sans-serif">'
+      + '<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:#1f6f6f;color:#fff">'
+        + '<span style="font-size:18px">🌐</span><b style="font-size:15px">Example News</b>'
+        + '<span style="margin-left:auto;font-size:12px;opacity:.85">Home · World · Tech · Life</span></div>'
+      + '<div style="padding:14px 18px;color:#222">'
+        + '<h2 style="font-size:19px;margin:0 0 10px">Sample Article</h2>'
+        + '<div style="display:flex;gap:14px">'
+          + '<div style="width:130px;height:88px;border-radius:8px;background:linear-gradient(135deg,#8fd3c7,#37907f);display:flex;align-items:center;justify-content:center;font-size:44px">🏞️</div>'
+          + '<p id="ssd-text" style="flex:1;margin:0;font:14px/1.7 Georgia,serif;color:#333">DeskHatch keeps your tools one slam to the top away.</p>'
+        + '</div>'
+        + '<div style="display:flex;gap:10px;margin-top:14px">'
+          + ['🖼️', '📊', '📷'].map((e) => '<div style="width:74px;height:52px;border-radius:6px;background:#eef3f3;display:flex;align-items:center;justify-content:center;font-size:26px">' + e + '</div>').join('')
+        + '</div></div></div>';
   stage.appendChild(browser);
   const folder = el('div', 'ss-win'); folder.style.cssText += 'right:5%;top:150px;width:300px;height:200px';
   folder.innerHTML = '<div class="ss-win-tb"><span class="ss-win-dots"><i style="background:#e7675f"></i><i style="background:#f4be4f"></i><i style="background:#64c25a"></i></span><span>📁 ' + L('マイドキュメント') + '</span></div>'
@@ -1544,9 +1556,8 @@ function stageDemo() {
     if (!demoStage) return;
     stopped = true; demoStage = false;
     document.removeEventListener('keydown', onKey);
-    stage.remove(); layer.remove();
-    Object.keys(open).slice().forEach((id) => closeDrawer(id));
-    tabs = origTabs; renderBar(); reflowHeight();
+    try { localStorage.removeItem('ss.demo'); } catch (_) {}
+    window.overlay.relaunch(); // leave demo mode entirely, back to the normal app
   }
   exit.onclick = endDemo;
   document.addEventListener('keydown', onKey);
@@ -1576,11 +1587,13 @@ function stageDemo() {
     setTip(L('登録したフォルダもドロワーで開ける'));
     await moveToEl(barBtn('d-proj')); ripple(); openTab(tabs.find((t) => t.id === 'd-proj'), barBtn('d-proj')); await sleep(2400); if (stopped) return;
     Object.keys(open).slice().forEach((id) => closeDrawer(id)); await sleep(600);
-    setTip(L('右クリックからタイマーなどのアクセサリを追加'));
-    await moveToEl(barBtn('d-todo')); ripple();
-    await fakeMenu([{ label: L('新規項目を追加') }, { label: '⏱ ' + L('タイマー'), hot: true }, { sep: true }, { label: L('削除') }]);
+    setTip(L('バーを右クリックして、タイマーなどのアクセサリを追加'));
+    const lastB = barBtn('d-proj') || barBtn('d-docs') || bar;
+    const lr = lastB.getBoundingClientRect();
+    await moveTo(Math.min(lr.right + 26, window.innerWidth - 130), lr.top + lr.height / 2); ripple();
+    await fakeMenu([{ label: L('新規項目を追加') }, { label: '⏲ ' + L('タイマー'), hot: true }, { sep: true }, { label: L('削除') }]);
     if (stopped) return;
-    tabs.push({ id: 'd-timer', label: L('タイマー'), icon: '⏱', type: 'tool', tool: 'calc', width: 300, height: 470 }); renderBar(); await sleep(1500); if (stopped) return;
+    tabs.push({ id: 'd-timer', label: L('タイマー'), icon: '⏲', type: 'tool', tool: 'clock', width: 340, height: 480 }); renderBar(); await sleep(1500); if (stopped) return;
     setTip(L('ボタンはドラッグで並べ替えできる'));
     await moveToEl(barBtn('d-timer')); ripple();
     await ghostDrag('⏱ ' + L('タイマー'), barBtn('d-timer'), barBtn('d-web') || bar);
@@ -1592,10 +1605,13 @@ function stageDemo() {
     await moveToEl(tEl); ripple();
     await ghostDrag('✂ DeskHatch keeps your tools…', tEl, clipBtn());
     tEl.classList.remove('ss-sel');
-    await fakeMenu([{ label: '📁 ' + L('箱') + ' 1' }, { label: '📁 ' + L('箱') + ' 2', hot: true }, { label: '📁 ' + L('箱') + ' 3' }, { sep: true }, { label: L('➕ ドロワーとして追加') }]);
+    await fakeMenu([{ label: '📁 ' + L('アイデア'), hot: true }, { label: '📁 ' + L('レシピ') }, { label: '📁 ' + L('旅行') }, { sep: true }, { label: L('➕ ドロワーとして追加') }]);
     if (stopped) return;
-    setTip(L('スクラップブックに整理できました'));
-    await sleep(2600);
+    setTip(L('スクラップブックを開くと、取り込んだメモが箱に入っている'));
+    await moveToEl(clipBtn()); ripple(); openTab({ ...CLIP_TAB, height: 300 }, clipBtn()); await sleep(3200); if (stopped) return;
+    setTip(L('他の箱にもサンプルのメモが入っている'));
+    await sleep(2200);
+    Object.keys(open).slice().forEach((id) => closeDrawer(id)); await sleep(500);
   }
   (async function loop() { while (!stopped) { await act(); if (stopped) break; await sleep(1300); } })();
 }
