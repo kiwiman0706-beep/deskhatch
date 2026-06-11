@@ -422,7 +422,9 @@ function makeWebview(url, mobile, partition) {
   wv.setAttribute('partition', part);
   wv.setAttribute('allowpopups', '');
   if (mobile) wv.setAttribute('useragent', MOBILE_UA);
-  wv.setAttribute('src', url);
+  let safe = 'about:blank';
+  try { if (url && /^[a-z][a-z0-9+.-]*:/i.test(url)) { void new URL(url); safe = url; } } catch (_) {}
+  wv.setAttribute('src', safe);
   return wv;
 }
 
@@ -1416,17 +1418,24 @@ function demoFiles(bd) {
 }
 function demoClip(bd) {
   bd.style.padding = '0';
+  const boxes = [
+    { ic: '📎', name: 'Clip', notes: [['📄', 'report.pdf', 'PDF をクリップ（プレビューはサンプル）'], ['🔗', 'example.com/page', 'https://example.com/page']] },
+    { ic: '📁', name: 'アイデア', notes: [['📝', 'DeskHatch keeps your…', 'DeskHatch keeps your tools one slam to the top away.    — scrapped from example.com —'], ['📝', 'ランチャー改善案', '・上端に固定  ・箱で仕分け  ・ピンで横並び'], ['📝', '配色メモ', 'teal #1f6f6f / orange #ff9f0a']] },
+    { ic: '📁', name: 'レシピ', notes: [['📝', 'ガトーショコラ', 'チョコ 200g / バター 100g / 卵 3個'], ['📝', 'タルト生地', '薄力粉 / バター / 砂糖 / 塩少々'], ['📝', '週末の献立', '金: カレー / 土: パスタ / 日: 鍋']] },
+    { ic: '📁', name: '旅行', notes: [['📝', '京都メモ', '南禅寺 / 哲学の道 / 錦市場'], ['📝', '持ち物リスト', '充電器 / 常備薬 / ガイドブック']] },
+  ];
+  let sel = 1, note = 0;
   bd.innerHTML = '<div style="display:flex;height:100%;min-height:240px;font-size:12px">'
-    + '<div style="width:30%;max-width:128px;border-right:1px solid #e3eded;background:#f6fafa;padding:6px">'
-      + [['📎', 'Clip'], ['📁', 'アイデア'], ['📁', 'レシピ'], ['📁', '旅行']].map((b, i) => '<div style="padding:6px 7px;border-radius:6px;margin-bottom:2px;' + (i === 1 ? 'background:#d7ecec;font-weight:700' : '') + '">' + b[0] + ' ' + b[1] + '</div>').join('')
-    + '</div>'
-    + '<div style="width:40%;border-right:1px solid #e3eded;overflow:auto;padding:6px">'
-      + ['📝 DeskHatch keeps your…', '📝 ランチャーの改善案', '📝 配色メモ'].map((n, i) => '<div style="padding:6px 7px;border-radius:6px;' + (i === 0 ? 'background:#eef6f6;font-weight:700' : '') + '">' + n + '</div>').join('')
-    + '</div>'
-    + '<div style="flex:1;padding:12px;color:#23323a">'
-      + '<div style="font-weight:700;margin-bottom:8px;font-family:sans-serif">DeskHatch keeps your tools</div>'
-      + '<div style="font:13px/1.7 Consolas,monospace">DeskHatch keeps your tools one slam to the top away.<br><br><span style="color:#8aa">— scrapped from example.com —</span></div>'
-    + '</div></div>';
+    + '<div id="ssc-rail" style="width:28%;max-width:124px;border-right:1px solid #e3eded;background:#f6fafa;padding:6px"></div>'
+    + '<div id="ssc-list" style="width:40%;border-right:1px solid #e3eded;overflow:auto;padding:6px"></div>'
+    + '<div id="ssc-prev" style="flex:1;padding:12px;color:#23323a"></div></div>';
+  const rail = bd.querySelector('#ssc-rail'), list = bd.querySelector('#ssc-list'), prev = bd.querySelector('#ssc-prev');
+  function renderRail() { rail.innerHTML = boxes.map((b, i) => '<div data-b="' + i + '" style="padding:6px 7px;border-radius:6px;margin-bottom:2px;cursor:pointer;' + (i === sel ? 'background:#d7ecec;font-weight:700' : '') + '">' + b.ic + ' ' + b.name + ' <span style="color:#9ab;font-weight:400">' + b.notes.length + '</span></div>').join(''); }
+  function renderList() { list.innerHTML = boxes[sel].notes.map((n, i) => '<div data-n="' + i + '" style="padding:6px 7px;border-radius:6px;cursor:pointer;' + (i === note ? 'background:#eef6f6;font-weight:700' : '') + '">' + n[0] + ' ' + n[1] + '</div>').join(''); }
+  function renderPrev() { const n = boxes[sel].notes[note] || ['', '', '']; prev.innerHTML = '<div style="font-weight:700;margin-bottom:8px;font-family:sans-serif">' + n[1] + '</div><div style="font:13px/1.8 Consolas,monospace">' + n[2] + '</div>'; }
+  rail.onclick = (e) => { const d = e.target.closest('[data-b]'); if (!d) return; sel = +d.dataset.b; note = 0; renderRail(); renderList(); renderPrev(); };
+  list.onclick = (e) => { const d = e.target.closest('[data-n]'); if (!d) return; note = +d.dataset.n; renderList(); renderPrev(); };
+  renderRail(); renderList(); renderPrev();
 }
 function demoGeneric(bd, icon, label) {
   bd.innerHTML = '<div style="text-align:center;padding:18px 8px"><div style="font-size:40px">' + icon + '</div>'
@@ -1608,9 +1617,14 @@ function stageDemo() {
     await fakeMenu([{ label: '📁 ' + L('アイデア'), hot: true }, { label: '📁 ' + L('レシピ') }, { label: '📁 ' + L('旅行') }, { sep: true }, { label: L('➕ ドロワーとして追加') }]);
     if (stopped) return;
     setTip(L('スクラップブックを開くと、取り込んだメモが箱に入っている'));
-    await moveToEl(clipBtn()); ripple(); openTab({ ...CLIP_TAB, height: 300 }, clipBtn()); await sleep(3200); if (stopped) return;
-    setTip(L('他の箱にもサンプルのメモが入っている'));
-    await sleep(2200);
+    await moveToEl(clipBtn()); ripple(); openTab({ ...CLIP_TAB, height: 320 }, clipBtn()); await sleep(2400); if (stopped) return;
+    setTip(L('他の箱にも様々なサンプルメモが入っている'));
+    const sb = () => document.querySelector('.ss-drawer[data-id="__clip"]');
+    for (const bi of [2, 3, 1]) {
+      const box = sb() && sb().querySelector('#ssc-rail [data-b="' + bi + '"]');
+      if (box) { await moveToEl(box); ripple(); box.click(); await sleep(1700); }
+      if (stopped) return;
+    }
     Object.keys(open).slice().forEach((id) => closeDrawer(id)); await sleep(500);
   }
   (async function loop() { while (!stopped) { await act(); if (stopped) break; await sleep(1300); } })();
@@ -2592,33 +2606,12 @@ function deleteTab(id) {
 }
 
 function addNewTab() {
+  const id = 'tab' + Date.now().toString(36);
   const arr = JSON.parse(JSON.stringify(tabs));
-  arr.push({ id: 'tab' + Date.now().toString(36), label: L('新規'), icon: '🔖', type: 'page', url: 'https://', mobile: true, width: 460 });
+  arr.push({ id, label: L('新規'), icon: '🔖', type: 'page', url: 'https://', mobile: true, width: 460 });
   commitTabs(arr);
-}
-
-function addToolTab(tool, label, icon, width, height) {
-  const arr = JSON.parse(JSON.stringify(tabs));
-  arr.push({ id: 'tab' + Date.now().toString(36), label: L(label), icon, type: 'tool', tool, width, height });
-  commitTabs(arr);
-}
-
-// Right-click an empty part of the bar -> quick add / open the menu. (Buttons
-// keep their own context menu; this fires only on the bar background.)
-async function barContextMenu(e) {
-  if (e.target.closest && e.target.closest('.ss-btn')) return;
-  e.preventDefault();
-  const action = await window.system.menu([
-    { id: 'add', label: L('＋ ページを追加') },
-    { id: 'add-clock', label: L('＋ タイマー＆ストップウォッチ') },
-    { id: 'add-calc', label: L('＋ 電卓') },
-    { separator: true },
-    { id: 'menu', label: L('設定・ツール・ヘルプ…') },
-  ]);
-  if (action === 'add') addNewTab();
-  else if (action === 'add-clock') addToolTab('clock', 'タイマー', '⏲', 340, 480);
-  else if (action === 'add-calc') addToolTab('calc', '電卓', '🧮', 280, 470);
-  else if (action === 'menu') openTab(MENU_TAB, bar.querySelector('.ss-menu') || bar);
+  const t = arr[arr.length - 1];
+  openEditor(t, bar.querySelector('.ss-btn[data-id="' + id + '"]') || bar); // ask for a URL instead of opening a blank page
 }
 
 async function tabContextMenu(tab, btn) {
@@ -2833,7 +2826,6 @@ document.addEventListener('dragend', () => { clearDragFx(); pickerShown = false;
 bar.addEventListener('dragover', (e) => { e.preventDefault(); bar.classList.add('drop'); });
 bar.addEventListener('dragleave', (e) => { if (e.target === bar) bar.classList.remove('drop'); });
 bar.addEventListener('drop', async (e) => { bar.classList.remove('drop'); const ids = await handleDrop(e); offerBoxMenu(ids); });
-bar.addEventListener('contextmenu', barContextMenu);
 
 // Reveal on hover at the top edge; hide again shortly after leaving.
 const onEnter = () => { hovering = true; clearTimeout(hideTimer); reflowHeight(); };
