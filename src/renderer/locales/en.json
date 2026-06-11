@@ -241,5 +241,10 @@
   "箱": "Box",
   "スクラップブックに整理できました": "Filed into your scrapbook",
   "マイドキュメント": "My Documents",
-  "デモ終了": "Exit demo"
+  "デモ終了": "Exit demo",
+  "ブラウザのURLをバーへドラッグ": "Drag the URL from the browser to the bar",
+  "登録したボタンを押すと、そのページがドロワーで開く": "Click the new button — the page opens in a drawer",
+  "ボタンはドラッグで並べ替えできる": "Drag buttons to reorder them",
+  "作成": "Compose",
+  "メールを検索": "Search mail"
 }

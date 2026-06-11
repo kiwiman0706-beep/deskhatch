@@ -176,6 +176,7 @@ let tabs = loadTabs();
 /** id -> { el, btn, pinned } */
 const open = {};
 let demoStage = false; // guided stage demo is running
+let demoStageH = 0;    // stage band height (px)
 /** id -> { el, btn, tab } : kept-alive drawers hidden off-screen (audio keeps playing) */
 const bg = {};
 let zCounter = 100;
@@ -241,7 +242,7 @@ function barShouldShow() {
 }
 
 function reflowHeight() {
-  if (demoStage) { window.overlay.setHeight(window.screen.availHeight); window.overlay.setHit('all', []); return; }
+  if (demoStage) { window.overlay.setHeight(demoStageH || window.screen.availHeight); window.overlay.setHit('all', []); return; }
   const shown = barShouldShow();
   bar.classList.toggle('hidden', !shown);
   peek.classList.toggle('on', !shown);
@@ -1256,25 +1257,48 @@ function buildDemo(tab) {
   else if (t === 'clip') demoClip(bd);
   else if (/mail/.test(id)) demoMail(bd);
   else if (/cal/.test(id)) demoCal(bd);
+  else if (/web|article/.test(id)) demoArticle(bd);
   else if (/keep|memo|note/.test(id)) demoNotes(bd);
   else demoGeneric(bd, tab.icon || '🌐', tab.label || 'App');
   return wrap;
 }
 function demoMail(bd) {
-  const subs = ['Weekly report', 'Lunch plans?', 'Invoice #1042', 'Welcome to DeskHatch', 'Re: meeting notes'];
-  const cols = ['#5aa0c0', '#c98b5a', '#8a7fc0', '#5ab0a0', '#c05a7a'];
-  bd.innerHTML = subs.map((s, i) => '<div style="display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid #eef3f3">'
-    + '<div style="width:26px;height:26px;border-radius:50%;background:' + cols[i] + ';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">' + 'ABCMS'[i] + '</div>'
-    + '<div style="flex:1"><div style="font-weight:700;color:#36505a">Sample sender ' + (i + 1) + '</div><div style="color:#8fa8a8">' + s + '</div></div>'
-    + (i < 2 ? '<span style="width:8px;height:8px;border-radius:50%;background:#1f9d6b"></span>' : '') + '</div>').join('');
+  bd.style.cssText += ';padding:0;background:#fff';
+  const rows = [
+    ['G', '#d93025', 'Google', 'Security alert', 'New sign-in on Windows', '9:24', true],
+    ['A', '#1a73e8', 'Acme Team', 'Weekly report', 'Here are this week numbers and the plan', '8:10', true],
+    ['S', '#188038', 'Sara', 'Lunch plans?', 'Are we still on for 12:30 today', 'Wed', false],
+    ['B', '#9334e6', 'Billing', 'Invoice #1042', 'Your receipt is attached', 'Tue', false],
+    ['D', '#e37400', 'DeskHatch', 'Welcome aboard', 'Slam to the top to get started 🎉', 'Mon', false],
+  ];
+  bd.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-bottom:1px solid #eef2f2">'
+    + '<span style="border:none;background:#c2e7ff;border-radius:16px;padding:8px 16px;font-weight:700;color:#001d35">✎ ' + L('作成') + '</span>'
+    + '<div style="flex:1;background:#eef3f4;border-radius:18px;padding:7px 14px;color:#5f6368;font-size:13px">🔍 ' + L('メールを検索') + '</div></div>'
+    + rows.map((r) => '<div style="display:flex;gap:10px;align-items:center;padding:9px 10px;border-bottom:1px solid #f1f3f4;background:' + (r[6] ? '#fff' : '#fafafa') + '">'
+      + '<span style="color:#dadce0">☆</span>'
+      + '<div style="width:30px;height:30px;border-radius:50%;background:' + r[1] + ';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">' + r[0] + '</div>'
+      + '<div style="width:118px;font-weight:' + (r[6] ? '700' : '400') + ';color:#202124;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r[2] + '</div>'
+      + '<div style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis"><span style="font-weight:' + (r[6] ? '700' : '400') + ';color:#202124">' + r[3] + '</span> <span style="color:#5f6368">— ' + r[4] + '</span></div>'
+      + '<div style="color:#5f6368;font-size:12px">' + r[5] + '</div></div>').join('');
+}
+function demoArticle(bd) {
+  bd.style.cssText += ';padding:16px 22px;font:15px/1.9 Georgia,serif;color:#222;background:#fff';
+  bd.innerHTML = '<h2 style="font-size:20px;margin:0 0 10px">Sample Article</h2>'
+    + '<p>DeskHatch keeps your tools one slam to the top away.</p>'
+    + '<p>You just added this page as a drawer — clicking the button shows the same page, right here.</p>'
+    + '<p style="color:#1a7a5a">— a dummy web page —</p>';
 }
 function demoCal(bd) {
-  let g = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">';
-  ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach((d) => { g += '<div style="text-align:center;font-size:11px;color:#7a9a9a">' + d + '</div>'; });
-  for (let c = 1; c <= 35; c++) { const day = c - 2; const today = day === 15;
-    g += '<div style="height:42px;border:1px solid #eef3f3;border-radius:5px;padding:3px;font-size:11px;color:#567;' + (today ? 'outline:2px solid #1f6f6f' : '') + '">'
-      + (day > 0 && day <= 30 ? day : '')
-      + ([5, 15, 22].includes(day) ? '<div style="margin-top:3px;height:7px;border-radius:3px;background:#2e8b8b"></div>' : '') + '</div>';
+  bd.style.cssText += ';padding:10px;background:#fff';
+  let g = '<div style="display:flex;align-items:center;margin-bottom:8px"><div style="font-weight:700;font-size:15px;color:#202124">June 2026</div><div style="margin-left:auto;color:#5f6368;font-size:16px">‹  ›</div></div>';
+  g += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">';
+  ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach((d) => { g += '<div style="text-align:center;font-size:11px;color:#80868b;padding-bottom:2px">' + d + '</div>'; });
+  const ev = { 5: ['#1a73e8', '10:00 MTG'], 11: ['#188038', 'Lunch'], 15: ['#e8710a', 'Trip'], 22: ['#9334e6', 'Demo'] };
+  for (let c = 1; c <= 35; c++) { const day = c - 2; const today = day === 11; const e = ev[day];
+    g += '<div style="min-height:46px;border:1px solid #eef1f1;border-radius:6px;padding:3px;font-size:11px;color:#3c4043;background:' + (today ? '#e8f0fe' : '#fff') + '">'
+      + '<div style="text-align:right;' + (today ? 'color:#1a73e8;font-weight:700' : '') + '">' + (day > 0 && day <= 30 ? day : '') + '</div>'
+      + (e ? '<div style="margin-top:2px;background:' + e[0] + ';color:#fff;border-radius:3px;padding:1px 4px;font-size:10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' + e[1] + '</div>' : '')
+      + '</div>';
   }
   g += '</div>'; bd.innerHTML = g;
 }
@@ -1356,9 +1380,11 @@ function stageDemo() {
   if (demoStage) return;
   demoStage = true;
   const origTabs = JSON.parse(JSON.stringify(tabs));
+  const STAGE_H = Math.min(800, window.screen.availHeight - 30);
+  demoStageH = STAGE_H;
 
-  const stage = el('div', 'ss-stage');
-  const browser = el('div', 'ss-win'); browser.style.cssText += 'left:6%;top:150px;width:46%;height:320px';
+  const stage = el('div', 'ss-stage'); stage.style.height = STAGE_H + 'px';
+  const browser = el('div', 'ss-win'); browser.style.cssText += 'left:5%;top:92px;width:46%;height:300px';
   browser.innerHTML = '<div class="ss-win-tb"><span class="ss-win-dots"><i style="background:#e7675f"></i><i style="background:#f4be4f"></i><i style="background:#64c25a"></i></span>'
     + '<span id="ssd-url" style="flex:1;background:#fff;border:1px solid #dde;border-radius:12px;padding:3px 10px;color:#789;font-weight:400">https://example.com/article</span></div>'
     + '<div style="padding:18px 24px;font:15px/1.9 Georgia,serif;color:#222">'
@@ -1366,7 +1392,7 @@ function stageDemo() {
     + '<p id="ssd-text">DeskHatch keeps your tools one slam to the top away.</p>'
     + '<p style="color:#1a7a5a">— a dummy web page —</p></div>';
   stage.appendChild(browser);
-  const folder = el('div', 'ss-win'); folder.style.cssText += 'right:6%;top:220px;width:300px;height:220px';
+  const folder = el('div', 'ss-win'); folder.style.cssText += 'right:5%;top:150px;width:300px;height:200px';
   folder.innerHTML = '<div class="ss-win-tb"><span class="ss-win-dots"><i style="background:#e7675f"></i><i style="background:#f4be4f"></i><i style="background:#64c25a"></i></span><span>📁 ' + L('マイドキュメント') + '</span></div>'
     + '<div style="padding:18px;display:flex;gap:26px">'
     + '<div id="ssd-folder" style="text-align:center;width:84px"><div style="font-size:48px">📁</div><div style="font-size:12px">Project</div></div>'
@@ -1376,8 +1402,8 @@ function stageDemo() {
 
   const layer = el('div', 'ss-demo-layer');
   const cur = el('div', 'ss-cursor');
-  cur.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24"><path d="M4 2l6 18 2.3-7.2L20 10.5z" fill="#fff" stroke="#1a1a1a" stroke-width="1.3" stroke-linejoin="round"/></svg>';
-  cur.style.left = (window.innerWidth / 2) + 'px'; cur.style.top = (window.innerHeight * 0.45) + 'px';
+  cur.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 2l6 18 2.3-7.2L20 10.5z" fill="#fff" stroke="#1a1a1a" stroke-width="1.3" stroke-linejoin="round"/></svg>';
+  cur.style.left = (window.innerWidth / 2) + 'px'; cur.style.top = '240px';
   const tip = el('div', 'ss-stage-tip');
   const exit = el('button', 'ss-demo-exit', '✕ ' + L('デモ終了'));
   layer.append(cur, tip, exit);
@@ -1388,25 +1414,28 @@ function stageDemo() {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const center = (e) => { const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
   const setTip = (t) => { tip.textContent = t; };
-  async function moveTo(x, y) { cur.style.left = x + 'px'; cur.style.top = y + 'px'; await sleep(800); }
+  async function moveTo(x, y) { cur.style.left = x + 'px'; cur.style.top = y + 'px'; await sleep(1000); }
   async function moveToEl(e) { if (!e) return; const c = center(e); await moveTo(c.x, c.y); }
-  function ripple() { const c = center(cur); const r = el('div', 'ss-ripple'); r.style.left = (c.x - 14) + 'px'; r.style.top = (c.y - 14) + 'px'; layer.appendChild(r); setTimeout(() => r.remove(), 520); }
+  function ripple() { const c = center(cur); const r = el('div', 'ss-ripple'); r.style.left = (c.x - 16) + 'px'; r.style.top = (c.y - 16) + 'px'; layer.appendChild(r); setTimeout(() => r.remove(), 560); }
   const barBtn = (id) => bar.querySelector('.ss-btn[data-id="' + id + '"]');
   const clipBtn = () => bar.querySelector('.ss-clip-btn') || bar;
   async function ghostDrag(text, fromEl, toEl) {
     if (!fromEl || !toEl) return;
     const g = el('div', 'ss-ghost', text); const a = center(fromEl); g.style.left = a.x + 'px'; g.style.top = a.y + 'px'; layer.appendChild(g);
-    await sleep(90); const b = center(toEl); g.style.left = b.x + 'px'; g.style.top = b.y + 'px'; cur.style.left = b.x + 'px'; cur.style.top = b.y + 'px';
-    await sleep(840); g.remove();
+    await sleep(150); const b = center(toEl); g.style.left = b.x + 'px'; g.style.top = b.y + 'px'; cur.style.left = b.x + 'px'; cur.style.top = b.y + 'px';
+    await sleep(1050); g.remove();
   }
-  async function fakeMenu(anchorEl, items) {
-    const c = anchorEl ? center(anchorEl) : { x: window.innerWidth / 2, y: 44 };
-    const m = el('div', 'ss-fmenu'); m.style.left = Math.max(8, Math.min(c.x - 20, window.innerWidth - 215)) + 'px'; m.style.top = '46px';
+  async function fakeMenu(items) {
+    const cx = parseFloat(cur.style.left) || window.innerWidth / 2;
+    const cy = parseFloat(cur.style.top) || 60;
+    const m = el('div', 'ss-fmenu');
+    m.style.left = Math.max(8, Math.min(cx + 4, window.innerWidth - 220)) + 'px';
+    m.style.top = Math.max(48, Math.min(cy + 10, STAGE_H - 190)) + 'px';
     items.forEach((it) => { if (it.sep) { m.appendChild(document.createElement('hr')); return; } m.appendChild(el('div', it.hot ? 'hot' : null, it.label)); });
     layer.appendChild(m);
     const hot = m.querySelector('.hot');
-    if (hot) { await sleep(520); const r = hot.getBoundingClientRect(); await moveTo(r.left + r.width / 2, r.top + r.height / 2); ripple(); }
-    await sleep(440); m.remove();
+    if (hot) { await sleep(750); const r = hot.getBoundingClientRect(); await moveTo(r.left + r.width / 2, r.top + r.height / 2); ripple(); }
+    await sleep(650); m.remove();
   }
   function onKey(e) { if (e.key === 'Escape') endDemo(); }
   function endDemo() {
@@ -1422,39 +1451,48 @@ function stageDemo() {
 
   async function act() {
     Object.keys(open).slice().forEach((id) => closeDrawer(id));
-    tabs = demoBarTabs(); renderBar(); await sleep(550);
+    tabs = demoBarTabs(); renderBar(); await sleep(900);
     setTip(L('メールやカレンダーを上端からワンクリックで'));
-    await moveToEl(barBtn('d-mail')); ripple(); openTab(tabs[0], barBtn('d-mail')); await sleep(1500); if (stopped) return;
-    await moveToEl(barBtn('d-cal')); ripple(); openTab(tabs[1], barBtn('d-cal')); await sleep(1600); if (stopped) return;
-    Object.keys(open).slice().forEach((id) => closeDrawer(id));
-    setTip(L('ブラウザのURLをバーへ → ドロワーとして追加'));
+    await moveToEl(barBtn('d-mail')); ripple(); openTab(tabs[0], barBtn('d-mail')); await sleep(2400); if (stopped) return;
+    await moveToEl(barBtn('d-cal')); ripple(); openTab(tabs[1], barBtn('d-cal')); await sleep(2500); if (stopped) return;
+    Object.keys(open).slice().forEach((id) => closeDrawer(id)); await sleep(600);
+    setTip(L('ブラウザのURLをバーへドラッグ'));
     await moveToEl(stage.querySelector('#ssd-url')); ripple();
     await ghostDrag('🔗 example.com/article', stage.querySelector('#ssd-url'), bar);
-    await fakeMenu(bar.querySelector('.ss-btn'), [{ label: '📁 ' + L('箱を選んで保存') }, { sep: true }, { label: L('➕ ドロワーとして追加'), hot: true }]);
+    await fakeMenu([{ label: '📁 ' + L('箱を選んで保存') }, { sep: true }, { label: L('➕ ドロワーとして追加'), hot: true }]);
     if (stopped) return;
-    tabs.push({ id: 'd-web', label: 'Article', icon: '🔗', type: 'page', url: '#', width: 480 }); renderBar(); await sleep(900); if (stopped) return;
+    tabs.push({ id: 'd-web', label: 'Article', icon: '🔗', type: 'page', url: '#', width: 460 }); renderBar(); await sleep(1000);
+    setTip(L('登録したボタンを押すと、そのページがドロワーで開く'));
+    await moveToEl(barBtn('d-web')); ripple(); openTab(tabs.find((t) => t.id === 'd-web'), barBtn('d-web')); await sleep(2600); if (stopped) return;
+    Object.keys(open).slice().forEach((id) => closeDrawer(id)); await sleep(600);
     setTip(L('フォルダをバーへドラッグしてドロワー化'));
     await moveToEl(stage.querySelector('#ssd-folder')); ripple();
     await ghostDrag('📁 Project', stage.querySelector('#ssd-folder'), bar);
-    await fakeMenu(barBtn('d-web'), [{ label: L('➕ ドロワーとして追加'), hot: true }]);
+    await fakeMenu([{ label: L('➕ ドロワーとして追加'), hot: true }]);
     if (stopped) return;
-    tabs.push({ id: 'd-proj', label: 'Project', icon: '📁', type: 'folder', path: '@documents', width: 460 }); renderBar(); await sleep(900); if (stopped) return;
+    tabs.push({ id: 'd-proj', label: 'Project', icon: '📁', type: 'folder', path: '@documents', width: 460 }); renderBar(); await sleep(1500); if (stopped) return;
     setTip(L('右クリックからタイマーなどのアクセサリを追加'));
     await moveToEl(barBtn('d-todo')); ripple();
-    await fakeMenu(barBtn('d-todo'), [{ label: L('新規項目を追加') }, { label: '⏱ ' + L('タイマー'), hot: true }, { sep: true }, { label: L('削除') }]);
+    await fakeMenu([{ label: L('新規項目を追加') }, { label: '⏱ ' + L('タイマー'), hot: true }, { sep: true }, { label: L('削除') }]);
     if (stopped) return;
-    tabs.push({ id: 'd-timer', label: L('タイマー'), icon: '⏱', type: 'tool', tool: 'calc', width: 300 }); renderBar(); await sleep(900); if (stopped) return;
+    tabs.push({ id: 'd-timer', label: L('タイマー'), icon: '⏱', type: 'tool', tool: 'calc', width: 300 }); renderBar(); await sleep(1500); if (stopped) return;
+    setTip(L('ボタンはドラッグで並べ替えできる'));
+    await moveToEl(barBtn('d-timer')); ripple();
+    await ghostDrag('⏱ ' + L('タイマー'), barBtn('d-timer'), barBtn('d-web') || bar);
+    const ti = tabs.findIndex((t) => t.id === 'd-timer');
+    if (ti >= 0) { const mv = tabs.splice(ti, 1)[0]; const wi = tabs.findIndex((t) => t.id === 'd-web'); tabs.splice(wi < 0 ? tabs.length : wi, 0, mv); renderBar(); }
+    await sleep(1800); if (stopped) return;
     setTip(L('テキストを選択してバーへ → スクラップブックの箱を選ぶ'));
     const tEl = stage.querySelector('#ssd-text'); tEl.classList.add('ss-sel');
     await moveToEl(tEl); ripple();
     await ghostDrag('✂ DeskHatch keeps your tools…', tEl, clipBtn());
     tEl.classList.remove('ss-sel');
-    await fakeMenu(clipBtn(), [{ label: '📁 ' + L('箱') + ' 1' }, { label: '📁 ' + L('箱') + ' 2', hot: true }, { label: '📁 ' + L('箱') + ' 3' }, { sep: true }, { label: L('➕ ドロワーとして追加') }]);
+    await fakeMenu([{ label: '📁 ' + L('箱') + ' 1' }, { label: '📁 ' + L('箱') + ' 2', hot: true }, { label: '📁 ' + L('箱') + ' 3' }, { sep: true }, { label: L('➕ ドロワーとして追加') }]);
     if (stopped) return;
     setTip(L('スクラップブックに整理できました'));
-    await sleep(1700);
+    await sleep(2600);
   }
-  (async function loop() { while (!stopped) { await act(); if (stopped) break; await sleep(700); } })();
+  (async function loop() { while (!stopped) { await act(); if (stopped) break; await sleep(1300); } })();
 }
 
 function buildBody(tab) {
