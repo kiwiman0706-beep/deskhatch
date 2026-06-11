@@ -19,9 +19,6 @@ window.SS_TABS = [
   { id: 'todo', label: 'ToDo', icon: '✓', type: 'page', mobile: true, width: 360,
     url: 'https://tasks.google.com/embed/?fullWidth=1' },
 
-  { id: 'talk', label: L('トーク'), icon: '💬', type: 'page', mobile: true, width: 420,
-    url: 'https://line.worksmobile.com/' },
-
   { id: 'cal-month', label: L('月'), icon: '📅', type: 'page', mobile: false, width: 600,
     url: 'https://calendar.google.com/calendar/u/0/r/month' },
 

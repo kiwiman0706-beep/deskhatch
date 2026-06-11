@@ -226,11 +226,10 @@
   "フォルダへ保存しました": "Saved to folder",
   "ドロップ後に箱の振り分けメニューを出す": "Show box picker after a drop",
   "📁 フォルダを選んで保存…": "📁 Pick a folder & save…",
-  "1つのGoogleログインで Gmail・カレンダー・Keep・Drive…": "One Google login — Gmail, Calendar, Keep, Drive…",
-  "カレンダーも最上部から一発": "Your calendar, one slam to the top away",
-  "ローカルもDriveもすぐ開く": "Open local files and Drive in a snap",
-  "メモもドロワーで即": "Notes & memos, right in a drawer",
-  "AIもワンクリック": "AI, one click away",
-  "フォルダを固定、ファイルを開く": "Pin folders, open files",
-  "ファイル・URL・テキストをバーへ → 箱に仕分け": "Drag a file, URL or text to the bar → file it into a box"
+  "メールもカレンダーも、上端からさっと開ける": "Open mail and calendar in a flash, from the top edge",
+  "予定もワンクリックで確認": "Your schedule, one click away",
+  "好きなWebページをボタンに登録できる": "Add any web page as a button",
+  "フォルダも登録して、ここから開ける": "Add folders too, and open them here",
+  "電卓・タイマー・クリップボードなどのアクセサリも": "Accessories too: calculator, timer, clipboard…",
+  "スクラップブックでフォルダ分けして整理": "Scrapbook: sort clippings into folders"
 }

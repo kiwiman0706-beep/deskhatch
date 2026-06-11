@@ -1305,15 +1305,16 @@ function demoGeneric(bd, icon, label) {
 // Auto-play: cycle through a few drawers (+ the Clip) for the recording.
 function autoDemo() {
   const tabs = window.SS_TABS || [];
-  const seq = ['mail', 'cal-month', 'drive', 'keep', 'gemini', 'pc'].map((id) => tabs.find((t) => t.id === id)).filter(Boolean);
-  const caps = {
-    mail: '1つのGoogleログインで Gmail・カレンダー・Keep・Drive…',
-    'cal-month': 'カレンダーも最上部から一発',
-    drive: 'ローカルもDriveもすぐ開く',
-    keep: 'メモもドロワーで即',
-    gemini: 'AIもワンクリック',
-    pc: 'フォルダを固定、ファイルを開く',
-  };
+  const find = (id) => tabs.find((t) => t.id === id);
+  // Narrate what you can DO with it (not the under-the-hood plumbing).
+  const steps = [
+    { tab: find('mail'), cap: 'メールもカレンダーも、上端からさっと開ける' },
+    { tab: find('cal-month'), cap: '予定もワンクリックで確認' },
+    { tab: find('gemini') || find('wikipedia'), cap: '好きなWebページをボタンに登録できる' },
+    { tab: find('desktop') || find('pc'), cap: 'フォルダも登録して、ここから開ける' },
+    { tab: { id: 'demo-calc', label: L('電卓'), icon: '🧮', type: 'tool', tool: 'calc', width: 300 }, cap: '電卓・タイマー・クリップボードなどのアクセサリも' },
+    { tab: '__clip', cap: 'スクラップブックでフォルダ分けして整理' },
+  ].filter((s) => s.tab);
   const cap = el('div');
   cap.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:rgba(15,36,35,.92);color:#eafafa;padding:10px 18px;border-radius:22px;font:600 14px "Segoe UI",sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:2147483646;max-width:82vw;text-align:center;transition:opacity .3s;opacity:0';
   document.body.appendChild(cap);
@@ -1321,10 +1322,11 @@ function autoDemo() {
   function setCap(text) { cap.style.opacity = '0'; setTimeout(() => { cap.textContent = text; cap.style.opacity = '1'; }, 200); }
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { stop = true; if (demoTimer) clearTimeout(demoTimer); cap.remove(); } });
   function step() {
-    if (stop) return;
-    const n = i % (seq.length + 1); i += 1;
-    if (n < seq.length) { const t = seq[n]; const btn = bar.querySelector('.ss-btn[data-id="' + t.id + '"]') || bar; openTab(t, btn); setCap(L(caps[t.id] || ((t.icon || '') + ' ' + (t.label || '')))); }
-    else { const b = bar.querySelector('.ss-clip-btn'); if (b) openTab(CLIP_TAB, b); setCap(L('ファイル・URL・テキストをバーへ → 箱に仕分け')); }
+    if (stop || !steps.length) return;
+    const s = steps[i % steps.length]; i += 1;
+    if (s.tab === '__clip') { const b = bar.querySelector('.ss-clip-btn'); if (b) openTab(CLIP_TAB, b); }
+    else { const btn = bar.querySelector('.ss-btn[data-id="' + s.tab.id + '"]') || bar; openTab(s.tab, btn); }
+    setCap(L(s.cap));
     demoTimer = setTimeout(step, 2800);
   }
   step();
