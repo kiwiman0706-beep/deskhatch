@@ -175,6 +175,7 @@ let tabs = loadTabs();
 
 /** id -> { el, btn, pinned } */
 const open = {};
+let demoStage = false; // guided stage demo is running
 /** id -> { el, btn, tab } : kept-alive drawers hidden off-screen (audio keeps playing) */
 const bg = {};
 let zCounter = 100;
@@ -215,6 +216,7 @@ window.overlay.setIgnoreMouse(true);
 function pushHit() {
   if (!barShouldShow()) return window.overlay.setHit('none', []);
   if (dragging) return window.overlay.setHit('all', []);
+  if (demoStage) return window.overlay.setHit('all', []);
   const interactive = [bar, ...Object.keys(open).map((id) => open[id].el)];
   if (searchEl) interactive.push(searchEl);
   if (interactive.length === 1) return window.overlay.setHit('all', []); // bar only
@@ -231,6 +233,7 @@ const isHiddenMode = () => display.mode === 'autohide' || tempHidden;
 function barShouldShow() {
   if (DEMO) return true;                       // demo: keep the bar on screen
   if (searchEl) return true;                   // search popover is open
+  if (demoStage) return true;                  // guided stage demo
   if (pickerEl) return true;                   // drag-intake picker is open
   if (Object.keys(open).length) return true; // a drawer is open
   if (!isHiddenMode()) return true;           // always-show mode
@@ -238,6 +241,7 @@ function barShouldShow() {
 }
 
 function reflowHeight() {
+  if (demoStage) { window.overlay.setHeight(window.screen.availHeight); window.overlay.setHit('all', []); return; }
   const shown = barShouldShow();
   bar.classList.toggle('hidden', !shown);
   peek.classList.toggle('on', !shown);
@@ -1330,6 +1334,127 @@ function autoDemo() {
     demoTimer = setTimeout(step, 2800);
   }
   step();
+}
+
+// ===========================================================================
+// Guided "stage" demo (DEMO mode): a scripted, fully-faked walkthrough that
+// plays on a fullscreen fake desktop with a puppet cursor. It shows what you
+// can DO — open mail/calendar, add a web page / folder as a drawer, add a timer
+// accessory, and scrap selected text into a box. Nothing here touches real data
+// or windows; Esc or the ✕ button ends it. Only runs when ss.demo is on.
+// ===========================================================================
+function demoBarTabs() {
+  return [
+    { id: 'd-mail', label: L('メール'), icon: '✉', type: 'page', url: '#', width: 680 },
+    { id: 'd-cal', label: L('カレンダー'), icon: '📅', type: 'page', url: '#', width: 600 },
+    { id: 'd-meet', label: 'Meet', icon: '🎥', type: 'page', url: '#', width: 460 },
+    { id: 'd-todo', label: 'ToDo', icon: '✓', type: 'page', url: '#', width: 360 },
+    { id: 'd-docs', label: L('マイドキュメント'), icon: '📁', type: 'folder', path: '@documents', width: 460 },
+  ];
+}
+function stageDemo() {
+  if (demoStage) return;
+  demoStage = true;
+  const origTabs = JSON.parse(JSON.stringify(tabs));
+
+  const stage = el('div', 'ss-stage');
+  const browser = el('div', 'ss-win'); browser.style.cssText += 'left:6%;top:150px;width:46%;height:320px';
+  browser.innerHTML = '<div class="ss-win-tb"><span class="ss-win-dots"><i style="background:#e7675f"></i><i style="background:#f4be4f"></i><i style="background:#64c25a"></i></span>'
+    + '<span id="ssd-url" style="flex:1;background:#fff;border:1px solid #dde;border-radius:12px;padding:3px 10px;color:#789;font-weight:400">https://example.com/article</span></div>'
+    + '<div style="padding:18px 24px;font:15px/1.9 Georgia,serif;color:#222">'
+    + '<h2 style="font-size:21px;margin:0 0 10px">Sample Article</h2>'
+    + '<p id="ssd-text">DeskHatch keeps your tools one slam to the top away.</p>'
+    + '<p style="color:#1a7a5a">— a dummy web page —</p></div>';
+  stage.appendChild(browser);
+  const folder = el('div', 'ss-win'); folder.style.cssText += 'right:6%;top:220px;width:300px;height:220px';
+  folder.innerHTML = '<div class="ss-win-tb"><span class="ss-win-dots"><i style="background:#e7675f"></i><i style="background:#f4be4f"></i><i style="background:#64c25a"></i></span><span>📁 ' + L('マイドキュメント') + '</span></div>'
+    + '<div style="padding:18px;display:flex;gap:26px">'
+    + '<div id="ssd-folder" style="text-align:center;width:84px"><div style="font-size:48px">📁</div><div style="font-size:12px">Project</div></div>'
+    + '<div style="text-align:center;width:84px"><div style="font-size:48px">📄</div><div style="font-size:12px">memo.txt</div></div></div>';
+  stage.appendChild(folder);
+  document.body.appendChild(stage);
+
+  const layer = el('div', 'ss-demo-layer');
+  const cur = el('div', 'ss-cursor');
+  cur.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24"><path d="M4 2l6 18 2.3-7.2L20 10.5z" fill="#fff" stroke="#1a1a1a" stroke-width="1.3" stroke-linejoin="round"/></svg>';
+  cur.style.left = (window.innerWidth / 2) + 'px'; cur.style.top = (window.innerHeight * 0.45) + 'px';
+  const tip = el('div', 'ss-stage-tip');
+  const exit = el('button', 'ss-demo-exit', '✕ ' + L('デモ終了'));
+  layer.append(cur, tip, exit);
+  document.body.appendChild(layer);
+  reflowHeight();
+
+  let stopped = false;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const center = (e) => { const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+  const setTip = (t) => { tip.textContent = t; };
+  async function moveTo(x, y) { cur.style.left = x + 'px'; cur.style.top = y + 'px'; await sleep(800); }
+  async function moveToEl(e) { if (!e) return; const c = center(e); await moveTo(c.x, c.y); }
+  function ripple() { const c = center(cur); const r = el('div', 'ss-ripple'); r.style.left = (c.x - 14) + 'px'; r.style.top = (c.y - 14) + 'px'; layer.appendChild(r); setTimeout(() => r.remove(), 520); }
+  const barBtn = (id) => bar.querySelector('.ss-btn[data-id="' + id + '"]');
+  const clipBtn = () => bar.querySelector('.ss-clip-btn') || bar;
+  async function ghostDrag(text, fromEl, toEl) {
+    if (!fromEl || !toEl) return;
+    const g = el('div', 'ss-ghost', text); const a = center(fromEl); g.style.left = a.x + 'px'; g.style.top = a.y + 'px'; layer.appendChild(g);
+    await sleep(90); const b = center(toEl); g.style.left = b.x + 'px'; g.style.top = b.y + 'px'; cur.style.left = b.x + 'px'; cur.style.top = b.y + 'px';
+    await sleep(840); g.remove();
+  }
+  async function fakeMenu(anchorEl, items) {
+    const c = anchorEl ? center(anchorEl) : { x: window.innerWidth / 2, y: 44 };
+    const m = el('div', 'ss-fmenu'); m.style.left = Math.max(8, Math.min(c.x - 20, window.innerWidth - 215)) + 'px'; m.style.top = '46px';
+    items.forEach((it) => { if (it.sep) { m.appendChild(document.createElement('hr')); return; } m.appendChild(el('div', it.hot ? 'hot' : null, it.label)); });
+    layer.appendChild(m);
+    const hot = m.querySelector('.hot');
+    if (hot) { await sleep(520); const r = hot.getBoundingClientRect(); await moveTo(r.left + r.width / 2, r.top + r.height / 2); ripple(); }
+    await sleep(440); m.remove();
+  }
+  function onKey(e) { if (e.key === 'Escape') endDemo(); }
+  function endDemo() {
+    if (!demoStage) return;
+    stopped = true; demoStage = false;
+    document.removeEventListener('keydown', onKey);
+    stage.remove(); layer.remove();
+    Object.keys(open).slice().forEach((id) => closeDrawer(id));
+    tabs = origTabs; renderBar(); reflowHeight();
+  }
+  exit.onclick = endDemo;
+  document.addEventListener('keydown', onKey);
+
+  async function act() {
+    Object.keys(open).slice().forEach((id) => closeDrawer(id));
+    tabs = demoBarTabs(); renderBar(); await sleep(550);
+    setTip(L('メールやカレンダーを上端からワンクリックで'));
+    await moveToEl(barBtn('d-mail')); ripple(); openTab(tabs[0], barBtn('d-mail')); await sleep(1500); if (stopped) return;
+    await moveToEl(barBtn('d-cal')); ripple(); openTab(tabs[1], barBtn('d-cal')); await sleep(1600); if (stopped) return;
+    Object.keys(open).slice().forEach((id) => closeDrawer(id));
+    setTip(L('ブラウザのURLをバーへ → ドロワーとして追加'));
+    await moveToEl(stage.querySelector('#ssd-url')); ripple();
+    await ghostDrag('🔗 example.com/article', stage.querySelector('#ssd-url'), bar);
+    await fakeMenu(bar.querySelector('.ss-btn'), [{ label: '📁 ' + L('箱を選んで保存') }, { sep: true }, { label: L('➕ ドロワーとして追加'), hot: true }]);
+    if (stopped) return;
+    tabs.push({ id: 'd-web', label: 'Article', icon: '🔗', type: 'page', url: '#', width: 480 }); renderBar(); await sleep(900); if (stopped) return;
+    setTip(L('フォルダをバーへドラッグしてドロワー化'));
+    await moveToEl(stage.querySelector('#ssd-folder')); ripple();
+    await ghostDrag('📁 Project', stage.querySelector('#ssd-folder'), bar);
+    await fakeMenu(barBtn('d-web'), [{ label: L('➕ ドロワーとして追加'), hot: true }]);
+    if (stopped) return;
+    tabs.push({ id: 'd-proj', label: 'Project', icon: '📁', type: 'folder', path: '@documents', width: 460 }); renderBar(); await sleep(900); if (stopped) return;
+    setTip(L('右クリックからタイマーなどのアクセサリを追加'));
+    await moveToEl(barBtn('d-todo')); ripple();
+    await fakeMenu(barBtn('d-todo'), [{ label: L('新規項目を追加') }, { label: '⏱ ' + L('タイマー'), hot: true }, { sep: true }, { label: L('削除') }]);
+    if (stopped) return;
+    tabs.push({ id: 'd-timer', label: L('タイマー'), icon: '⏱', type: 'tool', tool: 'calc', width: 300 }); renderBar(); await sleep(900); if (stopped) return;
+    setTip(L('テキストを選択してバーへ → スクラップブックの箱を選ぶ'));
+    const tEl = stage.querySelector('#ssd-text'); tEl.classList.add('ss-sel');
+    await moveToEl(tEl); ripple();
+    await ghostDrag('✂ DeskHatch keeps your tools…', tEl, clipBtn());
+    tEl.classList.remove('ss-sel');
+    await fakeMenu(clipBtn(), [{ label: '📁 ' + L('箱') + ' 1' }, { label: '📁 ' + L('箱') + ' 2', hot: true }, { label: '📁 ' + L('箱') + ' 3' }, { sep: true }, { label: L('➕ ドロワーとして追加') }]);
+    if (stopped) return;
+    setTip(L('スクラップブックに整理できました'));
+    await sleep(1700);
+  }
+  (async function loop() { while (!stopped) { await act(); if (stopped) break; await sleep(700); } })();
 }
 
 function buildBody(tab) {
@@ -2578,7 +2703,7 @@ window.overlay.onReserveStatus((status, requested) => {
 });
 
 applyDisplay(); // push the saved display mode to main and set initial visibility
-if (DEMO) setTimeout(autoDemo, 900);
+if (DEMO) setTimeout(stageDemo, 700);
 
 // First run: pop the guide once (until "don't show again" is ticked). Only on
 // the primary monitor, so it doesn't appear on every screen in a multi-monitor

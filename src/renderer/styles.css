@@ -539,3 +539,25 @@ html, body {
 .ss-help-title { color: var(--teal-dark); font-weight: 800; font-size: 19px; }
 .ss-help-art { background: linear-gradient(180deg, #ffffff, #eef5f5); border-radius: 14px; padding: 8px; }
 .ss-help-list li::before { color: var(--teal-light); }
+
+
+/* Guided stage demo (DEMO mode) */
+.ss-stage { position: fixed; inset: 0; z-index: 1; overflow: hidden;
+  background: radial-gradient(120% 120% at 30% 0%, #2f6f86, #224f63 55%, #173a4a); font-family: "Segoe UI","Hiragino Sans",sans-serif; }
+.ss-drawer { z-index: 4; }
+.ss-win { position: absolute; background: #fff; border-radius: 10px; border: 1px solid #b9cccc; box-shadow: 0 22px 60px rgba(0,0,0,.45); overflow: hidden; }
+.ss-win-tb { height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 10px; background: #eef4f4; border-bottom: 1px solid #dde7e7; font-size: 12px; font-weight: 700; color: #456; }
+.ss-win-dots { display: flex; gap: 6px; }
+.ss-win-dots i { width: 11px; height: 11px; border-radius: 50%; display: block; }
+.ss-sel { background: #9ccbff; color: #06203a; }
+.ss-demo-layer { position: fixed; inset: 0; z-index: 2147483600; pointer-events: none; }
+.ss-cursor { position: absolute; width: 24px; height: 24px; transition: left .8s cubic-bezier(.45,.05,.25,1), top .8s cubic-bezier(.45,.05,.25,1); filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
+.ss-ripple { position: absolute; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #fff; animation: ssrip .5s ease-out forwards; }
+@keyframes ssrip { from { transform: scale(.3); opacity: .9; } to { transform: scale(1.5); opacity: 0; } }
+.ss-ghost { position: absolute; transform: translate(-10px,-10px); background: rgba(31,111,111,.96); color: #fff; padding: 5px 10px; border-radius: 6px; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.35); transition: left .8s ease, top .8s ease; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-fmenu { position: absolute; background: #fff; border: 1px solid #cfd8d8; border-radius: 8px; box-shadow: 0 12px 34px rgba(0,0,0,.32); padding: 5px; min-width: 195px; font-size: 13px; }
+.ss-fmenu div { padding: 8px 12px; border-radius: 5px; color: #2b3a3a; }
+.ss-fmenu div.hot { background: #1f9f9f; color: #fff; }
+.ss-fmenu hr { border: none; border-top: 1px solid #eef2f2; margin: 4px 2px; }
+.ss-stage-tip { position: absolute; left: 50%; bottom: 32px; transform: translateX(-50%); background: rgba(15,36,35,.93); color: #eafafa; padding: 11px 20px; border-radius: 22px; font: 600 15px "Segoe UI",sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.35); text-align: center; max-width: 80vw; }
+.ss-demo-exit { position: absolute; top: 10px; right: 12px; pointer-events: auto; background: rgba(0,0,0,.5); color: #fff; border: none; border-radius: 16px; padding: 7px 14px; font-size: 12px; cursor: pointer; }

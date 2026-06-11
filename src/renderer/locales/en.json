@@ -231,5 +231,15 @@
   "好きなWebページをボタンに登録できる": "Add any web page as a button",
   "フォルダも登録して、ここから開ける": "Add folders too, and open them here",
   "電卓・タイマー・クリップボードなどのアクセサリも": "Accessories too: calculator, timer, clipboard…",
-  "スクラップブックでフォルダ分けして整理": "Scrapbook: sort clippings into folders"
+  "スクラップブックでフォルダ分けして整理": "Scrapbook: sort clippings into folders",
+  "メールやカレンダーを上端からワンクリックで": "Open mail & calendar with one click, from the top",
+  "ブラウザのURLをバーへ → ドロワーとして追加": "Drag a URL to the bar → Add as drawer",
+  "箱を選んで保存": "Save to a box",
+  "フォルダをバーへドラッグしてドロワー化": "Drag a folder to the bar to make a drawer",
+  "右クリックからタイマーなどのアクセサリを追加": "Right-click to add accessories like a timer",
+  "テキストを選択してバーへ → スクラップブックの箱を選ぶ": "Select text, drop on the bar → pick a scrapbook box",
+  "箱": "Box",
+  "スクラップブックに整理できました": "Filed into your scrapbook",
+  "マイドキュメント": "My Documents",
+  "デモ終了": "Exit demo"
 }
