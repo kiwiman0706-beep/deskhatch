@@ -869,17 +869,36 @@ function htmlToMarkdown(html) {
     return out.join('').replace(/\n{3,}/g, '\n\n').trim();
   } catch (_) { return String(html).replace(/<[^>]+>/g, ''); }
 }
+// Download <img> sources and inline them as data: URIs so the clip is
+// self-contained (works offline / after the source page changes).
+async function embedImages(html) {
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('source').forEach((n) => n.remove());
+    doc.querySelectorAll('[srcset]').forEach((n) => n.removeAttribute('srcset'));
+    const imgs = [...doc.querySelectorAll('img')];
+    for (const img of imgs) {
+      const src = img.getAttribute('src') || '';
+      if (src.indexOf('data:') === 0) continue;
+      if (!/^https?:\/\//i.test(src)) { img.removeAttribute('src'); continue; }
+      const d = await window.files.fetchDataUri(src);
+      if (d) img.setAttribute('src', d); else img.removeAttribute('src');
+    }
+    return doc.body ? doc.body.innerHTML : html;
+  } catch (_) { return html; }
+}
 async function writeScrapHtml(dir, labelText, html) {
   const base = scrapSanit((labelText || 'web-clip').split('\n')[0]);
-  if (Store.getScrapFormat() === 'md') await window.files.writePath(scrapJoin(dir, base + '.md'), htmlToMarkdown(html));
-  else await window.files.writePath(scrapJoin(dir, base + '.html'), wrapHtmlDoc(sanitizeHtml(html), labelText));
+  const clean = sanitizeHtml(html);
+  if (Store.getScrapFormat() === 'md') { await window.files.writePath(scrapJoin(dir, base + '.md'), htmlToMarkdown(clean)); }
+  else { const embedded = await embedImages(clean); await window.files.writePath(scrapJoin(dir, base + '.html'), wrapHtmlDoc(embedded, labelText)); }
 }
 function buildRichHtml(html) {
   const f = document.createElement('iframe');
   f.className = 'ss-richhtml';
   f.setAttribute('sandbox', '');
-  f.setAttribute('referrerpolicy', 'no-referrer');
   f.srcdoc = wrapHtmlDoc(html || '', '');
+  embedImages(html || '').then((emb) => { if (f.isConnected) f.srcdoc = wrapHtmlDoc(emb, ''); }).catch(() => {});
   return f;
 }
 

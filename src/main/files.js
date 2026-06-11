@@ -4,7 +4,7 @@
 // operations live here in the main process; the renderer talks to them through
 // the `files` bridge in preload.js (contextIsolation stays on).
 
-const { ipcMain, shell, clipboard, dialog, Menu, app, nativeImage } = require('electron');
+const { ipcMain, shell, clipboard, dialog, Menu, app, nativeImage, net } = require('electron');
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
@@ -148,6 +148,28 @@ function register(getWin) {
     const dest = path.join(destDir, path.basename(src));
     await fsp.copyFile(src, dest);
     return dest;
+  });
+
+  // Download a remote image and return it as a data: URI (for self-contained
+  // web-clips). Capped to keep clips reasonable; returns null on any failure.
+  ipcMain.handle('files:fetch-data-uri', async (_e, url) => {
+    try {
+      if (!/^https?:\/\//i.test(String(url || ''))) return null;
+      const { buf, mime } = await new Promise((resolve, reject) => {
+        const req = net.request(url);
+        req.on('response', (res) => {
+          if (res.statusCode >= 400) { reject(new Error('http ' + res.statusCode)); return; }
+          const ct = String(res.headers['content-type'] || 'application/octet-stream').split(';')[0].trim();
+          const chunks = []; let size = 0;
+          res.on('data', (d) => { size += d.length; if (size > 8 * 1024 * 1024) { try { req.abort(); } catch (_) {} reject(new Error('too big')); return; } chunks.push(d); });
+          res.on('end', () => resolve({ buf: Buffer.concat(chunks), mime: ct }));
+        });
+        req.on('error', reject);
+        req.end();
+      });
+      if (!buf || !buf.length) return null;
+      return 'data:' + (mime || 'application/octet-stream') + ';base64,' + buf.toString('base64');
+    } catch (_) { return null; }
   });
 
   ipcMain.handle('files:trash', async (_e, p) => { await shell.trashItem(p); return true; });
