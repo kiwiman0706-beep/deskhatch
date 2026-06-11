@@ -1625,7 +1625,7 @@ function stageDemo() {
     if (stopped) return;
     setTip(L('スクラップブックを開くと、取り込んだメモが箱に入っている'));
     await moveToEl(clipBtn()); ripple(); openTab({ ...CLIP_TAB, height: 320 }, clipBtn()); await sleep(2400); if (stopped) return;
-    setTip(L('他の箱にも様々なサンプルメモが入っている'));
+    setTip(L('メモはボックスごとに分類できる'));
     const sb = () => document.querySelector('.ss-drawer[data-id="__clip"]');
     for (const bi of [2, 3, 1]) {
       const box = sb() && sb().querySelector('#ssc-rail [data-b="' + bi + '"]');

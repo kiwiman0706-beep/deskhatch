@@ -247,7 +247,7 @@
     setTip('スクラップブックを開くと、取り込んだメモが箱に入っている');
     var sd = openDrawer(clipBtn(), '📎', 'スクラップ', 420, 250, scrapC);
     await moveToEl(clipBtn()); ripple(); await sleep(1800);
-    setTip('他の箱にも様々なサンプルメモが入っている');
+    setTip('メモはボックスごとに分類できる');
     var bd = sd.querySelector('.drawer-bd');
     for (var bi = 0; bi < 3; bi++) {
       var idx = [2, 3, 1][bi];
