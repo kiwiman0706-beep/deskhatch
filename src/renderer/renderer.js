@@ -2597,6 +2597,30 @@ function addNewTab() {
   commitTabs(arr);
 }
 
+function addToolTab(tool, label, icon, width, height) {
+  const arr = JSON.parse(JSON.stringify(tabs));
+  arr.push({ id: 'tab' + Date.now().toString(36), label: L(label), icon, type: 'tool', tool, width, height });
+  commitTabs(arr);
+}
+
+// Right-click an empty part of the bar -> quick add / open the menu. (Buttons
+// keep their own context menu; this fires only on the bar background.)
+async function barContextMenu(e) {
+  if (e.target.closest && e.target.closest('.ss-btn')) return;
+  e.preventDefault();
+  const action = await window.system.menu([
+    { id: 'add', label: L('＋ ページを追加') },
+    { id: 'add-clock', label: L('＋ タイマー＆ストップウォッチ') },
+    { id: 'add-calc', label: L('＋ 電卓') },
+    { separator: true },
+    { id: 'menu', label: L('設定・ツール・ヘルプ…') },
+  ]);
+  if (action === 'add') addNewTab();
+  else if (action === 'add-clock') addToolTab('clock', 'タイマー', '⏲', 340, 480);
+  else if (action === 'add-calc') addToolTab('calc', '電卓', '🧮', 280, 470);
+  else if (action === 'menu') openTab(MENU_TAB, bar.querySelector('.ss-menu') || bar);
+}
+
 async function tabContextMenu(tab, btn) {
   const items = [
     { id: 'edit', label: L('編集…') },
@@ -2809,6 +2833,7 @@ document.addEventListener('dragend', () => { clearDragFx(); pickerShown = false;
 bar.addEventListener('dragover', (e) => { e.preventDefault(); bar.classList.add('drop'); });
 bar.addEventListener('dragleave', (e) => { if (e.target === bar) bar.classList.remove('drop'); });
 bar.addEventListener('drop', async (e) => { bar.classList.remove('drop'); const ids = await handleDrop(e); offerBoxMenu(ids); });
+bar.addEventListener('contextmenu', barContextMenu);
 
 // Reveal on hover at the top edge; hide again shortly after leaving.
 const onEnter = () => { hovering = true; clearTimeout(hideTimer); reflowHeight(); };
