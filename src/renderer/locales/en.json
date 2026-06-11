@@ -266,5 +266,9 @@
   "設定・ツール・ヘルプ…": "Settings · Tools · Help…",
   "他の箱にも様々なサンプルメモが入っている": "Other boxes hold all kinds of notes too",
   "タイマーや電卓などのアクセサリも最初から使える": "Timer and calculator accessories are there from the start",
-  "メモはボックスごとに分類できる": "Sort your notes into boxes"
+  "メモはボックスごとに分類できる": "Sort your notes into boxes",
+  "Webクリップ": "Web clip",
+  "リッチ取り込みの保存形式 ": "Rich clip format ",
+  "HTML（忠実）": "HTML (faithful)",
+  "Markdown（Obsidian）": "Markdown (Obsidian)"
 }

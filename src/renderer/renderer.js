@@ -94,6 +94,8 @@ const Store = {
   // Post-drop box-picker popup (on by default).
   getDropMenu() { return localStorage.getItem('ss.dropMenu') !== '0'; },
   setDropMenu(v) { if (v) localStorage.removeItem('ss.dropMenu'); else localStorage.setItem('ss.dropMenu', '0'); },
+  getScrapFormat() { return localStorage.getItem('ss.scrap.fmt') === 'md' ? 'md' : 'html'; },
+  setScrapFormat(v) { localStorage.setItem('ss.scrap.fmt', v === 'md' ? 'md' : 'html'); },
   getScrapRoot() { return localStorage.getItem('ss.scrap.root') || ''; },
   setScrapRoot(p) { if (p) localStorage.setItem('ss.scrap.root', p); else localStorage.removeItem('ss.scrap.root'); },
   // Search engine for the right-end 🔍 box (id into SEARCH_ENGINES).
@@ -823,6 +825,64 @@ async function addFilePaths(paths) {
   return ids;
 }
 
+// --- Rich web-clip helpers: capture text/html (images, tables) on drop -------
+function isRichHtml(html) { return !!html && /<(img|table|h[1-6]|ul|ol|blockquote|p|figure|pre|video)\b/i.test(html); }
+function sanitizeHtml(html) {
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('script,style,link,meta,iframe,object,embed,noscript,form,input,button').forEach((n) => n.remove());
+    doc.querySelectorAll('*').forEach((n) => {
+      [...n.attributes].forEach((a) => {
+        const nm = a.name.toLowerCase();
+        if (nm.indexOf('on') === 0) n.removeAttribute(a.name);
+        if ((nm === 'href' || nm === 'src') && /^\s*javascript:/i.test(a.value)) n.removeAttribute(a.name);
+      });
+    });
+    return doc.body ? doc.body.innerHTML : html;
+  } catch (_) { return html; }
+}
+function wrapHtmlDoc(frag, title) {
+  if (/<html[\s>]/i.test(frag)) return frag;
+  return '<!doctype html><html><head><meta charset="utf-8"><base target="_blank">'
+    + '<style>body{font:14px/1.7 "Segoe UI","Hiragino Sans",sans-serif;color:#222;margin:14px;word-wrap:break-word}'
+    + 'img{max-width:100%;height:auto}table{border-collapse:collapse;max-width:100%}td,th{border:1px solid #ccc;padding:4px 8px}a{color:#1a73e8}</style>'
+    + '<title>' + String(title || 'clip').replace(/[<>]/g, '') + '</title></head><body>' + frag + '</body></html>';
+}
+function htmlToMarkdown(html) {
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const out = [];
+    (function walk(node) {
+      node.childNodes.forEach((n) => {
+        if (n.nodeType === 3) { out.push(n.textContent.replace(/\s+/g, ' ')); return; }
+        if (n.nodeType !== 1) return;
+        const tag = n.tagName.toLowerCase();
+        if (tag === 'img') { out.push('\n![' + (n.getAttribute('alt') || '') + '](' + (n.getAttribute('src') || '') + ')\n'); return; }
+        if (tag === 'a') { out.push('['); walk(n); out.push('](' + (n.getAttribute('href') || '') + ')'); return; }
+        if (/^h[1-6]$/.test(tag)) { out.push('\n\n' + '#'.repeat(+tag[1]) + ' '); walk(n); out.push('\n'); return; }
+        if (tag === 'br') { out.push('  \n'); return; }
+        if (tag === 'li') { out.push('\n- '); walk(n); return; }
+        if (tag === 'p' || tag === 'div' || tag === 'tr' || tag === 'blockquote') { out.push('\n\n'); walk(n); return; }
+        walk(n);
+      });
+    })(doc.body || doc);
+    return out.join('').replace(/\n{3,}/g, '\n\n').trim();
+  } catch (_) { return String(html).replace(/<[^>]+>/g, ''); }
+}
+async function writeScrapHtml(dir, labelText, html) {
+  const base = scrapSanit((labelText || 'web-clip').split('\n')[0]);
+  if (Store.getScrapFormat() === 'md') await window.files.writePath(scrapJoin(dir, base + '.md'), htmlToMarkdown(html));
+  else await window.files.writePath(scrapJoin(dir, base + '.html'), wrapHtmlDoc(sanitizeHtml(html), labelText));
+}
+function buildRichHtml(html) {
+  const f = document.createElement('iframe');
+  f.className = 'ss-richhtml';
+  f.setAttribute('sandbox', '');
+  f.setAttribute('referrerpolicy', 'no-referrer');
+  f.srcdoc = wrapHtmlDoc(html || '', '');
+  return f;
+}
+
 async function handleDrop(e) {
   e.preventDefault();
   e.stopPropagation();
@@ -839,8 +899,10 @@ async function handleDrop(e) {
   const ids = [];
   const uriList = (dt.getData('text/uri-list') || '').split('\n').map((s) => s.trim()).filter(Boolean);
   const plain = (dt.getData('text/plain') || '').trim();
+  const html = dt.getData('text/html') || '';
+  const rich = isRichHtml(html);
   const url = uriList.find((l) => /^https?:\/\//i.test(l)) || (/^https?:\/\//i.test(plain) ? plain : '');
-  if (url && (!dt.files || !dt.files.length)) { ids.push(addClip({ kind: 'url', url, label: url })); }
+  if (url && !rich && (!dt.files || !dt.files.length)) { ids.push(addClip({ kind: 'url', url, label: url })); }
 
   for (const f of (dt.files || [])) {
     const p = window.overlay.getPathForFile(f);
@@ -851,9 +913,10 @@ async function handleDrop(e) {
     else ids.push(addClip({ kind: 'file', path: p, label: st.name, viewer: viewerForExt(st.ext) }));
   }
 
-  // Plain selected text (not a URL, no files) -> a text snippet.
-  if (!url && plain && (!dt.files || !dt.files.length)) {
-    ids.push(addClip({ kind: 'text', text: plain, label: plain.replace(/\s+/g, ' ').slice(0, 40) }));
+  // No files: a rich selection (images/tables) -> a web clip; else plain text.
+  if (!dt.files || !dt.files.length) {
+    if (rich) { ids.push(addClip({ kind: 'html', html: sanitizeHtml(html), label: (plain || 'web clip').replace(/\s+/g, ' ').slice(0, 40) })); }
+    else if (!url && plain) { ids.push(addClip({ kind: 'text', text: plain, label: plain.replace(/\s+/g, ' ').slice(0, 40) })); }
   }
 
   if (ids.length) { refreshClipUI(); toast(L('クリップに追加しました') + ' (' + ids.length + ')'); }
@@ -886,10 +949,13 @@ async function dropIntoFolder(dt, dir) {
   for (const f of (dt.files || [])) { const p = window.overlay.getPathForFile(f); if (p) paths.push(p); }
   const uriList = (dt.getData('text/uri-list') || '').split('\n').map((s) => s.trim()).filter(Boolean);
   const plain = (dt.getData('text/plain') || '').trim();
+  const html = dt.getData('text/html') || '';
+  const rich = isRichHtml(html);
   const url = uriList.find((l) => /^https?:\/\//i.test(l)) || (/^https?:\/\//i.test(plain) ? plain : '');
   let n = 0;
   for (const p of paths) { const r = await window.files.copyTo(p, dir); if (!(r && r.error)) n++; }
-  if (!paths.length && url) { await window.files.writePath(scrapJoin(dir, scrapSanit(url) + '.md'), '# ' + url + '\n\n' + url); n++; }
+  if (!paths.length && rich) { await writeScrapHtml(dir, plain || url, html); n++; }
+  else if (!paths.length && url) { await window.files.writePath(scrapJoin(dir, scrapSanit(url) + '.md'), '# ' + url + '\n\n' + url); n++; }
   else if (!paths.length && plain) { await window.files.writePath(scrapJoin(dir, scrapSanit(plain.split('\n')[0]) + '.md'), plain); n++; }
   if (n) toast(L('フォルダへ保存しました') + ' (' + n + ')');
   return n;
@@ -992,7 +1058,7 @@ function renderClipList(list) {
       ico.className = 'ss-clip-thumb';
       window.files.serve(it.path).then((u) => { ico.src = u; });
     } else {
-      const emoji = it.kind === 'url' ? '🔗' : it.kind === 'folder' ? '📁' : it.kind === 'text' ? '✂' : (it.viewer ? viewerIcon(it.viewer) : '📦');
+      const emoji = it.kind === 'url' ? '🔗' : it.kind === 'folder' ? '📁' : it.kind === 'text' ? '✂' : it.kind === 'html' ? '🌐' : (it.viewer ? viewerIcon(it.viewer) : '📦');
       ico = el('span', 'ss-clip-ico', emoji);
       if (it.kind === 'file') window.files.icon(it.path).then((u) => {
         if (!u) return;
@@ -1049,6 +1115,7 @@ function openClipItem(it) {
   if (it.kind === 'url') openTab({ id, label: it.label.slice(0, 18), icon: '🔗', type: 'page', url: it.url, mobile: false, width: 540 }, anchor);
   else if (it.kind === 'folder') openTab({ id, label: it.label, icon: '📁', type: 'folder', path: it.path, width: 460 }, anchor);
   else if (it.kind === 'text') openTab({ id, label: it.label || L('テキスト'), icon: '✂', type: 'snippet', text: it.text, width: 420 }, anchor);
+  else if (it.kind === 'html') openTab({ id, label: it.label || L('Webクリップ'), icon: '🌐', type: 'richhtml', html: it.html, width: 560 }, anchor);
   else if (it.kind === 'file') {
     if (it.viewer) openTab({ id, label: it.label, icon: viewerIcon(it.viewer), type: 'viewer', viewer: it.viewer, path: it.path, width: 560 }, anchor);
     else window.files.open(it.path);
@@ -1062,6 +1129,7 @@ function promoteClip(it) {
   if (it.kind === 'url') tab = { id, label: it.label.slice(0, 16), icon: '🔗', type: 'page', url: it.url, mobile: false, width: 540 };
   else if (it.kind === 'folder') tab = { id, label: it.label, icon: '📁', type: 'folder', path: it.path, width: 460 };
   else if (it.kind === 'text') tab = { id, label: (it.label || L('メモ')).slice(0, 16), icon: '✂', type: 'snippet', text: it.text, width: 420 };
+  else if (it.kind === 'html') tab = { id, label: (it.label || L('Webクリップ')).slice(0, 16), icon: '🌐', type: 'richhtml', html: it.html, width: 560 };
   else if (it.kind === 'file') {
     tab = it.viewer
       ? { id, label: it.label, icon: viewerIcon(it.viewer), type: 'viewer', viewer: it.viewer, path: it.path, width: 560 }
@@ -1147,6 +1215,7 @@ async function moveClipToBox(it, boxPath) {
   try {
     if (it.kind === 'file') { const r = await window.files.copyTo(it.path, boxPath); if (r && r.error) throw new Error(r.error); }
     else if (it.kind === 'folder') { await window.files.writePath(scrapJoin(boxPath, scrapSanit(it.label) + '.txt'), it.path); }
+    else if (it.kind === 'html') { await writeScrapHtml(boxPath, it.label, it.html); }
     else {
       const text = it.kind === 'url' ? it.url : (it.text || '');
       const name = scrapSanit((it.label || text).split('\n')[0]) + '.md';
@@ -1248,9 +1317,10 @@ function buildFolderBox(boxPath) {
     if (!entries.length) { const m = el('div', null, L('（ノートなし）')); m.style.cssText = 'color:#9ab;padding:4px 8px'; notes.appendChild(m); }
     entries.forEach((fl) => {
       const isText = /\.(md|txt)$/i.test(fl.name);
-      const r = el('div', null, (isText ? '📝 ' : '📎 ') + fl.name.replace(/\.(md|txt)$/i, ''));
+      const isHtml = /\.html?$/i.test(fl.name);
+      const r = el('div', null, (isHtml ? '🌐 ' : isText ? '📝 ' : '📎 ') + fl.name.replace(/\.(md|txt|html?)$/i, ''));
       r.style.cssText = 'padding:5px 8px;border-radius:6px;cursor:pointer' + (fl.path === curNote ? ';background:#eef6f6;font-weight:700' : '');
-      r.onclick = () => { if (isText) openNote(fl.path); else window.files.open(fl.path); };
+      r.onclick = async () => { if (isHtml) { const t = await window.files.readText(fl.path); openTab({ id: 'rn-' + Date.now().toString(36), label: fl.name.replace(/\.html?$/i, ''), icon: '🌐', type: 'richhtml', html: t, width: 560 }, bar); } else if (isText) openNote(fl.path); else window.files.open(fl.path); };
       notes.appendChild(r);
     });
   }
@@ -1673,6 +1743,8 @@ function buildBody(tab) {
     body.appendChild(buildTabEditor(tab.target));
   } else if (tab.type === 'snippet') {
     body.appendChild(buildSnippet(tab));
+  } else if (tab.type === 'richhtml') {
+    body.appendChild(buildRichHtml(tab.html));
   } else if (tab.type === 'tool') {
     if (tab.tool === 'editor') body.appendChild(buildEditor());
     else if (tab.tool === 'calc') body.appendChild(buildCalc());
@@ -2010,6 +2082,16 @@ function buildDisplaySettings() {
   dmChk.onchange = () => Store.setDropMenu(dmChk.checked);
   dmWrap.append(dmChk, document.createTextNode(L(' ドロップ後に箱の振り分けメニューを出す')));
   root.append(dmWrap);
+
+  // Rich web-clip save format (.html keeps layout; .md for Obsidian).
+  const rfWrap = el('label', 'ss-set-check');
+  rfWrap.append(document.createTextNode(L('リッチ取り込みの保存形式 ')));
+  const rfSel = el('select', 'ss-set-type');
+  [['html', L('HTML（忠実）')], ['md', L('Markdown（Obsidian）')]].forEach((o) => { const op = el('option', null, o[1]); op.value = o[0]; rfSel.appendChild(op); });
+  rfSel.value = Store.getScrapFormat();
+  rfSel.onchange = () => Store.setScrapFormat(rfSel.value);
+  rfWrap.append(rfSel);
+  root.append(rfWrap);
 
   // Launch at login
   const startWrap = el('label', 'ss-set-check');
