@@ -2507,7 +2507,7 @@ document.addEventListener('dragleave', (e) => { if (pickerEl && !e.relatedTarget
 document.addEventListener('dragend', () => { clearDragFx(); pickerShown = false; if (pickerEl) closePicker(); });
 bar.addEventListener('dragover', (e) => { e.preventDefault(); bar.classList.add('drop'); });
 bar.addEventListener('dragleave', (e) => { if (e.target === bar) bar.classList.remove('drop'); });
-bar.addEventListener('drop', (e) => { bar.classList.remove('drop'); handleDrop(e); });
+bar.addEventListener('drop', async (e) => { bar.classList.remove('drop'); const ids = await handleDrop(e); offerBoxMenu(ids); });
 
 // Reveal on hover at the top edge; hide again shortly after leaving.
 const onEnter = () => { hovering = true; clearTimeout(hideTimer); reflowHeight(); };
