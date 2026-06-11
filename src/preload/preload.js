@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('overlay', {
 
   // Fully restart the app (language switch — in-place reload breaks the overlay).
   relaunch: () => ipcRenderer.send('app:relaunch'),
+  openScrap: (root) => ipcRenderer.send('scrap:open', root),
   version: () => ipcRenderer.invoke('app:version'),
   checkUpdates: () => ipcRenderer.send('app:check-updates'),
 

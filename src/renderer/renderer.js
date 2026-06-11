@@ -1308,6 +1308,9 @@ function buildClipPanel() {
       chg.onclick = async () => { const d = await window.files.pickFolder(); if (d) { Store.setScrapRoot(d); cur = 'clip'; renderRail(); renderContent(); } };
       rail.appendChild(chg);
     }
+    const openWin = el('button', 'ss-set-btn', L('↗ 別ウィンドウ')); openWin.style.cssText += ';margin-top:6px;width:100%;font-size:11px';
+    openWin.onclick = async () => { const r = await ensureScrapRoot(); if (r && window.overlay.openScrap) window.overlay.openScrap(r); };
+    rail.appendChild(openWin);
   }
   function renderContent() {
     content.innerHTML = '';

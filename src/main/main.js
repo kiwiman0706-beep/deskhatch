@@ -361,6 +361,21 @@ ipcMain.on('overlay:set-height', (e, height) => {
 
 ipcMain.on('app:quit', () => app.quit());
 
+let scrapWin = null;
+ipcMain.on('scrap:open', (_e, root) => {
+  try {
+    if (scrapWin && !scrapWin.isDestroyed()) { scrapWin.show(); scrapWin.focus(); return; }
+    scrapWin = new BrowserWindow({
+      width: 940, height: 640, minWidth: 560, minHeight: 360,
+      title: 'DeskHatch Scrapbook', backgroundColor: '#ffffff',
+      webPreferences: { preload: path.join(__dirname, '..', 'preload', 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false },
+    });
+    scrapWin.setMenuBarVisibility(false);
+    scrapWin.loadFile(path.join(__dirname, '..', 'renderer', 'scrap.html'), { query: { root: root || '', lang: (app.getLocale() || '') } });
+    scrapWin.on('closed', () => { scrapWin = null; });
+  } catch (e) { try { console.warn('[scrap] ' + e.message); } catch (_) {} }
+});
+
 // Launch at login (Windows/macOS).
 ipcMain.handle('startup:get', () => app.getLoginItemSettings().openAtLogin);
 ipcMain.handle('startup:set', (_e, on) => {
