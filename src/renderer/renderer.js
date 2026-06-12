@@ -83,7 +83,7 @@ const Store = {
   getClips() {
     try { const c = JSON.parse(localStorage.getItem('ss.clips')); return Array.isArray(c) ? c : []; } catch (_) { return []; }
   },
-  saveClips(c) { localStorage.setItem('ss.clips', JSON.stringify(c)); },
+  saveClips(c) { try { localStorage.setItem('ss.clips', JSON.stringify(c)); } catch (e) { toast(L('クリップを保存できませんでした（容量超過）。大きな項目を削除してください')); } },
   // "Don't show the intro guide on startup again."
   getHelpSkip() { return localStorage.getItem('ss.help.skip') === '1'; },
   setHelpSkip(v) { if (v) localStorage.setItem('ss.help.skip', '1'); else localStorage.removeItem('ss.help.skip'); },
@@ -96,7 +96,7 @@ const Store = {
   setDropMenu(v) { if (v) localStorage.removeItem('ss.dropMenu'); else localStorage.setItem('ss.dropMenu', '0'); },
   getScrapFormat() { return localStorage.getItem('ss.scrap.fmt') === 'md' ? 'md' : 'html'; },
   setScrapFormat(v) { localStorage.setItem('ss.scrap.fmt', v === 'md' ? 'md' : 'html'); },
-  getHotkeys() { const def = { capture: 'CommandOrControl+Shift+C', clip: 'CommandOrControl+Shift+V', reveal: '', scrap: '' }; try { const h = JSON.parse(localStorage.getItem('ss.hotkeys')); if (h && typeof h === 'object') return Object.assign(def, h); } catch (_) {} return def; },
+  getHotkeys() { const def = { capture: 'CommandOrControl+Alt+C', clip: '', reveal: '', scrap: '' }; try { const h = JSON.parse(localStorage.getItem('ss.hotkeys')); if (h && typeof h === 'object') return Object.assign(def, h); } catch (_) {} return def; },
   setHotkeys(h) { localStorage.setItem('ss.hotkeys', JSON.stringify(h || {})); },
   getScrapRoot() { return localStorage.getItem('ss.scrap.root') || ''; },
   setScrapRoot(p) { if (p) localStorage.setItem('ss.scrap.root', p); else localStorage.removeItem('ss.scrap.root'); },
@@ -623,7 +623,7 @@ function clockUpdateBar() { const txt = clockTitleText(); document.querySelector
 function clockEnsureTick() { if (clockIv) return; clockIv = setInterval(clockTick, 200); }
 function clockTick() {
   const now = Date.now();
-  clockItems.forEach((it) => { if (it.kind === 'timer' && it.endAt && now >= it.endAt) { it.endAt = 0; it.remain = 0; it.done = true; clockBeep(); toast(L('タイマー終了') + (it.label ? '：' + it.label : '')); } });
+  clockItems.forEach((it) => { if (it.kind === 'timer' && it.endAt && now >= it.endAt) { it.endAt = 0; it.remain = 0; it.done = true; clockBeep(); revealBar(); toast(L('タイマー終了') + (it.label ? '：' + it.label : '')); } });
   for (let i = clockSubs.length - 1; i >= 0; i--) { if (!clockSubs[i].el || !clockSubs[i].el.isConnected) clockSubs.splice(i, 1); else { try { clockSubs[i].fn(); } catch (_) {} } }
   clockUpdateBar();
   if (!clockRunning()) { clearInterval(clockIv); clockIv = null; }
@@ -956,7 +956,8 @@ async function handleDrop(e) {
 
   // No files: a rich selection (images/tables) -> a web clip; else plain text.
   if (!dt.files || !dt.files.length) {
-    if (rich) { ids.push(addClip({ kind: 'html', html: sanitizeHtml(html), label: (plain || 'web clip').replace(/\s+/g, ' ').slice(0, 40) })); }
+    if (rich && html.length <= 4000000) { ids.push(addClip({ kind: 'html', html: sanitizeHtml(html), label: (plain || 'web clip').replace(/\s+/g, ' ').slice(0, 40) })); }
+    else if (rich && plain) { ids.push(addClip({ kind: 'text', text: plain, label: plain.replace(/\s+/g, ' ').slice(0, 40) })); toast(L('画像が大きいためテキストのみ取り込みました')); }
     else if (!url && plain) { ids.push(addClip({ kind: 'text', text: plain, label: plain.replace(/\s+/g, ' ').slice(0, 40) })); }
   }
 
@@ -3026,7 +3027,8 @@ function revealBar() { hovering = true; clearTimeout(hideTimer); try { window.ov
 if (window.overlay.onHotkeyCapture) window.overlay.onHotkeyCapture((p) => {
   if (!p) return;
   let id;
-  if (p.kind === 'html' && p.html) id = addClip({ kind: 'html', html: sanitizeHtml(p.html), label: (p.text || 'web clip').replace(/\s+/g, ' ').slice(0, 40) });
+  if (p.kind === 'html' && p.html && p.html.length <= 4000000) id = addClip({ kind: 'html', html: sanitizeHtml(p.html), label: (p.text || 'web clip').replace(/\s+/g, ' ').slice(0, 40) });
+  else if (p.kind === 'html' && p.html) { const t = String(p.text || '').trim(); if (!t) { toast(L('内容が大きすぎて取り込めませんでした')); return; } id = addClip({ kind: 'text', text: t, label: t.replace(/\s+/g, ' ').slice(0, 40) }); toast(L('画像が大きいためテキストのみ取り込みました')); }
   else { const t = String(p.text || '').trim(); if (!t) return; id = /^https?:\/\//i.test(t) ? addClip({ kind: 'url', url: t, label: t }) : addClip({ kind: 'text', text: t, label: t.replace(/\s+/g, ' ').slice(0, 40) }); }
   refreshClipUI(); revealBar(); toast(L('クリップに追加しました') + ' (1)'); offerBoxMenu([id]);
 });
