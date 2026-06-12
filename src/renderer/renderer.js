@@ -173,7 +173,7 @@ const THEME_LABELS = [
   ['teal', L('Teal（既定）')], ['graphite', L('Graphite（ダーク）')], ['ocean', 'Ocean'],
   ['forest', 'Forest'], ['plum', 'Plum'], ['sunset', 'Sunset'], ['rose', 'Rose'],
   ['light', 'Light'],
-  ['classicmac', L('— OSオマージュ —')],
+  ['_osdiv', '— OS —'],
   ['win95', 'Windows 95/98'], ['winxp', 'Windows XP'], ['win7', 'Windows 7 (Aero)'], ['metro', 'Windows 8 (Metro)'],
   ['classicmac', 'Classic Mac OS'], ['aqua', 'Mac OS X (Aqua)'], ['next', 'NeXTSTEP'], ['beos', 'BeOS'], ['ubuntu', 'Ubuntu'],
 ];
@@ -2089,7 +2089,7 @@ function buildDisplaySettings() {
   // Theme / colour
   const themeWrap = el('label', 'ss-set-check');
   const themeSel = el('select', 'ss-set-type');
-  THEME_LABELS.forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; themeSel.appendChild(op); });
+  THEME_LABELS.forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; if (v === '_osdiv') op.disabled = true; themeSel.appendChild(op); });
   themeSel.value = display.theme || 'teal';
   themeSel.onchange = () => { display = { ...display, theme: themeSel.value }; applyDisplay(); };
   themeWrap.append(document.createTextNode(L('テーマ ')), themeSel);
