@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, globalShortcut, clipboard } = require('electron');
 const path = require('path');
 const appbar = require('./appbar');
 const files = require('./files');
@@ -239,6 +239,35 @@ function sendToBar(channel, payload) {
   const e = [...bars.values()].find((b) => b.win && !b.win.isDestroyed());
   if (e) e.win.webContents.send(channel, payload);
 }
+
+// --- Global hotkeys ---------------------------------------------------------
+function captureClipboard() {
+  try {
+    const html = clipboard.readHTML();
+    const img = clipboard.readImage();
+    const text = clipboard.readText();
+    let payload = null;
+    if (html && /<(img|table|h[1-6]|ul|ol|p|figure|pre|blockquote)\b/i.test(html)) payload = { kind: 'html', html, text: text || '' };
+    else if (img && !img.isEmpty()) payload = { kind: 'html', html: '<img src="' + img.toDataURL() + '">', text: '' };
+    else if (text && text.trim()) payload = { kind: 'text', text: text.trim() };
+    if (payload) sendToBar('hotkey:capture', payload);
+  } catch (_) {}
+}
+function revealBars() { for (const e of bars.values()) if (e.win && !e.win.isDestroyed()) e.win.show(); sendToBar('hotkey:reveal'); }
+const HK_ACTIONS = { capture: captureClipboard, reveal: revealBars, clip: () => sendToBar('hotkey:clip'), scrap: () => sendToBar('hotkey:scrap') };
+function registerHotkeys(cfg) {
+  try { globalShortcut.unregisterAll(); } catch (_) {}
+  cfg = cfg || {};
+  const res = {};
+  for (const act of Object.keys(HK_ACTIONS)) {
+    const accel = String(cfg[act] || '').trim();
+    if (!accel) { res[act] = null; continue; }
+    try { res[act] = globalShortcut.register(accel, HK_ACTIONS[act]); } catch (_) { res[act] = false; }
+  }
+  return res;
+}
+ipcMain.handle('hotkeys:set', (_e, cfg) => registerHotkeys(cfg));
+app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch (_) {} });
 
 function anyWin() {
   const f = BrowserWindow.getFocusedWindow();

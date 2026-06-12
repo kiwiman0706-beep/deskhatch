@@ -271,5 +271,13 @@
   "リッチ取り込みの保存形式 ": "Rich clip format ",
   "HTML（忠実）": "HTML (faithful)",
   "Markdown（Obsidian）": "Markdown (Obsidian)",
-  "↗ 別ウィンドウ": "↗ New window"
+  "↗ 別ウィンドウ": "↗ New window",
+  "グローバルホットキー（例: Ctrl+Shift+C／空で無効）": "Global hotkeys (e.g. Ctrl+Shift+C; blank = off)",
+  "取り込み（クリップボード）": "Capture (clipboard)",
+  "クリップを開く": "Open Clip",
+  "バーを表示": "Reveal the bar",
+  "スクラップブックを開く": "Open Scrapbook",
+  "ホットキーを適用": "Apply hotkeys",
+  "ホットキーを適用しました": "Hotkeys applied",
+  "登録できないキーがあります: ": "Some keys could not be registered: "
 }

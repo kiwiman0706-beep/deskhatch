@@ -27,6 +27,11 @@ contextBridge.exposeInMainWorld('overlay', {
   // Fully restart the app (language switch — in-place reload breaks the overlay).
   relaunch: () => ipcRenderer.send('app:relaunch'),
   openScrap: (root) => ipcRenderer.send('scrap:open', root),
+  setHotkeys: (cfg) => ipcRenderer.invoke('hotkeys:set', cfg),
+  onHotkeyCapture: (cb) => ipcRenderer.on('hotkey:capture', (_e, p) => cb(p)),
+  onHotkeyReveal: (cb) => ipcRenderer.on('hotkey:reveal', () => cb()),
+  onHotkeyClip: (cb) => ipcRenderer.on('hotkey:clip', () => cb()),
+  onHotkeyScrap: (cb) => ipcRenderer.on('hotkey:scrap', () => cb()),
   version: () => ipcRenderer.invoke('app:version'),
   checkUpdates: () => ipcRenderer.send('app:check-updates'),
 

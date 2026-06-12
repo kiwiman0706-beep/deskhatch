@@ -96,6 +96,8 @@ const Store = {
   setDropMenu(v) { if (v) localStorage.removeItem('ss.dropMenu'); else localStorage.setItem('ss.dropMenu', '0'); },
   getScrapFormat() { return localStorage.getItem('ss.scrap.fmt') === 'md' ? 'md' : 'html'; },
   setScrapFormat(v) { localStorage.setItem('ss.scrap.fmt', v === 'md' ? 'md' : 'html'); },
+  getHotkeys() { const def = { capture: 'CommandOrControl+Shift+C', clip: 'CommandOrControl+Shift+V', reveal: '', scrap: '' }; try { const h = JSON.parse(localStorage.getItem('ss.hotkeys')); if (h && typeof h === 'object') return Object.assign(def, h); } catch (_) {} return def; },
+  setHotkeys(h) { localStorage.setItem('ss.hotkeys', JSON.stringify(h || {})); },
   getScrapRoot() { return localStorage.getItem('ss.scrap.root') || ''; },
   setScrapRoot(p) { if (p) localStorage.setItem('ss.scrap.root', p); else localStorage.removeItem('ss.scrap.root'); },
   // Search engine for the right-end 🔍 box (id into SEARCH_ENGINES).
@@ -2132,6 +2134,26 @@ function buildDisplaySettings() {
   rfWrap.append(rfSel);
   root.append(rfWrap);
 
+  // Global hotkeys
+  root.append(el('div', 'ss-disp-note', L('グローバルホットキー（例: Ctrl+Shift+C／空で無効）')));
+  const hk = Store.getHotkeys();
+  const hkInputs = {};
+  [['capture', L('取り込み（クリップボード）')], ['clip', L('クリップを開く')], ['reveal', L('バーを表示')], ['scrap', L('スクラップブックを開く')]].forEach((row) => {
+    const w = el('label', 'ss-set-check');
+    const i = el('input', 'ss-set-input'); i.value = hk[row[0]] || ''; i.placeholder = 'Ctrl+Shift+…'; i.style.cssText = 'flex:1;min-width:0;margin-left:10px';
+    hkInputs[row[0]] = i;
+    w.append(document.createTextNode(row[1]), i); root.append(w);
+  });
+  const hkApply = el('button', 'ss-set-btn', L('ホットキーを適用'));
+  hkApply.onclick = async () => {
+    const cfg = {}; Object.keys(hkInputs).forEach((k) => { cfg[k] = hkInputs[k].value.trim(); });
+    Store.setHotkeys(cfg);
+    const res = (window.overlay.setHotkeys ? await window.overlay.setHotkeys(cfg) : {}) || {};
+    const bad = Object.keys(cfg).filter((k) => cfg[k] && res[k] === false);
+    toast(bad.length ? (L('登録できないキーがあります: ') + bad.join(', ')) : L('ホットキーを適用しました'));
+  };
+  root.append(hkApply);
+
   // Launch at login
   const startWrap = el('label', 'ss-set-check');
   const startup = document.createElement('input');
@@ -2996,6 +3018,19 @@ window.overlay.onAddText((text) => {
   toast(L('クリップに追加しました') + ' (1)');
   offerBoxMenu([id]);
 });
+
+function revealBar() { hovering = true; clearTimeout(hideTimer); try { window.overlay.raise(); } catch (_) {} reflowHeight(); hideTimer = setTimeout(reflowHeight, 3000); }
+if (window.overlay.onHotkeyCapture) window.overlay.onHotkeyCapture((p) => {
+  if (!p) return;
+  let id;
+  if (p.kind === 'html' && p.html) id = addClip({ kind: 'html', html: sanitizeHtml(p.html), label: (p.text || 'web clip').replace(/\s+/g, ' ').slice(0, 40) });
+  else { const t = String(p.text || '').trim(); if (!t) return; id = /^https?:\/\//i.test(t) ? addClip({ kind: 'url', url: t, label: t }) : addClip({ kind: 'text', text: t, label: t.replace(/\s+/g, ' ').slice(0, 40) }); }
+  refreshClipUI(); revealBar(); toast(L('クリップに追加しました') + ' (1)'); offerBoxMenu([id]);
+});
+if (window.overlay.onHotkeyReveal) window.overlay.onHotkeyReveal(() => revealBar());
+if (window.overlay.onHotkeyClip) window.overlay.onHotkeyClip(() => { revealBar(); openTab(CLIP_TAB, bar.querySelector('.ss-clip-btn') || bar); });
+if (window.overlay.onHotkeyScrap) window.overlay.onHotkeyScrap(async () => { const r = await ensureScrapRoot(); if (r && window.overlay.openScrap) window.overlay.openScrap(r); });
+if (window.overlay.setHotkeys) window.overlay.setHotkeys(Store.getHotkeys());
 
 // Surface why the top-edge reservation didn't take, if it was requested.
 window.overlay.onReserveStatus((status, requested) => {
