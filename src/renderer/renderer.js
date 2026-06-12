@@ -159,11 +159,23 @@ const THEMES = {
   rose: { '--teal-light': '#e06aa0', '--teal': '#c24683', '--teal-dark': '#933063', '--bar-fg': '#fdeef5' },
   light: { '--teal-light': '#eef2f6', '--teal': '#d7dee6', '--teal-dark': '#aeb9c6', '--bar-fg': '#2a3340' },
   classicmac: { '--teal-light': '#fbfbfb', '--teal': '#e9e9ec', '--teal-dark': '#000000', '--bar-fg': '#0a0a0a' },
+  // --- Historic-OS homage (title-bar inspired) ---
+  win95: { '--teal-light': '#1084d0', '--teal': '#0a246a', '--teal-dark': '#000000', '--bar-fg': '#ffffff' },      // Windows 95/98 navy title bar
+  winxp: { '--teal-light': '#4a9cf0', '--teal': '#2b66c9', '--teal-dark': '#15428b', '--bar-fg': '#ffffff' },      // Windows XP "Luna" blue
+  win7: { '--teal-light': '#9fc7ec', '--teal': '#6d9fd0', '--teal-dark': '#3f6f9f', '--bar-fg': '#0f2236' },       // Windows 7 Aero glass
+  metro: { '--teal-light': '#2d89ef', '--teal': '#0063b1', '--teal-dark': '#004e8c', '--bar-fg': '#ffffff' },      // Windows 8 Metro azure
+  aqua: { '--teal-light': '#6fb3ff', '--teal': '#2a7fe0', '--teal-dark': '#1a5cb0', '--bar-fg': '#ffffff' },       // Mac OS X Aqua blue
+  next: { '--teal-light': '#b8b8b8', '--teal': '#8a8a8a', '--teal-dark': '#2b2b2b', '--bar-fg': '#141414' },       // NeXTSTEP grayscale
+  beos: { '--teal-light': '#ffe14d', '--teal': '#f4c20d', '--teal-dark': '#8a6d00', '--bar-fg': '#241c00' },       // BeOS yellow tab
+  ubuntu: { '--teal-light': '#7a3a68', '--teal': '#5e2750', '--teal-dark': '#3a1733', '--bar-fg': '#fde7d6' },     // Ubuntu aubergine
 };
 const THEME_LABELS = [
   ['teal', L('Teal（既定）')], ['graphite', L('Graphite（ダーク）')], ['ocean', 'Ocean'],
   ['forest', 'Forest'], ['plum', 'Plum'], ['sunset', 'Sunset'], ['rose', 'Rose'],
-  ['light', 'Light'], ['classicmac', 'Classic Mac'],
+  ['light', 'Light'],
+  ['classicmac', L('— OSオマージュ —')],
+  ['win95', 'Windows 95/98'], ['winxp', 'Windows XP'], ['win7', 'Windows 7 (Aero)'], ['metro', 'Windows 8 (Metro)'],
+  ['classicmac', 'Classic Mac OS'], ['aqua', 'Mac OS X (Aqua)'], ['next', 'NeXTSTEP'], ['beos', 'BeOS'], ['ubuntu', 'Ubuntu'],
 ];
 function applyTheme(key) {
   const t = THEMES[key] || THEMES.teal;
