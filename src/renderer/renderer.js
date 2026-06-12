@@ -222,10 +222,13 @@ function pushHit() {
   if (!barShouldShow()) return window.overlay.setHit('none', []);
   if (dragging) return window.overlay.setHit('all', []);
   if (demoStage) return window.overlay.setHit('all', []);
+  // Capture ONLY the visible rectangles (the bar + any open drawer/popover), not
+  // the whole window. Windows clamps a frameless window to a ~56px minimum, so the
+  // transparent strip just BELOW the 44px bar would otherwise swallow clicks meant
+  // for a maximized app underneath (e.g. the top of Chrome's tabs).
+  const r = (el) => { const b = el.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; };
   const interactive = [bar, ...Object.keys(open).map((id) => open[id].el)];
   if (searchEl) interactive.push(searchEl);
-  if (interactive.length === 1) return window.overlay.setHit('all', []); // bar only
-  const r = (el) => { const b = el.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; };
   window.overlay.setHit('rects', interactive.map(r));
 }
 
