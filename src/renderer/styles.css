@@ -120,10 +120,11 @@ html, body {
   white-space: nowrap;
   transition: background 0.12s ease;
 }
-.ss-btn:hover { background: rgba(255, 255, 255, 0.18); }
+.ss-btn:hover { background: var(--btn-hover, rgba(255, 255, 255, 0.18)); }
+.ss-btn:active { background: var(--btn-press, var(--btn-hover, rgba(255, 255, 255, 0.30))); }
 .ss-btn.active {
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--btn-active-bg, var(--paper));
+  color: var(--btn-active-fg, var(--ink));
   box-shadow: inset 0 -2px 0 var(--teal-dark);
 }
 .ss-btn .ss-ico { font-size: 15px; }
@@ -180,8 +181,8 @@ html, body {
   align-items: center;
   height: 30px;
   padding: 0 6px 0 10px;
-  background: linear-gradient(var(--teal-light), var(--teal));
-  color: var(--bar-fg);
+  background: var(--head-bg, linear-gradient(var(--teal-light), var(--teal)));
+  color: var(--head-fg, var(--bar-fg));
   font-size: 12px;
   font-weight: 700;
 }
@@ -380,7 +381,7 @@ html, body {
 }
 
 /* left-end logo/menu button */
-.ss-btn.ss-menu { padding: 0 10px; }
+.ss-btn.ss-menu { padding: 0 10px; background: var(--menu-bg, transparent); color: var(--menu-fg, var(--bar-fg)); }
 .ss-btn.ss-menu svg { display: block; }
 
 /* --- Menu (settings / help) ------------------------------------------------ */
@@ -592,3 +593,10 @@ html, body {
 .ss-clocklabel { font-variant-numeric: tabular-nums; font-weight: 700; }
 
 .ss-richhtml { width: 100%; height: 100%; border: 0; background: #fff; }
+
+
+/* Right-end cluster (search / clip / hide) — themeable like a system tray */
+.ss-right { display: flex; align-items: stretch; margin-left: auto; background: var(--right-bg, transparent); }
+.ss-right .ss-btn { color: var(--right-fg, var(--bar-fg)); }
+.ss-right .ss-btn:hover { background: var(--right-hover, var(--btn-hover, rgba(255, 255, 255, 0.18))); }
+.ss-right .ss-btn:active { background: var(--right-hover, rgba(255, 255, 255, 0.30)); }

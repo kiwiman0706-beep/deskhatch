@@ -161,13 +161,13 @@ const THEMES = {
   classicmac: { '--teal-light': '#fbfbfb', '--teal': '#e9e9ec', '--teal-dark': '#000000', '--bar-fg': '#0a0a0a' },
   // --- Historic-OS homage (title-bar inspired) ---
   win95: { '--teal-light': '#1084d0', '--teal': '#0a246a', '--teal-dark': '#000000', '--bar-fg': '#ffffff' },      // Windows 95/98 navy title bar
-  winxp: { '--teal-light': '#4a9cf0', '--teal': '#2b66c9', '--teal-dark': '#15428b', '--bar-fg': '#ffffff' },      // Windows XP "Luna" blue
+  winxp: { '--teal-light': '#3f8ef0', '--teal': '#245edb', '--teal-dark': '#15428b', '--bar-fg': '#ffffff', '--menu-bg': 'linear-gradient(#7bbf4a,#4e9a30)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(255,255,255,0.28)', '--btn-active-bg': '#3a78d6', '--btn-active-fg': '#ffffff', '--head-bg': 'linear-gradient(#3f8ef0,#245edb)', '--head-fg': '#ffffff', '--right-bg': 'linear-gradient(#2aa0e4,#0e86d4)', '--right-fg': '#ffffff', '--right-hover': 'rgba(255,255,255,0.30)' },      // Windows XP "Luna" blue
   win7: { '--teal-light': '#9fc7ec', '--teal': '#6d9fd0', '--teal-dark': '#3f6f9f', '--bar-fg': '#0f2236' },       // Windows 7 Aero glass
   metro: { '--teal-light': '#2d89ef', '--teal': '#0063b1', '--teal-dark': '#004e8c', '--bar-fg': '#ffffff' },      // Windows 8 Metro azure
   aqua: { '--teal-light': '#6fb3ff', '--teal': '#2a7fe0', '--teal-dark': '#1a5cb0', '--bar-fg': '#ffffff' },       // Mac OS X Aqua blue
   next: { '--teal-light': '#b8b8b8', '--teal': '#8a8a8a', '--teal-dark': '#2b2b2b', '--bar-fg': '#141414' },       // NeXTSTEP grayscale
-  beos: { '--teal-light': '#ffe14d', '--teal': '#f4c20d', '--teal-dark': '#8a6d00', '--bar-fg': '#241c00' },       // BeOS yellow tab
-  ubuntu: { '--teal-light': '#7a3a68', '--teal': '#5e2750', '--teal-dark': '#3a1733', '--bar-fg': '#fde7d6' },     // Ubuntu aubergine
+  beos: { '--teal-light': '#ffe14d', '--teal': '#f4c20d', '--teal-dark': '#8a6d00', '--bar-fg': '#241c00', '--right-bg': '#cfcfcf', '--right-fg': '#222222', '--head-bg': 'linear-gradient(#ffe14d,#f4c20d)', '--head-fg': '#241c00' },       // BeOS yellow tab
+  ubuntu: { '--teal-light': '#7a3a68', '--teal': '#5e2750', '--teal-dark': '#3a1733', '--bar-fg': '#fde7d6', '--menu-bg': 'linear-gradient(#f0824a,#dd4814)', '--menu-fg': '#ffffff', '--btn-active-bg': '#dd4814', '--btn-active-fg': '#ffffff', '--right-bg': '#4a1f40' },     // Ubuntu aubergine
 };
 const THEME_LABELS = [
   ['teal', L('Teal（既定）')], ['graphite', L('Graphite（ダーク）')], ['ocean', 'Ocean'],
@@ -177,8 +177,10 @@ const THEME_LABELS = [
   ['win95', 'Windows 95/98'], ['winxp', 'Windows XP'], ['win7', 'Windows 7 (Aero)'], ['metro', 'Windows 8 (Metro)'],
   ['classicmac', 'Classic Mac OS'], ['aqua', 'Mac OS X (Aqua)'], ['next', 'NeXTSTEP'], ['beos', 'BeOS'], ['ubuntu', 'Ubuntu'],
 ];
+const THEME_VARS = [...new Set([].concat.apply([], Object.values(THEMES).map(Object.keys)))];
 function applyTheme(key) {
   const t = THEMES[key] || THEMES.teal;
+  for (const v of THEME_VARS) document.documentElement.style.removeProperty(v);
   for (const k in t) document.documentElement.style.setProperty(k, t[k]);
 }
 
@@ -2920,11 +2922,12 @@ function renderBar() {
   bar.appendChild(navR);
 
   // right-end 🔍 search box (opens the system browser)
+  const right = el('div', 'ss-right');
   const searchBtn = el('button', 'ss-btn ss-search-btn');
   searchBtn.title = L('検索 / URL（標準ブラウザで開く）');
   searchBtn.append(el('span', 'ss-ico', '🔍'));
   searchBtn.addEventListener('click', () => openSearch(searchBtn));
-  bar.appendChild(searchBtn);
+  right.appendChild(searchBtn);
 
   // "other monitors' drawers" — small icon-only button, shown only when relevant
   const othersBtn = el('button', 'ss-btn ss-others-btn');
@@ -2932,7 +2935,7 @@ function renderBar() {
   othersBtn.append(el('span', 'ss-ico', OTHERS_TAB.icon));
   othersBtn.style.display = 'none';
   othersBtn.addEventListener('click', () => openTab(OTHERS_TAB, othersBtn));
-  bar.appendChild(othersBtn);
+  right.appendChild(othersBtn);
   window.overlay.getDisplays().then((list) => {
     const connIds = (list || []).map((d) => String(d.id));
     const hasOther = connIds.some((id) => id !== MY_DISPLAY) || otherProfileIds(connIds).length > 0;
@@ -2944,7 +2947,7 @@ function renderBar() {
   clipBtn.title = L('クリップ（一時置き）— ここにドロップ');
   clipBtn.append(el('span', 'ss-ico', CLIP_TAB.icon));
   clipBtn.addEventListener('click', () => openTab(CLIP_TAB, clipBtn));
-  bar.appendChild(clipBtn);
+  right.appendChild(clipBtn);
 
   // temporary hide button — stays fixed at the right
   const hideBtn = el('button', 'ss-btn ss-hide', '▲');
@@ -2955,7 +2958,8 @@ function renderBar() {
     if (tempHidden) { hovering = false; clearTimeout(hideTimer); } // hide right away
     reflowHeight();
   };
-  bar.appendChild(hideBtn);
+  right.appendChild(hideBtn);
+  bar.appendChild(right);
 
   // Re-link any open drawers to their freshly-created buttons.
   for (const id in open) {
