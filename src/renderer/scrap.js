@@ -17,6 +17,7 @@
   $('newBox').placeholder = L('新しい箱', 'New box');
   $('addNote').textContent = L('＋メモ', '+ Note');
   $('chgRoot').textContent = L('保存先を変更', 'Change folder');
+  $('search').placeholder = L('🔍 すべて検索', '🔍 Search all');
   $('dropHint').textContent = L('ここにドロップして取り込み', 'Drop here to clip');
 
   function rootLabel() { return '📒 ' + (root.split(/[\\/]/).filter(Boolean).pop() || root || '?'); }
@@ -80,6 +81,40 @@
   $('addBox').onclick = async function () { var v = $('newBox').value.trim(); if (!v || !root) return; var p = join(root, sanit(v)); await F.mkdir(p); $('newBox').value = ''; await loadBoxes(); selectBox(p, sanit(v)); };
   $('newBox').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('addBox').click(); });
   $('chgRoot').onclick = pickRoot;
+  var searchTimer = null;
+  $('search').addEventListener('input', function () {
+    var v = this.value.trim();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function () { if (v) searchAll(v); else { $('boxName').textContent = '📁 ' + curBoxName; loadNotes(); } }, 250);
+  });
+  async function searchAll(q) {
+    q = q.toLowerCase();
+    $('boxName').textContent = L('検索結果', 'Search results');
+    var list = $('noteList'); list.innerHTML = '';
+    if (!root) return;
+    var res = await F.list(root);
+    var dirs = ((res && res.entries) || []).filter(function (e) { return e.isDir; });
+    var hits = 0;
+    for (var di = 0; di < dirs.length; di++) {
+      var fr = await F.list(dirs[di].path);
+      var files = ((fr && fr.entries) || []).filter(function (e) { return e.isFile && /\.(md|txt|html?)$/i.test(e.name); });
+      for (var fi = 0; fi < files.length; fi++) {
+        var f = files[fi];
+        var inName = f.name.toLowerCase().indexOf(q) >= 0;
+        var t = await F.readText(f.path); if (typeof t !== 'string') t = '';
+        var plain = /\.html?$/i.test(f.name) ? t.replace(/<[^>]+>/g, ' ') : t;
+        if (!inName && plain.toLowerCase().indexOf(q) < 0) continue;
+        hits++;
+        var isHtml = /\.html?$/i.test(f.name);
+        var row = document.createElement('div'); row.className = 'row';
+        row.innerHTML = '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (isHtml ? '🌐 ' : '📝 ') + f.name.replace(/\.(md|txt|html?)$/i, '') + '</div><div style="font-size:11px;color:#9ab">📁 ' + dirs[di].name + '</div>';
+        (function (p, n, bp, bn) { row.onclick = function () { curBox = bp; curBoxName = bn; openNote(p, n); }; })(f.path, f.name, dirs[di].path, dirs[di].name);
+        list.appendChild(row);
+        if (hits >= 200) { di = dirs.length; break; }
+      }
+    }
+    if (!hits) { var m = document.createElement('div'); m.className = 'empty'; m.textContent = L('該当なし', 'No matches'); list.appendChild(m); }
+  }
 
   // --- rich capture on drop --------------------------------------------------
   function isRich(html) { return !!html && /<(img|table|h[1-6]|ul|ol|blockquote|p|figure|pre|video)\b/i.test(html); }
