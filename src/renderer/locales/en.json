@@ -289,5 +289,8 @@
   "名前を付けて現在を保存": "Name & save current",
   "ワークスペースを保存しました": "Workspace saved",
   "ワークスペースを切り替えました": "Switched workspace",
-  "ホットキー（このドロワーを開く）": "Hotkey (open this drawer)"
+  "ホットキー（このドロワーを開く）": "Hotkey (open this drawer)",
+  "スクリーンショット": "Screenshot",
+  "範囲キャプチャ": "Region capture",
+  "📷 範囲": "📷 Region"
 }

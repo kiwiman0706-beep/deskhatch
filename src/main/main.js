@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, globalShortcut, clipboard } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, globalShortcut, clipboard, desktopCapturer } = require('electron');
 const path = require('path');
 const appbar = require('./appbar');
 const files = require('./files');
@@ -254,7 +254,7 @@ function captureClipboard() {
   } catch (_) {}
 }
 function revealBars() { for (const e of bars.values()) if (e.win && !e.win.isDestroyed()) e.win.show(); sendToBar('hotkey:reveal'); }
-const HK_ACTIONS = { capture: captureClipboard, reveal: revealBars, clip: () => sendToBar('hotkey:clip'), scrap: () => sendToBar('hotkey:scrap') };
+const HK_ACTIONS = { capture: captureClipboard, reveal: revealBars, clip: () => sendToBar('hotkey:clip'), scrap: () => sendToBar('hotkey:scrap'), shot: () => startShot() };
 function registerHotkeys(cfg) {
   try { globalShortcut.unregisterAll(); } catch (_) {}
   cfg = cfg || {};
@@ -274,6 +274,34 @@ function registerHotkeys(cfg) {
 }
 ipcMain.handle('hotkeys:set', (_e, cfg) => registerHotkeys(cfg));
 app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch (_) {} });
+
+// --- Region screenshot -> image clip ----------------------------------------
+let shotWin = null;
+function startShot() {
+  (async () => {
+    try {
+      const disp = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+      const sf = disp.scaleFactor || 1;
+      const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: Math.round(disp.size.width * sf), height: Math.round(disp.size.height * sf) } });
+      const src = sources.find((s) => String(s.display_id) === String(disp.id)) || sources[0];
+      if (!src) return;
+      const dataUrl = src.thumbnail.toDataURL();
+      if (shotWin && !shotWin.isDestroyed()) shotWin.close();
+      shotWin = new BrowserWindow({
+        x: disp.bounds.x, y: disp.bounds.y, width: disp.bounds.width, height: disp.bounds.height,
+        frame: false, transparent: false, resizable: false, movable: false, minimizable: false,
+        maximizable: false, fullscreenable: false, skipTaskbar: true, hasShadow: false, alwaysOnTop: true,
+        webPreferences: { preload: path.join(__dirname, '..', 'preload', 'preload.js'), contextIsolation: true, nodeIntegration: false },
+      });
+      shotWin.setAlwaysOnTop(true, 'screen-saver');
+      shotWin.loadFile(path.join(__dirname, '..', 'renderer', 'shot.html'));
+      shotWin.webContents.once('did-finish-load', () => { try { shotWin.webContents.send('shot:image', dataUrl); } catch (_) {} });
+    } catch (e) { try { console.warn('[shot] ' + e.message); } catch (_) {} }
+  })();
+}
+ipcMain.on('screenshot:start', startShot);
+ipcMain.on('screenshot:done', (_e, dataUrl) => { if (shotWin && !shotWin.isDestroyed()) shotWin.close(); shotWin = null; if (dataUrl) sendToBar('clip:add-image', dataUrl); });
+ipcMain.on('screenshot:cancel', () => { if (shotWin && !shotWin.isDestroyed()) shotWin.close(); shotWin = null; });
 
 function anyWin() {
   const f = BrowserWindow.getFocusedWindow();

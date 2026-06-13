@@ -33,6 +33,11 @@ contextBridge.exposeInMainWorld('overlay', {
   onHotkeyClip: (cb) => ipcRenderer.on('hotkey:clip', () => cb()),
   onHotkeyScrap: (cb) => ipcRenderer.on('hotkey:scrap', () => cb()),
   onHotkeyTab: (cb) => ipcRenderer.on('hotkey:tab', (_e, id) => cb(id)),
+  startShot: () => ipcRenderer.send('screenshot:start'),
+  onShotImage: (cb) => ipcRenderer.on('shot:image', (_e, url) => cb(url)),
+  shotDone: (url) => ipcRenderer.send('screenshot:done', url),
+  shotCancel: () => ipcRenderer.send('screenshot:cancel'),
+  onAddImage: (cb) => ipcRenderer.on('clip:add-image', (_e, url) => cb(url)),
   version: () => ipcRenderer.invoke('app:version'),
   checkUpdates: () => ipcRenderer.send('app:check-updates'),
 

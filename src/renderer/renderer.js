@@ -99,7 +99,7 @@ const Store = {
   setDropMenu(v) { if (v) localStorage.removeItem('ss.dropMenu'); else localStorage.setItem('ss.dropMenu', '0'); },
   getScrapFormat() { return localStorage.getItem('ss.scrap.fmt') === 'md' ? 'md' : 'html'; },
   setScrapFormat(v) { localStorage.setItem('ss.scrap.fmt', v === 'md' ? 'md' : 'html'); },
-  getHotkeys() { const def = { capture: 'CommandOrControl+Alt+C', clip: '', reveal: '', scrap: '' }; try { const h = JSON.parse(localStorage.getItem('ss.hotkeys')); if (h && typeof h === 'object') return Object.assign(def, h); } catch (_) {} return def; },
+  getHotkeys() { const def = { capture: 'CommandOrControl+Alt+C', clip: '', reveal: '', scrap: '', shot: 'CommandOrControl+Alt+S' }; try { const h = JSON.parse(localStorage.getItem('ss.hotkeys')); if (h && typeof h === 'object') return Object.assign(def, h); } catch (_) {} return def; },
   setHotkeys(h) { localStorage.setItem('ss.hotkeys', JSON.stringify(h || {})); },
   getScrapRoot() { return localStorage.getItem('ss.scrap.root') || ''; },
   setScrapRoot(p) { if (p) localStorage.setItem('ss.scrap.root', p); else localStorage.removeItem('ss.scrap.root'); },
@@ -1371,7 +1371,8 @@ function buildClipBox() {
   addFileBtn.onclick = async () => { await addFilePaths(await window.files.pickFiles()); };
   const addFolderBtn = el('button', 'ss-set-btn', L('＋ フォルダ'));
   addFolderBtn.onclick = async () => { const d = await window.files.pickFolder(); if (d) await addFilePaths([d]); };
-  head.append(el('span', 'ss-clip-hint', L('＋で追加（D&D可：Win/常に表示）')), addFileBtn, addFolderBtn, clear);
+  const shotBtn = el('button', 'ss-set-btn', L('📷 範囲')); shotBtn.onclick = () => { if (window.overlay.startShot) window.overlay.startShot(); };
+  head.append(el('span', 'ss-clip-hint', L('＋で追加（D&D可：Win/常に表示）')), addFileBtn, addFolderBtn, shotBtn, clear);
   box.append(head, list);
   const stop = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
   ['dragenter', 'dragover'].forEach((ev) => box.addEventListener(ev, (e) => { stop(e); box.classList.add('over'); }));
@@ -2177,7 +2178,7 @@ function buildDisplaySettings() {
   root.append(el('div', 'ss-disp-note', L('グローバルホットキー（例: Ctrl+Shift+C／空で無効）')));
   const hk = Store.getHotkeys();
   const hkInputs = {};
-  [['capture', L('取り込み（クリップボード）')], ['clip', L('クリップを開く')], ['reveal', L('バーを表示')], ['scrap', L('スクラップブックを開く')]].forEach((row) => {
+  [['capture', L('取り込み（クリップボード）')], ['shot', L('範囲キャプチャ')], ['clip', L('クリップを開く')], ['reveal', L('バーを表示')], ['scrap', L('スクラップブックを開く')]].forEach((row) => {
     const w = el('label', 'ss-set-check');
     const i = el('input', 'ss-set-input'); i.value = hk[row[0]] || ''; i.placeholder = 'Ctrl+Shift+…'; i.style.cssText = 'flex:1;min-width:0;margin-left:10px';
     hkInputs[row[0]] = i;
@@ -3105,6 +3106,7 @@ if (window.overlay.onHotkeyReveal) window.overlay.onHotkeyReveal(() => revealBar
 if (window.overlay.onHotkeyClip) window.overlay.onHotkeyClip(() => { revealBar(); openTab(CLIP_TAB, bar.querySelector('.ss-clip-btn') || bar); });
 if (window.overlay.onHotkeyScrap) window.overlay.onHotkeyScrap(async () => { const r = await ensureScrapRoot(); if (r && window.overlay.openScrap) window.overlay.openScrap(r); });
 if (window.overlay.onHotkeyTab) window.overlay.onHotkeyTab((id) => { const t = (tabs || []).find((x) => x.id === id); if (t) { revealBar(); openTab(t, bar.querySelector('.ss-btn[data-id="' + id + '"]') || bar); } });
+if (window.overlay.onAddImage) window.overlay.onAddImage((url) => { if (!url) return; const id = addClip({ kind: 'html', html: '<img src="' + url + '">', label: L('スクリーンショット') }); refreshClipUI(); revealBar(); toast(L('クリップに追加しました') + ' (1)'); offerBoxMenu([id]); });
 pushHotkeys();
 
 // Surface why the top-edge reservation didn't take, if it was requested.
