@@ -171,7 +171,8 @@ const THEMES = {
   next: { '--teal-light': '#b8b8b8', '--teal': '#8a8a8a', '--teal-dark': '#2b2b2b', '--bar-fg': '#141414' },       // NeXTSTEP grayscale
   beos: { '--teal-light': '#ffe14d', '--teal': '#f4c20d', '--teal-dark': '#8a6d00', '--bar-fg': '#241c00', '--right-bg': '#cfcfcf', '--right-fg': '#222222', '--head-bg': 'linear-gradient(#ffe14d,#f4c20d)', '--head-fg': '#241c00' },       // BeOS yellow tab
   ubuntu: { '--teal-light': '#7a3a68', '--teal': '#5e2750', '--teal-dark': '#3a1733', '--bar-fg': '#fde7d6', '--menu-bg': 'linear-gradient(#f0824a,#dd4814)', '--menu-fg': '#ffffff', '--btn-active-bg': '#dd4814', '--btn-active-fg': '#ffffff', '--right-bg': '#4a1f40' },
-  vaio: { '--teal-light': '#d8dce1', '--teal': '#b7bec6', '--teal-dark': '#7b838c', '--bar-fg': '#1b2330', '--menu-bg': 'linear-gradient(#7a52c0,#4e2f8e)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(91,58,142,0.14)', '--btn-press': 'rgba(91,58,142,0.26)', '--btn-active-bg': '#5b3a8e', '--btn-active-fg': '#ffffff', '--head-bg': 'linear-gradient(#6e4aa6,#4a2c84)', '--head-fg': '#ffffff', '--right-bg': '#c4ccd2', '--right-fg': '#1b2330', '--right-hover': 'rgba(91,58,142,0.14)' }, // Sony VAIO 505 (magnesium silver + VAIO violet)     // Ubuntu aubergine
+  vaio: { '--teal-light': '#d8dce1', '--teal': '#b7bec6', '--teal-dark': '#7b838c', '--bar-fg': '#1b2330', '--menu-bg': 'linear-gradient(#7a52c0,#4e2f8e)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(91,58,142,0.14)', '--btn-press': 'rgba(91,58,142,0.26)', '--btn-active-bg': '#5b3a8e', '--btn-active-fg': '#ffffff', '--head-bg': 'linear-gradient(#6e4aa6,#4a2c84)', '--head-fg': '#ffffff', '--right-bg': '#c4ccd2', '--right-fg': '#1b2330', '--right-hover': 'rgba(91,58,142,0.14)' },
+  imac: { '--teal-light': '#2bb3d6', '--teal': '#0095b6', '--teal-dark': '#00697f', '--bar-fg': '#ffffff', '--menu-bg': 'rgba(255,255,255,0.18)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(255,255,255,0.22)', '--btn-press': 'rgba(255,255,255,0.34)', '--btn-active-bg': '#eafaff', '--btn-active-fg': '#00566a', '--head-bg': 'linear-gradient(#eafaff,#c7ebf4)', '--head-fg': '#00566a', '--right-bg': 'linear-gradient(#dff3f9,#bfe6f0)', '--right-fg': '#00566a', '--right-hover': 'rgba(0,86,106,0.12)' }, // iMac G3 Bondi Blue + icy translucent // Sony VAIO 505 (magnesium silver + VAIO violet)     // Ubuntu aubergine
 };
 const THEME_LABELS = [
   ['teal', L('Teal（既定）')], ['graphite', L('Graphite（ダーク）')], ['ocean', 'Ocean'],
@@ -179,7 +180,7 @@ const THEME_LABELS = [
   ['light', 'Light'],
   ['_osdiv', '— OS —'],
   ['win95', 'Windows 95/98'], ['winxp', 'Windows XP'], ['vista', 'Windows Vista'], ['win7', 'Windows 7 (Aero)'], ['metro', 'Windows 8 (Metro)'],
-  ['classicmac', 'Classic Mac OS'], ['macos9', 'Mac OS 9 (Platinum)'], ['tiger', 'Mac OS X Tiger'], ['aqua', 'Mac OS X (Aqua)'], ['next', 'NeXTSTEP'], ['beos', 'BeOS'], ['ubuntu', 'Ubuntu'], ['vaio', 'Sony VAIO (505)'],
+  ['classicmac', 'Classic Mac OS'], ['macos9', 'Mac OS 9 (Platinum)'], ['tiger', 'Mac OS X Tiger'], ['aqua', 'Mac OS X (Aqua)'], ['next', 'NeXTSTEP'], ['beos', 'BeOS'], ['ubuntu', 'Ubuntu'], ['vaio', 'Sony VAIO (505)'], ['imac', 'iMac G3 (Bondi Blue)'],
 ];
 const THEME_VARS = [...new Set([].concat.apply([], Object.values(THEMES).map(Object.keys)))];
 function applyTheme(key) {
