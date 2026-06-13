@@ -67,6 +67,9 @@ const Store = {
   },
   saveTabs(t) { localStorage.setItem(TABS_KEY, JSON.stringify(t)); },
   clearTabs() { localStorage.removeItem(TABS_KEY); },
+  getWorkspaces() { try { const w = JSON.parse(localStorage.getItem('ss.workspaces')); return (w && typeof w === 'object') ? w : {}; } catch (_) { return {}; } },
+  saveWorkspace(name, t) { const w = this.getWorkspaces(); w[name] = t; localStorage.setItem('ss.workspaces', JSON.stringify(w)); },
+  deleteWorkspace(name) { const w = this.getWorkspaces(); delete w[name]; localStorage.setItem('ss.workspaces', JSON.stringify(w)); },
   getSize(id) {
     try { return JSON.parse(localStorage.getItem('ss.size.' + id)) || null; } catch (_) { return null; }
   },
@@ -2190,6 +2193,21 @@ function buildDisplaySettings() {
   };
   root.append(hkApply);
 
+  // Workspaces — saved sets of bar items
+  root.append(el('div', 'ss-disp-note', L('ワークスペース（バー構成を保存して切替）')));
+  const wsRow = el('label', 'ss-set-check');
+  const wsSel = el('select', 'ss-set-type'); wsSel.style.cssText = 'flex:1;min-width:0';
+  const fillWs = () => { wsSel.innerHTML = ''; const ws = Store.getWorkspaces(); const names = Object.keys(ws); if (!names.length) { wsSel.appendChild(el('option', null, L('（保存なし）'))); } names.forEach((n) => { const o = el('option', null, n); o.value = n; wsSel.appendChild(o); }); };
+  fillWs();
+  const wsApply = el('button', 'ss-set-btn', L('切替')); wsApply.onclick = () => { if (wsSel.value) applyWorkspace(wsSel.value); };
+  const wsDel = el('button', 'ss-set-btn', L('削除')); wsDel.onclick = () => { if (wsSel.value) { Store.deleteWorkspace(wsSel.value); fillWs(); } };
+  wsRow.append(wsSel, wsApply, wsDel); root.append(wsRow);
+  const wsSaveRow = el('label', 'ss-set-check');
+  const wsName = el('input', 'ss-set-input'); wsName.placeholder = L('名前を付けて現在を保存'); wsName.style.cssText = 'flex:1;min-width:0';
+  const wsSave = el('button', 'ss-set-btn', L('保存'));
+  wsSave.onclick = () => { const n = wsName.value.trim(); if (!n) return; Store.saveWorkspace(n, JSON.parse(JSON.stringify(tabs))); wsName.value = ''; fillWs(); wsSel.value = n; toast(L('ワークスペースを保存しました')); };
+  wsSaveRow.append(wsName, wsSave); root.append(wsSaveRow);
+
   // Launch at login
   const startWrap = el('label', 'ss-set-check');
   const startup = document.createElement('input');
@@ -2681,6 +2699,15 @@ let dragMergeTarget = null; // button id when hovering a button's center (merge)
 let barNavUpdate = null;    // refresh the ‹ › overflow buttons
 
 function commitTabs(arr) { Store.saveTabs(arr); tabs = arr; renderBar(); }
+function applyWorkspace(name) {
+  const w = Store.getWorkspaces()[name];
+  if (!w) return;
+  closeAll();
+  Store.saveTabs(w);
+  tabs = loadTabs();
+  renderBar();
+  toast(L('ワークスペースを切り替えました') + '：' + name);
+}
 
 // Merge two bar items into a tabbed drawer (drop one button onto another).
 function tabToPane(t) {

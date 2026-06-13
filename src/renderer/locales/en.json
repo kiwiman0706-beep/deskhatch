@@ -282,5 +282,11 @@
   "登録できないキーがあります: ": "Some keys could not be registered: ",
   "クリップを保存できませんでした（容量超過）。大きな項目を削除してください": "Couldn't save clips (storage full). Remove large items",
   "内容が大きすぎて取り込めませんでした": "Content too large to capture",
-  "画像が大きいためテキストのみ取り込みました": "Image too large — captured text only"
+  "画像が大きいためテキストのみ取り込みました": "Image too large — captured text only",
+  "ワークスペース（バー構成を保存して切替）": "Workspaces (save & switch bar layouts)",
+  "（保存なし）": "(none saved)",
+  "切替": "Switch",
+  "名前を付けて現在を保存": "Name & save current",
+  "ワークスペースを保存しました": "Workspace saved",
+  "ワークスペースを切り替えました": "Switched workspace"
 }
