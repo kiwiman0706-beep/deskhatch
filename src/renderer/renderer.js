@@ -2187,7 +2187,7 @@ function buildDisplaySettings() {
   hkApply.onclick = async () => {
     const cfg = {}; Object.keys(hkInputs).forEach((k) => { cfg[k] = hkInputs[k].value.trim(); });
     Store.setHotkeys(cfg);
-    const res = (window.overlay.setHotkeys ? await window.overlay.setHotkeys(cfg) : {}) || {};
+    const res = (window.overlay.setHotkeys ? await window.overlay.setHotkeys(Object.assign({}, cfg, { tabs: tabHotkeys() })) : {}) || {};
     const bad = Object.keys(cfg).filter((k) => cfg[k] && res[k] === false);
     toast(bad.length ? (L('登録できないキーがあります: ') + bad.join(', ')) : L('ホットキーを適用しました'));
   };
@@ -2294,6 +2294,11 @@ function buildTabEditor(target) {
   const t = JSON.parse(JSON.stringify(target));
   const wrap = el('div', 'ss-editbox');
   wrap.append(buildTabFields(t));
+  const hkWrap = el('label', 'ss-set-check');
+  const hkIn = el('input', 'ss-set-input'); hkIn.value = t.hotkey || ''; hkIn.placeholder = 'Ctrl+Alt+1'; hkIn.style.cssText = 'flex:1;min-width:0;margin-left:8px';
+  hkIn.oninput = () => { t.hotkey = hkIn.value.trim(); };
+  hkWrap.append(document.createTextNode(L('ホットキー（このドロワーを開く）')), hkIn);
+  wrap.append(hkWrap);
   const actions = el('div', 'ss-set-actions');
   const save = el('button', 'ss-set-btn ss-set-save', L('保存'));
   save.onclick = () => {
@@ -2698,7 +2703,9 @@ function buildMenuPanel() {
 let dragMergeTarget = null; // button id when hovering a button's center (merge)
 let barNavUpdate = null;    // refresh the ‹ › overflow buttons
 
-function commitTabs(arr) { Store.saveTabs(arr); tabs = arr; renderBar(); }
+function commitTabs(arr) { Store.saveTabs(arr); tabs = arr; renderBar(); pushHotkeys(); }
+function tabHotkeys() { const m = {}; (tabs || []).forEach((t) => { if (t && t.hotkey) m[t.id] = t.hotkey; }); return m; }
+function pushHotkeys() { if (window.overlay.setHotkeys) window.overlay.setHotkeys(Object.assign({}, Store.getHotkeys(), { tabs: tabHotkeys() })); }
 function applyWorkspace(name) {
   const w = Store.getWorkspaces()[name];
   if (!w) return;
@@ -2706,6 +2713,7 @@ function applyWorkspace(name) {
   Store.saveTabs(w);
   tabs = loadTabs();
   renderBar();
+  pushHotkeys();
   toast(L('ワークスペースを切り替えました') + '：' + name);
 }
 
@@ -3096,7 +3104,8 @@ if (window.overlay.onHotkeyCapture) window.overlay.onHotkeyCapture((p) => {
 if (window.overlay.onHotkeyReveal) window.overlay.onHotkeyReveal(() => revealBar());
 if (window.overlay.onHotkeyClip) window.overlay.onHotkeyClip(() => { revealBar(); openTab(CLIP_TAB, bar.querySelector('.ss-clip-btn') || bar); });
 if (window.overlay.onHotkeyScrap) window.overlay.onHotkeyScrap(async () => { const r = await ensureScrapRoot(); if (r && window.overlay.openScrap) window.overlay.openScrap(r); });
-if (window.overlay.setHotkeys) window.overlay.setHotkeys(Store.getHotkeys());
+if (window.overlay.onHotkeyTab) window.overlay.onHotkeyTab((id) => { const t = (tabs || []).find((x) => x.id === id); if (t) { revealBar(); openTab(t, bar.querySelector('.ss-btn[data-id="' + id + '"]') || bar); } });
+pushHotkeys();
 
 // Surface why the top-edge reservation didn't take, if it was requested.
 window.overlay.onReserveStatus((status, requested) => {

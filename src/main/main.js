@@ -264,6 +264,12 @@ function registerHotkeys(cfg) {
     if (!accel) { res[act] = null; continue; }
     try { res[act] = globalShortcut.register(accel, HK_ACTIONS[act]); } catch (_) { res[act] = false; }
   }
+  const tabHk = cfg.tabs || {};
+  for (const id of Object.keys(tabHk)) {
+    const accel = String(tabHk[id] || '').trim();
+    if (!accel) continue;
+    try { res['tab:' + id] = globalShortcut.register(accel, () => sendToBar('hotkey:tab', id)); } catch (_) { res['tab:' + id] = false; }
+  }
   return res;
 }
 ipcMain.handle('hotkeys:set', (_e, cfg) => registerHotkeys(cfg));

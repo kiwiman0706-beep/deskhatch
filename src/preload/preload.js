@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('overlay', {
   onHotkeyReveal: (cb) => ipcRenderer.on('hotkey:reveal', () => cb()),
   onHotkeyClip: (cb) => ipcRenderer.on('hotkey:clip', () => cb()),
   onHotkeyScrap: (cb) => ipcRenderer.on('hotkey:scrap', () => cb()),
+  onHotkeyTab: (cb) => ipcRenderer.on('hotkey:tab', (_e, id) => cb(id)),
   version: () => ipcRenderer.invoke('app:version'),
   checkUpdates: () => ipcRenderer.send('app:check-updates'),
 
