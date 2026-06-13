@@ -30,7 +30,7 @@ html, body {
   align-items: stretch;
   gap: 2px;
   padding: 0 6px;
-  background: linear-gradient(var(--teal-light), var(--teal));
+  background: var(--bar-overlay, none), linear-gradient(var(--teal-light), var(--teal));
   border-bottom: 2px solid var(--teal-dark);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   transition: transform 0.15s ease;
