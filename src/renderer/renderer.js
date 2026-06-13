@@ -170,7 +170,8 @@ const THEMES = {
   tiger: { '--teal-light': '#ececec', '--teal': '#bdbdbd', '--teal-dark': '#6f6f6f', '--bar-fg': '#1a1a1a', '--menu-bg': 'transparent', '--menu-fg': '#1a1a1a', '--btn-hover': 'rgba(0,0,0,0.08)', '--btn-press': 'rgba(0,0,0,0.16)', '--btn-active-bg': '#3b86f7', '--btn-active-fg': '#ffffff', '--head-bg': 'linear-gradient(#e8e8e8,#c2c2c2)', '--head-fg': '#1a1a1a', '--right-bg': '#c8c8c8', '--right-fg': '#1a1a1a', '--right-hover': 'rgba(0,0,0,0.08)' },       // Mac OS X Aqua blue
   next: { '--teal-light': '#b8b8b8', '--teal': '#8a8a8a', '--teal-dark': '#2b2b2b', '--bar-fg': '#141414' },       // NeXTSTEP grayscale
   beos: { '--teal-light': '#ffe14d', '--teal': '#f4c20d', '--teal-dark': '#8a6d00', '--bar-fg': '#241c00', '--right-bg': '#cfcfcf', '--right-fg': '#222222', '--head-bg': 'linear-gradient(#ffe14d,#f4c20d)', '--head-fg': '#241c00' },       // BeOS yellow tab
-  ubuntu: { '--teal-light': '#7a3a68', '--teal': '#5e2750', '--teal-dark': '#3a1733', '--bar-fg': '#fde7d6', '--menu-bg': 'linear-gradient(#f0824a,#dd4814)', '--menu-fg': '#ffffff', '--btn-active-bg': '#dd4814', '--btn-active-fg': '#ffffff', '--right-bg': '#4a1f40' },     // Ubuntu aubergine
+  ubuntu: { '--teal-light': '#7a3a68', '--teal': '#5e2750', '--teal-dark': '#3a1733', '--bar-fg': '#fde7d6', '--menu-bg': 'linear-gradient(#f0824a,#dd4814)', '--menu-fg': '#ffffff', '--btn-active-bg': '#dd4814', '--btn-active-fg': '#ffffff', '--right-bg': '#4a1f40' },
+  vaio: { '--teal-light': '#d8dce1', '--teal': '#b7bec6', '--teal-dark': '#7b838c', '--bar-fg': '#1b2330', '--menu-bg': 'linear-gradient(#7a52c0,#4e2f8e)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(91,58,142,0.14)', '--btn-press': 'rgba(91,58,142,0.26)', '--btn-active-bg': '#5b3a8e', '--btn-active-fg': '#ffffff', '--head-bg': 'linear-gradient(#6e4aa6,#4a2c84)', '--head-fg': '#ffffff', '--right-bg': '#c4ccd2', '--right-fg': '#1b2330', '--right-hover': 'rgba(91,58,142,0.14)' }, // Sony VAIO 505 (magnesium silver + VAIO violet)     // Ubuntu aubergine
 };
 const THEME_LABELS = [
   ['teal', L('Teal（既定）')], ['graphite', L('Graphite（ダーク）')], ['ocean', 'Ocean'],
@@ -178,7 +179,7 @@ const THEME_LABELS = [
   ['light', 'Light'],
   ['_osdiv', '— OS —'],
   ['win95', 'Windows 95/98'], ['winxp', 'Windows XP'], ['vista', 'Windows Vista'], ['win7', 'Windows 7 (Aero)'], ['metro', 'Windows 8 (Metro)'],
-  ['classicmac', 'Classic Mac OS'], ['macos9', 'Mac OS 9 (Platinum)'], ['tiger', 'Mac OS X Tiger'], ['aqua', 'Mac OS X (Aqua)'], ['next', 'NeXTSTEP'], ['beos', 'BeOS'], ['ubuntu', 'Ubuntu'],
+  ['classicmac', 'Classic Mac OS'], ['macos9', 'Mac OS 9 (Platinum)'], ['tiger', 'Mac OS X Tiger'], ['aqua', 'Mac OS X (Aqua)'], ['next', 'NeXTSTEP'], ['beos', 'BeOS'], ['ubuntu', 'Ubuntu'], ['vaio', 'Sony VAIO (505)'],
 ];
 const THEME_VARS = [...new Set([].concat.apply([], Object.values(THEMES).map(Object.keys)))];
 function applyTheme(key) {
