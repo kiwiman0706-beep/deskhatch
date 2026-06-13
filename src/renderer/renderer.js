@@ -160,11 +160,14 @@ const THEMES = {
   light: { '--teal-light': '#eef2f6', '--teal': '#d7dee6', '--teal-dark': '#aeb9c6', '--bar-fg': '#2a3340' },
   classicmac: { '--teal-light': '#fbfbfb', '--teal': '#e9e9ec', '--teal-dark': '#000000', '--bar-fg': '#0a0a0a' },
   // --- Historic-OS homage (title-bar inspired) ---
-  win95: { '--teal-light': '#1084d0', '--teal': '#0a246a', '--teal-dark': '#000000', '--bar-fg': '#ffffff' },      // Windows 95/98 navy title bar
+  win95: { '--teal-light': '#dfdfdf', '--teal': '#c0c0c0', '--teal-dark': '#808080', '--bar-fg': '#0a0a0a', '--menu-bg': '#c0c0c0', '--menu-fg': '#0a0a0a', '--btn-hover': '#d8d8d8', '--btn-press': '#b0b0b0', '--btn-active-bg': '#b0b0b0', '--btn-active-fg': '#0a0a0a', '--head-bg': 'linear-gradient(#10109a,#000080)', '--head-fg': '#ffffff', '--right-bg': '#c0c0c0', '--right-fg': '#0a0a0a', '--right-hover': '#d8d8d8' },      // Windows 95/98 navy title bar
   winxp: { '--teal-light': '#3f8ef0', '--teal': '#245edb', '--teal-dark': '#15428b', '--bar-fg': '#ffffff', '--menu-bg': 'linear-gradient(#7bbf4a,#4e9a30)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(255,255,255,0.28)', '--btn-active-bg': '#3a78d6', '--btn-active-fg': '#ffffff', '--head-bg': 'linear-gradient(#3f8ef0,#245edb)', '--head-fg': '#ffffff', '--right-bg': 'linear-gradient(#2aa0e4,#0e86d4)', '--right-fg': '#ffffff', '--right-hover': 'rgba(255,255,255,0.30)' },      // Windows XP "Luna" blue
+  vista: { '--teal-light': '#3a4049', '--teal': '#16191e', '--teal-dark': '#000000', '--bar-fg': '#eaf2fb', '--menu-bg': 'linear-gradient(#6fb3f0,#1b5fae)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(120,180,255,0.25)', '--btn-press': 'rgba(120,180,255,0.40)', '--btn-active-bg': 'rgba(140,190,255,0.30)', '--btn-active-fg': '#ffffff', '--head-bg': 'linear-gradient(#e3eef8,#bcd3ea)', '--head-fg': '#13314f', '--right-bg': 'rgba(255,255,255,0.06)', '--right-fg': '#eaf2fb', '--right-hover': 'rgba(120,180,255,0.25)' },
   win7: { '--teal-light': '#9fc7ec', '--teal': '#6d9fd0', '--teal-dark': '#3f6f9f', '--bar-fg': '#0f2236' },       // Windows 7 Aero glass
   metro: { '--teal-light': '#2d89ef', '--teal': '#0063b1', '--teal-dark': '#004e8c', '--bar-fg': '#ffffff' },      // Windows 8 Metro azure
-  aqua: { '--teal-light': '#6fb3ff', '--teal': '#2a7fe0', '--teal-dark': '#1a5cb0', '--bar-fg': '#ffffff' },       // Mac OS X Aqua blue
+  aqua: { '--teal-light': '#6fb3ff', '--teal': '#2a7fe0', '--teal-dark': '#1a5cb0', '--bar-fg': '#ffffff' },
+  macos9: { '--teal-light': '#f4f4f4', '--teal': '#cccccc', '--teal-dark': '#8a8a8a', '--bar-fg': '#111111', '--menu-bg': 'transparent', '--menu-fg': '#111111', '--btn-hover': '#e6e6e6', '--btn-press': '#cfcfcf', '--btn-active-bg': '#b6c6e8', '--btn-active-fg': '#0a0a0a', '--head-bg': '#dddddd', '--head-fg': '#111111', '--right-bg': '#cccccc', '--right-fg': '#111111', '--right-hover': '#e6e6e6' },
+  tiger: { '--teal-light': '#ececec', '--teal': '#bdbdbd', '--teal-dark': '#6f6f6f', '--bar-fg': '#1a1a1a', '--menu-bg': 'transparent', '--menu-fg': '#1a1a1a', '--btn-hover': 'rgba(0,0,0,0.08)', '--btn-press': 'rgba(0,0,0,0.16)', '--btn-active-bg': '#3b86f7', '--btn-active-fg': '#ffffff', '--head-bg': 'linear-gradient(#e8e8e8,#c2c2c2)', '--head-fg': '#1a1a1a', '--right-bg': '#c8c8c8', '--right-fg': '#1a1a1a', '--right-hover': 'rgba(0,0,0,0.08)' },       // Mac OS X Aqua blue
   next: { '--teal-light': '#b8b8b8', '--teal': '#8a8a8a', '--teal-dark': '#2b2b2b', '--bar-fg': '#141414' },       // NeXTSTEP grayscale
   beos: { '--teal-light': '#ffe14d', '--teal': '#f4c20d', '--teal-dark': '#8a6d00', '--bar-fg': '#241c00', '--right-bg': '#cfcfcf', '--right-fg': '#222222', '--head-bg': 'linear-gradient(#ffe14d,#f4c20d)', '--head-fg': '#241c00' },       // BeOS yellow tab
   ubuntu: { '--teal-light': '#7a3a68', '--teal': '#5e2750', '--teal-dark': '#3a1733', '--bar-fg': '#fde7d6', '--menu-bg': 'linear-gradient(#f0824a,#dd4814)', '--menu-fg': '#ffffff', '--btn-active-bg': '#dd4814', '--btn-active-fg': '#ffffff', '--right-bg': '#4a1f40' },     // Ubuntu aubergine
@@ -174,8 +177,8 @@ const THEME_LABELS = [
   ['forest', 'Forest'], ['plum', 'Plum'], ['sunset', 'Sunset'], ['rose', 'Rose'],
   ['light', 'Light'],
   ['_osdiv', '— OS —'],
-  ['win95', 'Windows 95/98'], ['winxp', 'Windows XP'], ['win7', 'Windows 7 (Aero)'], ['metro', 'Windows 8 (Metro)'],
-  ['classicmac', 'Classic Mac OS'], ['aqua', 'Mac OS X (Aqua)'], ['next', 'NeXTSTEP'], ['beos', 'BeOS'], ['ubuntu', 'Ubuntu'],
+  ['win95', 'Windows 95/98'], ['winxp', 'Windows XP'], ['vista', 'Windows Vista'], ['win7', 'Windows 7 (Aero)'], ['metro', 'Windows 8 (Metro)'],
+  ['classicmac', 'Classic Mac OS'], ['macos9', 'Mac OS 9 (Platinum)'], ['tiger', 'Mac OS X Tiger'], ['aqua', 'Mac OS X (Aqua)'], ['next', 'NeXTSTEP'], ['beos', 'BeOS'], ['ubuntu', 'Ubuntu'],
 ];
 const THEME_VARS = [...new Set([].concat.apply([], Object.values(THEMES).map(Object.keys)))];
 function applyTheme(key) {
