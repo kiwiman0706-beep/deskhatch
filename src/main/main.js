@@ -3,6 +3,7 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, globalShortcut, clipboard, desktopCapturer } = require('electron');
 const path = require('path');
 const appbar = require('./appbar');
+const fullscreen = require('./fullscreen');
 const files = require('./files');
 const auth = require('./auth');
 const system = require('./system');
@@ -26,7 +27,7 @@ let tray = null;
 // displayId -> { displayId, win, spacer, reserveActive, repinMode, rePinnedOnce, pinning, lastEdge, hit, ignoring }
 const bars = new Map();
 // Last display config pushed from a renderer (shared across windows in Phase 1).
-let cfg = { mode: 'autohide', reserve: false, repin: 'event', monitors: null, barColor: '#1f6f6f' };
+let cfg = { mode: 'autohide', reserve: false, repin: 'event', monitors: null, barColor: '#1f6f6f', hideFs: true };
 let edgeTimer = null;
 let metricsTimer = null;
 let suppressMetricsUntil = 0; // ignore metrics events caused by our own reservation
@@ -335,12 +336,31 @@ function applyHit(e, p) {
 // --- cursor / edge / pass-through watch (one timer, all bars) ----------------
 // Runs fast so click pass-through tracks the cursor without a per-click race;
 // the heavier edge-reveal + AppBar re-pin only need the slower ~120ms cadence.
+let fsActive = false;
+// Hide the bar(s) while a full-screen app (game / video / presentation) is in
+// the foreground, then restore the ones we hid when it ends. Polled on the slow
+// cadence; Windows-only signal, no-op elsewhere. Gated by the `hideFs` setting.
+function updateFullscreen() {
+  const active = cfg.hideFs ? fullscreen.isActive() : false;
+  if (active === fsActive) {
+    // Self-heal: re-hide any bar that appeared (e.g. monitor hot-plug) mid-screen.
+    if (active) for (const e of bars.values()) if (e.win && !e.win.isDestroyed() && e.win.isVisible()) e.win.hide();
+    return;
+  }
+  fsActive = active;
+  for (const e of bars.values()) {
+    if (!e.win || e.win.isDestroyed()) continue;
+    if (active) { e.preFsVisible = e.win.isVisible(); if (e.preFsVisible) e.win.hide(); }
+    else { if (e.preFsVisible !== false) e.win.show(); e.preFsVisible = undefined; }
+  }
+}
 function startEdgeWatch() {
   if (edgeTimer) return;
   let tick = 0;
   edgeTimer = setInterval(() => {
     const p = screen.getCursorScreenPoint();
     const slow = (tick++ % 8) === 0; // ~16ms * 8 ≈ 128ms
+    if ((tick % 30) === 0) updateFullscreen(); // ~480ms
     for (const e of bars.values()) {
       if (!e.win || e.win.isDestroyed()) continue;
       applyHit(e, p);
@@ -517,6 +537,7 @@ ipcMain.on('display:set', (_e, d) => {
     repin: (d && d.repin) || 'event',
     monitors: Array.isArray(d && d.monitors) ? d.monitors : null,
     barColor: (d && d.barColor) || '#1f6f6f',
+    hideFs: (d && d.hideOnFullscreen) !== false, // default ON
   };
   reconcile();
 });

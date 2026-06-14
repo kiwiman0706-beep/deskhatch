@@ -75,7 +75,7 @@ const Store = {
   },
   saveSize(id, s) { localStorage.setItem('ss.size.' + id, JSON.stringify(s)); },
   getDisplay() {
-    const def = { mode: 'autohide', reserve: false, repin: 'event', theme: 'teal', roundEnds: false };
+    const def = { mode: 'autohide', reserve: false, repin: 'event', theme: 'teal', roundEnds: false, hideOnFullscreen: true };
     try { const d = JSON.parse(localStorage.getItem('ss.display')); return d && d.mode ? { ...def, ...d } : def; } catch (_) { return def; }
   },
   saveDisplay(d) { localStorage.setItem('ss.display', JSON.stringify(d)); },
@@ -2072,6 +2072,14 @@ function buildDisplaySettings() {
   res.onchange = () => { display = { ...display, reserve: res.checked }; applyDisplay(); };
   resL.append(res, document.createTextNode(L(' 領域を予約（常に表示でも最大化ウィンドウと重ならない）')));
   root.append(resL);
+
+  // Auto-hide while a full-screen app (game / video / presentation) is foreground.
+  const fsL = el('label', 'ss-set-check');
+  const fsCb = document.createElement('input');
+  fsCb.type = 'checkbox'; fsCb.checked = display.hideOnFullscreen !== false;
+  fsCb.onchange = () => { display = { ...display, hideOnFullscreen: fsCb.checked }; applyDisplay(); };
+  fsL.append(fsCb, document.createTextNode(L(' 全画面アプリ（ゲーム/動画）の間は隠す')));
+  root.append(fsL);
 
   // Re-pin strategy (only relevant while reserving).
   const repinWrap = el('label', 'ss-set-check');
