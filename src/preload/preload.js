@@ -27,6 +27,12 @@ contextBridge.exposeInMainWorld('overlay', {
   // Fully restart the app (language switch — in-place reload breaks the overlay).
   relaunch: () => ipcRenderer.send('app:relaunch'),
   openScrap: (root) => ipcRenderer.send('scrap:open', root),
+  // Sticky Notes: pin a scrapbook note as a floating window (open), unpin it
+  // (close), list currently-pinned note paths, persist a sticky's colour.
+  openSticky: (p) => ipcRenderer.send('sticky:open', p),
+  closeSticky: (p) => ipcRenderer.send('sticky:close', p),
+  stickyList: () => ipcRenderer.invoke('sticky:list'),
+  stickySetColor: (p, color) => ipcRenderer.send('sticky:set-color', p, color),
   setHotkeys: (cfg) => ipcRenderer.invoke('hotkeys:set', cfg),
   onHotkeyCapture: (cb) => ipcRenderer.on('hotkey:capture', (_e, p) => cb(p)),
   onHotkeyReveal: (cb) => ipcRenderer.on('hotkey:reveal', () => cb()),

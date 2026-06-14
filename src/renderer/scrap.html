@@ -16,6 +16,12 @@
   .row { padding: 7px 9px; border-radius: 6px; cursor: pointer; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .row:hover { background: #e8f3f3; }
   .row.sel { background: #d7ecec; font-weight: 700; }
+  .noterow { display: flex; align-items: center; gap: 4px; }
+  .noterow .lab { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pin { border: 0; background: transparent; padding: 2px 4px; font-size: 13px; line-height: 1; cursor: pointer; opacity: .28; filter: grayscale(1); border-radius: 5px; }
+  .noterow:hover .pin { opacity: .55; }
+  .pin:hover { background: #d7ecec; opacity: .9 !important; }
+  .pin.on { opacity: 1; filter: none; }
   button { border: 1px solid #cfdede; background: #fff; border-radius: 6px; padding: 5px 9px; font-size: 12px; cursor: pointer; color: #1f6f6f; }
   button:hover { background: #eef6f6; }
   input.new { flex: 1; min-width: 0; border: 1px solid #cfdede; border-radius: 5px; padding: 5px 7px; font-size: 13px; }

@@ -40,17 +40,35 @@
   }
   async function selectBox(p, name) { curBox = p; curBoxName = name || ''; curNote = null; $('boxName').textContent = '📁 ' + curBoxName; clearView(); await loadBoxes(); await loadNotes(); }
 
+  async function pinnedSet() {
+    try { var arr = (window.overlay && window.overlay.stickyList) ? await window.overlay.stickyList() : []; var s = {}; (arr || []).forEach(function (p) { s[p] = 1; }); return s; }
+    catch (_) { return {}; }
+  }
   async function loadNotes() {
     var list = $('noteList'); list.innerHTML = '';
     if (!curBox) return;
     var res = await F.list(curBox);
     var files = ((res && res.entries) || []).filter(function (e) { return e.isFile && /\.(md|txt|html?)$/i.test(e.name); });
     if (!files.length) { var m = document.createElement('div'); m.className = 'empty'; m.textContent = L('（メモなし）', '(no notes)'); list.appendChild(m); return; }
+    var pins = await pinnedSet();
     files.forEach(function (fl) {
       var isHtml = /\.html?$/i.test(fl.name);
-      var r = document.createElement('div'); r.className = 'row' + (fl.path === curNote ? ' sel' : '');
-      r.textContent = (isHtml ? '🌐 ' : '📝 ') + fl.name.replace(/\.(md|txt|html?)$/i, '');
-      r.onclick = function () { openNote(fl.path, fl.name); };
+      var r = document.createElement('div'); r.className = 'row noterow' + (fl.path === curNote ? ' sel' : '');
+      var lab = document.createElement('span'); lab.className = 'lab';
+      lab.textContent = (isHtml ? '🌐 ' : '📝 ') + fl.name.replace(/\.(md|txt|html?)$/i, '');
+      lab.onclick = function () { openNote(fl.path, fl.name); };
+      var pinned = !!pins[fl.path];
+      var pin = document.createElement('button'); pin.className = 'pin' + (pinned ? ' on' : ''); pin.textContent = '📌';
+      pin.title = pinned ? L('付箋を外す', 'Unpin') : L('付箋にする', 'Pin as sticky');
+      pin.onclick = function (e) {
+        e.stopPropagation();
+        if (!window.overlay) return;
+        if (pinned) { window.overlay.closeSticky && window.overlay.closeSticky(fl.path); }
+        else { window.overlay.openSticky && window.overlay.openSticky(fl.path); }
+        pinned = !pinned; pin.classList.toggle('on', pinned);
+        pin.title = pinned ? L('付箋を外す', 'Unpin') : L('付箋にする', 'Pin as sticky');
+      };
+      r.appendChild(lab); r.appendChild(pin);
       list.appendChild(r);
     });
   }

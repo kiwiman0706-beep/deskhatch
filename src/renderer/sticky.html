@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Sticky</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; background: var(--bg, #fff9c4); }
+  #head {
+    -webkit-app-region: drag; display: flex; align-items: center; gap: 6px;
+    padding: 5px 6px 5px 9px; background: var(--head, #ffec99);
+    font-size: 12px; font-weight: 700; color: #5a5320; flex: 0 0 auto;
+    border-bottom: 1px solid rgba(0,0,0,.06);
+  }
+  #title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dots { -webkit-app-region: no-drag; display: flex; gap: 4px; }
+  .dot { width: 13px; height: 13px; border-radius: 50%; cursor: pointer; border: 1px solid rgba(0,0,0,.15); }
+  .dot.sel { box-shadow: 0 0 0 2px rgba(0,0,0,.35); }
+  #close {
+    -webkit-app-region: no-drag; cursor: pointer; border: 0; background: transparent;
+    font-size: 15px; line-height: 1; color: #5a5320; padding: 2px 4px; border-radius: 4px;
+  }
+  #close:hover { background: rgba(0,0,0,.12); }
+  textarea {
+    flex: 1; border: 0; outline: none; resize: none; padding: 10px 12px; background: transparent;
+    font: 14px/1.6 "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif; color: #2a2a1a;
+  }
+  iframe { flex: 1; border: 0; background: #fff; width: 100%; }
+  #saved { font-size: 10px; color: #7a7340; opacity: 0; transition: opacity .2s; -webkit-app-region: no-drag; }
+  #saved.show { opacity: .8; }
+</style>
+</head>
+<body>
+  <div id="head">
+    <span id="title">—</span>
+    <span id="saved">✓</span>
+    <span class="dots" id="dots"></span>
+    <button id="close" title="閉じる">✕</button>
+  </div>
+  <div id="body" style="flex:1; display:flex; min-height:0;"></div>
+  <script src="sticky.js"></script>
+</body>
+</html>

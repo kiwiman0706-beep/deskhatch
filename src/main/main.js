@@ -439,6 +439,65 @@ ipcMain.on('scrap:open', (_e, root) => {
   } catch (e) { try { console.warn('[scrap] ' + e.message); } catch (_) {} }
 });
 
+// --- Sticky Notes ------------------------------------------------------------
+// A pinned scrapbook note shown as a small frameless, always-on-top card that
+// reads/writes the underlying box file (so the content stays Drive-syncable).
+// The set of pinned notes plus each one's window geometry/colour is persisted
+// locally (per machine) and restored on launch. Only notes the user pins show.
+const STICKY_STORE = path.join(app.getPath('userData'), 'stickies.json');
+const stickyWins = new Map();   // notePath -> BrowserWindow
+let stickyState = null;         // { [notePath]: { x, y, w, h, color } }
+let stickySaveTimer = null;
+function loadStickyState() {
+  if (stickyState) return stickyState;
+  try { stickyState = JSON.parse(require('fs').readFileSync(STICKY_STORE, 'utf8')); } catch (_) { stickyState = {}; }
+  if (!stickyState || typeof stickyState !== 'object') stickyState = {};
+  return stickyState;
+}
+function saveStickyState() {
+  clearTimeout(stickySaveTimer);
+  stickySaveTimer = setTimeout(() => { try { require('fs').writeFileSync(STICKY_STORE, JSON.stringify(stickyState || {})); } catch (_) {} }, 300);
+}
+function openSticky(p, opts) {
+  if (!p) return;
+  opts = opts || {};
+  const st = loadStickyState();
+  const existing = stickyWins.get(p);
+  if (existing && !existing.isDestroyed()) { existing.show(); existing.focus(); return; }
+  const saved = st[p] || (st[p] = {});
+  const color = opts.color || saved.color || 'yellow';
+  saved.color = color; saveStickyState();
+  const n = stickyWins.size;
+  const disp = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const wa = disp.workArea;
+  const w = new BrowserWindow({
+    width: saved.w || 260, height: saved.h || 220, minWidth: 160, minHeight: 120,
+    x: (typeof saved.x === 'number') ? saved.x : (wa.x + wa.width - 290 - (n % 6) * 26),
+    y: (typeof saved.y === 'number') ? saved.y : (wa.y + 60 + (n % 6) * 26),
+    frame: false, transparent: false, resizable: true, skipTaskbar: true,
+    hasShadow: true, alwaysOnTop: true, backgroundColor: '#fff9c4', title: 'Sticky',
+    webPreferences: { preload: path.join(__dirname, '..', 'preload', 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false },
+  });
+  w.setAlwaysOnTop(true, 'floating');
+  w.setMenuBarVisibility(false);
+  w.loadFile(path.join(__dirname, '..', 'renderer', 'sticky.html'), { query: { path: p, lang: (app.getLocale() || ''), color } });
+  stickyWins.set(p, w);
+  const persist = () => { try { const b = w.getBounds(); const r = stickyState[p] || (stickyState[p] = {}); r.x = b.x; r.y = b.y; r.w = b.width; r.h = b.height; saveStickyState(); } catch (_) {} };
+  w.on('move', persist); w.on('resize', persist);
+  w.on('closed', () => { stickyWins.delete(p); });
+}
+function closeSticky(p) {
+  const st = loadStickyState();
+  delete st[p]; saveStickyState();
+  const w = stickyWins.get(p); stickyWins.delete(p);
+  if (w && !w.isDestroyed()) w.close();
+}
+ipcMain.on('sticky:open', (_e, p) => openSticky(p));
+ipcMain.on('sticky:close', (_e, p) => closeSticky(p));
+ipcMain.handle('sticky:list', () => Object.keys(loadStickyState()));
+ipcMain.on('sticky:set-color', (_e, p, color) => { const r = loadStickyState()[p] || (loadStickyState()[p] = {}); r.color = color; saveStickyState(); });
+function restoreStickies() { try { Object.keys(loadStickyState()).forEach((p, i) => setTimeout(() => openSticky(p), 400 + i * 120)); } catch (_) {} }
+
 // Launch at login (Windows/macOS).
 ipcMain.handle('startup:get', () => app.getLoginItemSettings().openAtLogin);
 ipcMain.handle('startup:set', (_e, on) => {
@@ -541,6 +600,7 @@ app.whenReady().then(() => {
   reconcile();      // initial bar(s) (primary by default; renderer refines via display:set)
   createTray();
   startEdgeWatch();
+  restoreStickies();
   screen.on('display-metrics-changed', onDisplaysChanged);
   screen.on('display-added', onDisplaysChanged);
   screen.on('display-removed', onDisplaysChanged);
