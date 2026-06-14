@@ -344,12 +344,67 @@ function buildFilesPanel(startPath) {
   up.className = 'ss-fb-btn'; up.textContent = '↑'; up.title = L('上のフォルダへ');
   const crumb = document.createElement('span');
   crumb.className = 'ss-fb-path';
-  nav.append(back, up, crumb);
+  const prevBtn = document.createElement('button');
+  prevBtn.className = 'ss-fb-btn ss-fb-prevtoggle'; prevBtn.textContent = '👁'; prevBtn.title = L('プレビュー表示/非表示');
+  nav.append(back, up, crumb, prevBtn);
 
   const list = document.createElement('ul');
   list.className = 'ss-fb-list';
+  const previewPane = document.createElement('div');
+  previewPane.className = 'ss-fb-preview';
+  const main = document.createElement('div');
+  main.className = 'ss-fb-main';
+  main.append(list, previewPane);
 
-  wrap.append(places, nav, list);
+  wrap.append(places, nav, main);
+
+  let preview = false;
+  try { preview = localStorage.getItem('ss.fb.preview') === '1'; } catch (_) {}
+  let selected = null; // currently selected entry (for the preview pane)
+
+  function showEmptyPreview() { previewPane.innerHTML = '<div class="ss-fb-pvempty">' + L('ファイルを選ぶとここにプレビュー') + '</div>'; }
+  function selectRow(li, ent) {
+    list.querySelectorAll('.ss-fb-row.sel').forEach((n) => n.classList.remove('sel'));
+    li.classList.add('sel'); selected = ent;
+  }
+  async function showPreview(ent) {
+    if (!ent) { showEmptyPreview(); return; }
+    previewPane.innerHTML = '';
+    const head = el('div', 'ss-fb-pvhead', ent.name); head.title = ent.path;
+    const body = el('div', 'ss-fb-pvbody');
+    const foot = el('div', 'ss-fb-pvfoot');
+    const openBtn = el('button', 'ss-fb-pvopen', L('開く')); openBtn.onclick = () => window.files.open(ent.path);
+    foot.append(openBtn);
+    previewPane.append(head, body, foot);
+    if (ent.isDir) { body.innerHTML = '<div class="ss-fb-pvempty">📁 ' + L('フォルダ') + '</div>'; return; }
+    const v = viewerForExt((ent.ext || '').toLowerCase());
+    const token = ent.path; selected = ent;
+    if (v === 'text') {
+      const t = await window.files.readText(ent.path);
+      if (selected !== ent && token !== (selected && selected.path)) return; // selection moved on
+      const pre = document.createElement('pre'); pre.className = 'ss-fb-pvtext'; pre.textContent = typeof t === 'string' ? t : '';
+      body.append(pre);
+    } else if (v) {
+      const url = await window.files.serve(ent.path);
+      let node;
+      if (v === 'image') { node = document.createElement('img'); node.className = 'ss-fb-pvimg'; node.src = url; }
+      else if (v === 'video') { node = document.createElement('video'); node.className = 'ss-fb-pvmedia'; node.src = url; node.controls = true; }
+      else if (v === 'audio') { node = document.createElement('audio'); node.className = 'ss-fb-pvaudio'; node.src = url; node.controls = true; }
+      else { node = document.createElement('iframe'); node.className = 'ss-fb-pvframe'; node.src = url; } // pdf / html
+      body.append(node);
+    } else {
+      const msg = el('div', 'ss-fb-pvempty', L('プレビューできません'));
+      body.append(msg);
+      window.files.icon(ent.path).then((u) => { if (u) { const img = document.createElement('img'); img.className = 'ss-fb-pvbigico'; img.src = u; body.insertBefore(img, msg); } });
+    }
+  }
+  function applyPreview() {
+    wrap.classList.toggle('preview-on', preview);
+    prevBtn.classList.toggle('on', preview);
+    if (preview) { if (selected) showPreview(selected); else showEmptyPreview(); }
+    reflowHeight();
+  }
+  prevBtn.onclick = () => { preview = !preview; try { localStorage.setItem('ss.fb.preview', preview ? '1' : '0'); } catch (_) {} applyPreview(); };
 
   const history = [];
   let current = null;
@@ -367,7 +422,9 @@ function buildFilesPanel(startPath) {
     back.disabled = history.length === 0;
     up.disabled = !res.parent;
     up.onclick = () => res.parent && load(res.parent);
+    selected = null;
     renderEntries(res.entries);
+    if (preview) showEmptyPreview();
   }
 
   function renderEntries(entries) {
@@ -387,6 +444,8 @@ function buildFilesPanel(startPath) {
       name.className = 'ss-fb-name';
       name.textContent = ent.name;
       li.append(emoji, name);
+
+      li.addEventListener('click', () => { selectRow(li, ent); if (preview) showPreview(ent); });
 
       li.addEventListener('dblclick', () => {
         // macOS .app bundles are directories — launch them instead of descending.
@@ -458,6 +517,7 @@ function buildFilesPanel(startPath) {
   }
 
   initPlaces();
+  applyPreview();
   resolveStart(startPath).then((p) => load(p, false));
   return wrap;
 }

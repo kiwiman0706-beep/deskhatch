@@ -336,22 +336,26 @@ function applyHit(e, p) {
 // --- cursor / edge / pass-through watch (one timer, all bars) ----------------
 // Runs fast so click pass-through tracks the cursor without a per-click race;
 // the heavier edge-reveal + AppBar re-pin only need the slower ~120ms cadence.
-let fsActive = false;
-// Hide the bar(s) while a full-screen app (game / video / presentation) is in
-// the foreground, then restore the ones we hid when it ends. Polled on the slow
-// cadence; Windows-only signal, no-op elsewhere. Gated by the `hideFs` setting.
+// Hide a bar while a full-screen app (game / video / presentation) covers ITS
+// monitor, then restore it when the app ends — leaving bars on other monitors
+// untouched. Polled on the slow cadence; Windows-only signal, no-op elsewhere.
+// Gated by the `hideFs` setting. Per-bar + idempotent, so it self-heals on
+// monitor hot-plug and never fights normal show/hide.
 function updateFullscreen() {
-  const active = cfg.hideFs ? fullscreen.isActive() : false;
-  if (active === fsActive) {
-    // Self-heal: re-hide any bar that appeared (e.g. monitor hot-plug) mid-screen.
-    if (active) for (const e of bars.values()) if (e.win && !e.win.isDestroyed() && e.win.isVisible()) e.win.hide();
-    return;
-  }
-  fsActive = active;
+  const ids = cfg.hideFs ? fullscreen.activeDisplayIds() : []; // [] none | [ids] some | null all
+  const hideAll = ids === null;
+  const hideSet = hideAll ? null : new Set((ids || []).map(String));
   for (const e of bars.values()) {
     if (!e.win || e.win.isDestroyed()) continue;
-    if (active) { e.preFsVisible = e.win.isVisible(); if (e.preFsVisible) e.win.hide(); }
-    else { if (e.preFsVisible !== false) e.win.show(); e.preFsVisible = undefined; }
+    const shouldHide = hideAll || (hideSet && hideSet.has(String(e.displayId)));
+    if (shouldHide) {
+      if (!e.fsHidden) { e.fsHidden = true; e.preFsVisible = e.win.isVisible(); }
+      if (e.win.isVisible()) e.win.hide();
+    } else if (e.fsHidden) {
+      e.fsHidden = false;
+      if (e.preFsVisible !== false) e.win.show();
+      e.preFsVisible = undefined;
+    }
   }
 }
 function startEdgeWatch() {
