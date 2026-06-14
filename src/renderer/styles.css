@@ -326,6 +326,7 @@ html, body {
 .ss-am-sec { font-size: 11px; font-weight: 700; color: #8aa; letter-spacing: .03em; margin: 10px 4px 5px; }
 .ss-am-hr { height: 1px; background: #e6eeee; margin: 8px 2px; }
 .ss-am-hint { color: #9ab; font-size: 12px; padding: 8px 6px; line-height: 1.6; }
+.ss-am-pins .ss-am-hint { grid-column: 1 / -1; }
 .ss-am-pins { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .ss-am-pin { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 3px; border: 0; background: transparent; border-radius: 8px; cursor: pointer; color: var(--ink); }
 .ss-am-pin:hover { background: #e8f3f3; }

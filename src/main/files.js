@@ -85,10 +85,21 @@ async function listDir(dir) {
   return { path: dir, parent, entries };
 }
 
+async function iconDataUrl(p) {
+  try { const img = await app.getFileIcon(p, { size: 'small' }); return (img && !img.isEmpty()) ? img.toDataURL() : null; } catch (_) { return null; }
+}
 async function getIcon(p) {
   try {
-    const img = await app.getFileIcon(p, { size: 'small' });
-    return img.isEmpty() ? null : img.toDataURL();
+    // .lnk files carry only the generic shortcut icon; resolve the target (or
+    // the shortcut's custom icon) so the menu shows the real application icon.
+    if (process.platform === 'win32' && /\.lnk$/i.test(p)) {
+      try {
+        const lnk = shell.readShortcutLink(p);
+        if (lnk && lnk.target) { const u = await iconDataUrl(lnk.target); if (u) return u; }
+        if (lnk && lnk.icon) { const u = await iconDataUrl(lnk.icon); if (u) return u; }
+      } catch (_) { /* unreadable shortcut -> fall back to the file's own icon */ }
+    }
+    return await iconDataUrl(p);
   } catch (_) {
     return null;
   }
