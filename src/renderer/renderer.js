@@ -87,6 +87,9 @@ const Store = {
     try { const c = JSON.parse(localStorage.getItem('ss.clips')); return Array.isArray(c) ? c : []; } catch (_) { return []; }
   },
   saveClips(c) { try { localStorage.setItem('ss.clips', JSON.stringify(c)); } catch (e) { toast(L('クリップを保存できませんでした（容量超過）。大きな項目を削除してください')); } },
+  // Launcher drawer items (one list per drawer id): { id, path, label, dir?, url? }.
+  getLaunchers(tabId) { try { const a = JSON.parse(localStorage.getItem('ss.launch.' + tabId)); return Array.isArray(a) ? a : []; } catch (_) { return []; } },
+  saveLaunchers(tabId, a) { try { localStorage.setItem('ss.launch.' + tabId, JSON.stringify(a || [])); } catch (_) {} },
   // "Don't show the intro guide on startup again."
   getHelpSkip() { return localStorage.getItem('ss.help.skip') === '1'; },
   setHelpSkip(v) { if (v) localStorage.setItem('ss.help.skip', '1'); else localStorage.removeItem('ss.help.skip'); },
@@ -1432,6 +1435,111 @@ function buildFolderBox(boxPath) {
   return box;
 }
 
+// --- Launcher drawer -------------------------------------------------------
+// Drop app shortcuts / files / folders (or a URL) here and they're auto-
+// registered as one-click launch buttons showing the real file icon. Items
+// persist per drawer (ss.launch.<tabId>) and open with the default handler.
+function launchEmoji(name) {
+  const n = String(name || '').toLowerCase();
+  if (/\.(exe|lnk|app|appref-ms|desktop|bat|cmd|com|msi)$/.test(n)) return '🚀';
+  if (/\.(png|jpe?g|gif|webp|bmp|svg|ico|tiff?)$/.test(n)) return '🖼';
+  if (/\.(mp4|mov|mkv|avi|webm|m4v)$/.test(n)) return '🎬';
+  if (/\.(mp3|wav|flac|m4a|ogg|aac)$/.test(n)) return '🎵';
+  if (/\.pdf$/.test(n)) return '📕';
+  if (/\.(docx?|odt|rtf|pages)$/.test(n)) return '📄';
+  if (/\.(xlsx?|csv|ods|numbers)$/.test(n)) return '📊';
+  if (/\.(pptx?|key|odp)$/.test(n)) return '📽';
+  if (/\.(zip|7z|rar|tar|gz)$/.test(n)) return '🗜';
+  if (/^https?:/.test(n)) return '🌐';
+  return '📄';
+}
+function pathBase(p) { return String(p || '').split(/[\\/]/).filter(Boolean).pop() || String(p || ''); }
+function launchLabel(p, isDir) {
+  let n = pathBase(p);
+  if (!isDir) n = n.replace(/\.(lnk|exe|app|appref-ms|desktop|bat|cmd|com|msi|url)$/i, '');
+  return n || p;
+}
+function openLauncher(it) { if (it.url) window.system.external(it.path); else window.files.open(it.path); }
+
+function buildLauncherPanel(tab) {
+  const wrap = el('div', 'ss-launch');
+  const head = el('div', 'ss-launch-head');
+  const addBtn = el('button', 'ss-set-btn', L('＋ アプリ'));
+  addBtn.onclick = async () => { const fs = await window.files.pickFiles(); if (fs && fs.length) await addItems(fs); };
+  const addFolderBtn = el('button', 'ss-set-btn', L('＋ フォルダ'));
+  addFolderBtn.onclick = async () => { const d = await window.files.pickFolder(); if (d) await addItems([d]); };
+  head.append(el('span', 'ss-clip-hint', L('アプリ/ショートカットをここにドロップ')), addBtn, addFolderBtn);
+  const grid = el('div', 'ss-launch-grid');
+  wrap.append(head, grid);
+
+  const get = () => Store.getLaunchers(tab.id);
+  const set = (a) => Store.saveLaunchers(tab.id, a);
+
+  async function addItems(paths) {
+    const items = get();
+    let added = 0;
+    for (const p of paths) {
+      if (!p || items.some((x) => x.path === p)) continue;
+      let isDir = false;
+      try { const st = await window.files.stat(p); isDir = !!(st && st.isDir); } catch (_) {}
+      items.push({ id: 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), path: p, label: launchLabel(p, isDir), dir: isDir });
+      added++;
+    }
+    if (added) { set(items); render(); toast(L('ランチャーに登録しました')); }
+  }
+
+  function render() {
+    grid.innerHTML = '';
+    const items = get();
+    if (!items.length) { grid.append(el('div', 'ss-launch-empty', L('ここにアプリのショートカットを\nドラッグ＆ドロップ'))); return; }
+    items.forEach((it) => {
+      const b = el('button', 'ss-launch-item');
+      b.title = it.path;
+      const ico = el('span', 'ss-launch-ico', it.url ? '🌐' : (it.dir ? '📁' : launchEmoji(it.path)));
+      b.append(ico, el('span', 'ss-launch-label', it.label || pathBase(it.path)));
+      if (!it.url) window.files.icon(it.path).then((u) => { if (u) { ico.textContent = ''; const img = document.createElement('img'); img.src = u; img.className = 'ss-launch-img'; ico.append(img); } });
+      b.onclick = () => openLauncher(it);
+      b.oncontextmenu = async (e) => {
+        e.preventDefault();
+        const action = await window.system.menu([
+          { id: 'open', label: L('開く') },
+          it.url ? null : { id: 'reveal', label: L('場所を開く') },
+          { id: 'rename', label: L('名前を変更') },
+          { separator: true },
+          { id: 'remove', label: L('ランチャーから削除') },
+        ].filter(Boolean));
+        if (action === 'open') openLauncher(it);
+        else if (action === 'reveal') window.files.reveal(it.path);
+        else if (action === 'rename') { const v = prompt(L('名前'), it.label || ''); if (v != null && v.trim()) { set(get().map((x) => (x.id === it.id ? { ...x, label: v.trim() } : x))); render(); } }
+        else if (action === 'remove') { set(get().filter((x) => x.id !== it.id)); render(); }
+      };
+      grid.append(b);
+    });
+  }
+
+  const stop = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+  ['dragenter', 'dragover'].forEach((ev) => wrap.addEventListener(ev, (e) => { stop(e); wrap.classList.add('over'); }));
+  ['dragleave', 'dragend'].forEach((ev) => wrap.addEventListener(ev, (e) => { stop(e); wrap.classList.remove('over'); }));
+  wrap.addEventListener('drop', async (e) => {
+    stop(e); wrap.classList.remove('over');
+    const dt = e.dataTransfer;
+    if ([...(dt.types || [])].includes('ss-tab')) return;
+    const paths = [];
+    for (const fo of (dt.files || [])) { const p = window.overlay.getPathForFile(fo); if (p) paths.push(p); }
+    if (paths.length) { await addItems(paths); return; }
+    const uri = (dt.getData('text/uri-list') || '').split('\n').map((x) => x.trim()).filter(Boolean)[0];
+    const plain = (dt.getData('text/plain') || '').trim();
+    const url = uri || (/^https?:\/\//i.test(plain) ? plain : '');
+    if (url) {
+      const items = get();
+      if (!items.some((x) => x.path === url)) { items.push({ id: 'l' + Date.now().toString(36), path: url, label: url.replace(/^https?:\/\//, '').replace(/\/.*$/, '').slice(0, 30), url: true }); set(items); render(); toast(L('ランチャーに登録しました')); }
+    }
+  });
+
+  render();
+  return wrap;
+}
+
 // --- File viewer drawer ----------------------------------------------------
 function buildViewer(tab) {
   const wrap = el('div', 'ss-viewer');
@@ -1832,6 +1940,8 @@ function buildBody(tab) {
     else if (tab.tool === 'clipboard') body.appendChild(buildClipboard());
     else if (tab.tool === 'bookmarks') body.appendChild(buildBookmarks());
     else if (tab.tool === 'stopwatch' || tab.tool === 'timer' || tab.tool === 'clock') body.appendChild(buildClock());
+  } else if (tab.type === 'launcher') {
+    body.appendChild(buildLauncherPanel(tab));
   } else if (tab.type === 'menu') {
     body.appendChild(buildMenuPanel());
   } else if (tab.type === 'browser') {
@@ -2247,14 +2357,14 @@ function buildTabFields(t, extras) {
   const wlabel = el('span', 'ss-set-wlabel', L('幅'));
   const row2 = el('div', 'ss-set-row');
 
-  if (!['page', 'tabs', 'files', 'folder', 'tool', 'scrap', 'camera'].includes(t.type)) {
+  if (!['page', 'tabs', 'files', 'folder', 'tool', 'scrap', 'camera', 'launcher'].includes(t.type)) {
     row2.append(el('span', 'ss-set-note', L('特殊表示（編集不可）')), wlabel, width);
     wrap.append(top, row2);
     return wrap;
   }
 
   const type = el('select', 'ss-set-type');
-  [['page', L('ページ')], ['browser', L('ブラウザ')], ['tabs', L('タブ')], ['files', L('PC全体')], ['folder', L('フォルダ')], ['tool', L('ツール')], ['camera', L('カメラ')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; type.appendChild(op); });
+  [['page', L('ページ')], ['browser', L('ブラウザ')], ['tabs', L('タブ')], ['files', L('PC全体')], ['folder', L('フォルダ')], ['launcher', L('ランチャー')], ['tool', L('ツール')], ['camera', L('カメラ')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; type.appendChild(op); });
   type.value = t.type;
   const mobileWrap = el('label', 'ss-set-check'); const mobile = document.createElement('input'); mobile.type = 'checkbox'; mobile.checked = !!t.mobile; mobile.onchange = () => { t.mobile = mobile.checked; }; mobileWrap.append(mobile, document.createTextNode(L(' スマホ表示')));
   const keepWrap = el('label', 'ss-set-check'); const keep = document.createElement('input'); keep.type = 'checkbox'; keep.checked = !!t.keepAlive; keep.onchange = () => { t.keepAlive = keep.checked; }; keepWrap.append(keep, document.createTextNode(L(' 閉じても止めない')));

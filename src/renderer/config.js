@@ -60,6 +60,9 @@ window.SS_TABS = [
   // Installed apps: Windows Start Menu programs / macOS Applications (auto per-OS).
   { id: 'apps', label: L('アプリ'), icon: '🚀', type: 'folder', path: '@apps', width: 460 },
 
+  // Launcher: drop app shortcuts / files here to register one-click buttons.
+  { id: 'launch', label: L('ランチャー'), icon: '🎯', type: 'launcher', width: 340 },
+
   { id: 'clock', label: L('タイマー'), icon: '⏲', type: 'tool', tool: 'clock', width: 340, height: 480 },
 
   { id: 'pc', label: 'My Computer', icon: '💻', type: 'files', width: 460 },

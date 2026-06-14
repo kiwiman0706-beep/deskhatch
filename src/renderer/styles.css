@@ -301,6 +301,20 @@ html, body {
 .ss-clip-x:hover { background: #f0d0d0; }
 .ss-clip-empty { color: #8aa; padding: 12px; font-size: 12px; }
 
+/* launcher drawer */
+.ss-launch { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.ss-launch.over { outline: 2px dashed var(--teal, #1f9f9f); outline-offset: -4px; background: rgba(31,159,159,.06); }
+.ss-launch-head { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-bottom: 1px solid #dfe7e7; background: #f0f6f6; }
+.ss-launch-head .ss-clip-hint { flex: 1; }
+.ss-launch-grid { flex: 1; overflow: auto; padding: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; align-content: start; }
+.ss-launch-item { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 4px; border: none; background: transparent; border-radius: 8px; cursor: pointer; color: var(--ink); }
+.ss-launch-item:hover { background: #e8f3f3; }
+.ss-launch-item:active { background: #d7ecec; }
+.ss-launch-ico { font-size: 26px; line-height: 1; height: 32px; display: flex; align-items: center; justify-content: center; }
+.ss-launch-img { width: 32px; height: 32px; object-fit: contain; }
+.ss-launch-label { font-size: 11px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
+.ss-launch-empty { grid-column: 1 / -1; color: #8aa; padding: 24px 12px; font-size: 12px; text-align: center; white-space: pre-line; line-height: 1.7; }
+
 /* file viewer */
 .ss-viewer { display: flex; height: 100%; background: #111; overflow: auto; }
 .ss-viewer-img { margin: auto; max-width: 100%; max-height: 100%; }
