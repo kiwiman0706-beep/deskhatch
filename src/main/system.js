@@ -112,13 +112,17 @@ function register() {
 
   ipcMain.handle('system:bookmarks', () => readBookmarks());
 
-  // Generic native context menu: items = [{id,label}|{separator:true}]; returns
-  // the picked id (or null).
+  // Generic native context menu: items = [{id,label}|{separator:true}|
+  // {label,submenu:[...]}]; submenus nest arbitrarily (classic cascading menu).
+  // Returns the picked leaf id (or null).
+  const buildTemplate = (items, onPick) => (items || []).map((it) => {
+    if (it.separator) return { type: 'separator' };
+    if (Array.isArray(it.submenu)) return { label: it.label, submenu: buildTemplate(it.submenu, onPick) };
+    return { label: it.label, enabled: it.enabled !== false, click: () => { onPick(it.id); } };
+  });
   ipcMain.handle('menu:popup', (e, items) => new Promise((resolve) => {
     let picked = null;
-    const tmpl = (items || []).map((it) => it.separator
-      ? { type: 'separator' }
-      : { label: it.label, enabled: it.enabled !== false, click: () => { picked = it.id; } });
+    const tmpl = buildTemplate(items, (id) => { picked = id; });
     const menu = Menu.buildFromTemplate(tmpl);
     menu.popup({ window: BrowserWindow.fromWebContents(e.sender), callback: () => resolve(picked) });
   }));

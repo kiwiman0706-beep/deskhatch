@@ -128,6 +128,67 @@ function register(getWin) {
     try { return app.getPath(key); } catch (_) { return PC; }
   });
 
+  // Classic Start Menu: read the Programs tree(s) recursively and return a
+  // nested {name, path, isDir, children?} structure. On Windows the all-users
+  // (ProgramData) and per-user (AppData) menus are merged by folder name, just
+  // like the real Start Menu. macOS falls back to /Applications.
+  const menuRoots = () => {
+    if (process.platform === 'win32') {
+      const r = [startMenuPrograms()];
+      try { r.push(path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs')); } catch (_) {}
+      return r;
+    }
+    if (process.platform === 'darwin') return ['/Applications'];
+    return [];
+  };
+  const APP_EXTS = new Set(['.lnk', '.url', '.exe', '.appref-ms', '.bat', '.cmd', '.msc', '.com']);
+  function readMenuNode(dir, depth) {
+    let dirents;
+    try { dirents = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return []; }
+    const items = [];
+    for (const d of dirents) {
+      const full = path.join(dir, d.name);
+      let isDir = d.isDirectory();
+      if (d.isSymbolicLink()) { try { isDir = fs.statSync(full).isDirectory(); } catch (_) { continue; } }
+      if (isDir) {
+        if (process.platform === 'darwin' && /\.app$/i.test(d.name)) { items.push({ name: d.name.replace(/\.app$/i, ''), path: full, isDir: false }); continue; }
+        const children = depth > 0 ? readMenuNode(full, depth - 1) : [];
+        items.push({ name: d.name, path: full, isDir: true, children });
+      } else {
+        const ext = path.extname(d.name).toLowerCase();
+        if (process.platform === 'win32' && !APP_EXTS.has(ext)) continue;
+        if (/^(uninstall|アンインストール|setup|readme|license|help)\b/i.test(d.name)) continue;
+        items.push({ name: d.name.replace(/\.(lnk|url|appref-ms)$/i, ''), path: full, isDir: false });
+      }
+    }
+    return items;
+  }
+  function mergeMenu(a, b) {
+    const out = a.slice();
+    for (const it of b) {
+      if (it.isDir) {
+        const ex = out.find((x) => x.isDir && x.name.toLowerCase() === it.name.toLowerCase());
+        if (ex) ex.children = mergeMenu(ex.children || [], it.children || []);
+        else out.push(it);
+      } else if (!out.some((x) => !x.isDir && x.name.toLowerCase() === it.name.toLowerCase())) {
+        out.push(it);
+      }
+    }
+    return out;
+  }
+  function sortMenu(items) {
+    items.sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name, 'ja') : a.isDir ? -1 : 1));
+    items.forEach((i) => { if (i.children) sortMenu(i.children); });
+    return items;
+  }
+  ipcMain.handle('files:menu-tree', () => {
+    try {
+      let tree = [];
+      for (const r of menuRoots()) tree = mergeMenu(tree, readMenuNode(r, 5));
+      return sortMenu(tree);
+    } catch (_) { return []; }
+  });
+
   ipcMain.handle('files:stat', (_e, p) => {
     try {
       const st = fs.statSync(p);

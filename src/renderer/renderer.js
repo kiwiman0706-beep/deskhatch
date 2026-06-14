@@ -1461,6 +1461,41 @@ function launchLabel(p, isDir) {
 }
 function openLauncher(it) { if (it.url) window.system.external(it.path); else window.files.open(it.path); }
 
+// --- Classic Start Menu ----------------------------------------------------
+// Reads the Windows Start Menu (Programs) tree — all-users + per-user, merged —
+// and pops it as a real OS cascading menu, so submenus fly out natively without
+// being clipped by our overlay window. macOS uses /Applications.
+let startMenuCache = null;
+async function openStartMenu() {
+  let tree = startMenuCache;
+  if (!tree) { tree = await window.files.menuTree(); startMenuCache = tree; }
+  const map = {};
+  let seq = 0;
+  const toItems = (nodes) => {
+    const out = [];
+    for (const n of nodes || []) {
+      if (n.isDir) {
+        const sub = toItems(n.children || []);
+        if (sub.length) out.push({ label: n.name, submenu: sub });
+      } else {
+        const id = 'sm' + (seq++);
+        map[id] = { path: n.path, url: !!n.url };
+        out.push({ id, label: n.name });
+      }
+    }
+    return out;
+  };
+  let items = toItems(tree);
+  if (!items.length) items = [{ id: '_none', label: L('（プログラムが見つかりません）'), enabled: false }];
+  else {
+    items.push({ separator: true });
+    items.push({ id: '_refresh', label: L('🔄 一覧を更新') });
+  }
+  const action = await window.system.menu(items);
+  if (action === '_refresh') { startMenuCache = null; return openStartMenu(); }
+  if (action && map[action]) { const it = map[action]; if (it.url) window.system.external(it.path); else window.files.open(it.path); }
+}
+
 function buildLauncherPanel(tab) {
   const wrap = el('div', 'ss-launch');
   const head = el('div', 'ss-launch-head');
@@ -2357,14 +2392,14 @@ function buildTabFields(t, extras) {
   const wlabel = el('span', 'ss-set-wlabel', L('幅'));
   const row2 = el('div', 'ss-set-row');
 
-  if (!['page', 'tabs', 'files', 'folder', 'tool', 'scrap', 'camera', 'launcher'].includes(t.type)) {
+  if (!['page', 'tabs', 'files', 'folder', 'tool', 'scrap', 'camera', 'launcher', 'startmenu'].includes(t.type)) {
     row2.append(el('span', 'ss-set-note', L('特殊表示（編集不可）')), wlabel, width);
     wrap.append(top, row2);
     return wrap;
   }
 
   const type = el('select', 'ss-set-type');
-  [['page', L('ページ')], ['browser', L('ブラウザ')], ['tabs', L('タブ')], ['files', L('PC全体')], ['folder', L('フォルダ')], ['launcher', L('ランチャー')], ['tool', L('ツール')], ['camera', L('カメラ')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; type.appendChild(op); });
+  [['page', L('ページ')], ['browser', L('ブラウザ')], ['tabs', L('タブ')], ['files', L('PC全体')], ['folder', L('フォルダ')], ['launcher', L('ランチャー')], ['startmenu', L('スタートメニュー')], ['tool', L('ツール')], ['camera', L('カメラ')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; type.appendChild(op); });
   type.value = t.type;
   const mobileWrap = el('label', 'ss-set-check'); const mobile = document.createElement('input'); mobile.type = 'checkbox'; mobile.checked = !!t.mobile; mobile.onchange = () => { t.mobile = mobile.checked; }; mobileWrap.append(mobile, document.createTextNode(L(' スマホ表示')));
   const keepWrap = el('label', 'ss-set-check'); const keep = document.createElement('input'); keep.type = 'checkbox'; keep.checked = !!t.keepAlive; keep.onchange = () => { t.keepAlive = keep.checked; }; keepWrap.append(keep, document.createTextNode(L(' 閉じても止めない')));
@@ -3036,6 +3071,7 @@ function renderBar() {
     if (tab.type === 'tool' && /timer|stopwatch|clock/.test(tab.tool || '')) { btn.classList.add('ss-clockbtn'); btn.appendChild(el('span', 'ss-clocklabel')); }
     btn.addEventListener('click', () => {
       if (tab.type === 'launch') window.files.open(tab.path); // open with default app
+      else if (tab.type === 'startmenu') openStartMenu(); // classic cascading menu (no drawer)
       else openTab(tab, btn);
     });
     btn.addEventListener('contextmenu', (e) => { e.preventDefault(); tabContextMenu(tab, btn); });
