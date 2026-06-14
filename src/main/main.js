@@ -71,7 +71,11 @@ function makeOverlay(display) {
     },
   });
   w.setAlwaysOnTop(true, 'floating');
-  w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  // macOS: by default we let the bar ride over fullscreen Spaces, but that makes
+  // it cover a fullscreen window's revealed title bar (close/minimize) and the
+  // menu bar. When "hide on fullscreen" is on, keep the bar OFF fullscreen
+  // Spaces so those controls stay clickable; it returns when you leave fullscreen.
+  w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: !(isMac && cfg.hideFs) });
   w.setIgnoreMouseEvents(true, { forward: true });
   w.loadFile(INDEX, { query: { d: String(display.id) } }); // tell the renderer its display
   return w;
@@ -231,6 +235,11 @@ function reconcile() {
   for (const id of [...bars.keys()]) if (!wantIds.includes(id)) destroyBar(id);
   for (const d of want) if (!bars.has(d.id)) createBar(d);
   for (const e of bars.values()) applyReserve(e);
+  // macOS: re-apply the fullscreen-Space visibility policy (the "hide on
+  // fullscreen" toggle can change after the bar was created).
+  if (isMac) for (const e of bars.values()) {
+    if (e.win && !e.win.isDestroyed()) { try { e.win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: !cfg.hideFs }); } catch (_) {} }
+  }
   // Reserving changes the work area, which fires display-metrics-changed.
   // Ignore those for a moment so we don't re-reconcile in a runaway loop.
   suppressMetricsUntil = Date.now() + 2000;
