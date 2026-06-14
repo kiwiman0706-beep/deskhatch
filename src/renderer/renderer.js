@@ -14,7 +14,7 @@ const MOBILE_UA =
 const drawerHeight = () => Math.min(720, Math.floor(window.screen.availHeight * 0.8));
 
 // The "logo" menu pseudo-tab pinned to the left of the bar.
-const MENU_TAB = { id: '__menu', label: L('メニュー'), icon: '☰', type: 'menu', width: 380 };
+const MENU_TAB = { id: '__menu', label: L('メニュー'), icon: '☰', type: 'menu', width: 640 };
 
 // The "clip" (temporary holding) pseudo-tab — a drop target / bin.
 const CLIP_TAB = { id: '__clip', label: L('クリップ'), icon: '📎', type: 'clip', width: 640 };
@@ -90,6 +90,9 @@ const Store = {
   // Launcher drawer items (one list per drawer id): { id, path, label, dir?, url? }.
   getLaunchers(tabId) { try { const a = JSON.parse(localStorage.getItem('ss.launch.' + tabId)); return Array.isArray(a) ? a : []; } catch (_) { return []; } },
   saveLaunchers(tabId, a) { try { localStorage.setItem('ss.launch.' + tabId, JSON.stringify(a || [])); } catch (_) {} },
+  // Start-menu pinned apps: [{ path, label, dir? }].
+  getPins() { try { const a = JSON.parse(localStorage.getItem('ss.pins')); return Array.isArray(a) ? a : []; } catch (_) { return []; } },
+  savePins(a) { try { localStorage.setItem('ss.pins', JSON.stringify(a || [])); } catch (_) {} },
   // "Don't show the intro guide on startup again."
   getHelpSkip() { return localStorage.getItem('ss.help.skip') === '1'; },
   setHelpSkip(v) { if (v) localStorage.setItem('ss.help.skip', '1'); else localStorage.removeItem('ss.help.skip'); },
@@ -1461,39 +1464,166 @@ function launchLabel(p, isDir) {
 }
 function openLauncher(it) { if (it.url) window.system.external(it.path); else window.files.open(it.path); }
 
-// --- Classic Start Menu ----------------------------------------------------
-// Reads the Windows Start Menu (Programs) tree — all-users + per-user, merged —
-// and pops it as a real OS cascading menu, so submenus fly out natively without
-// being clipped by our overlay window. macOS uses /Applications.
-let startMenuCache = null;
-async function openStartMenu() {
-  let tree = startMenuCache;
-  if (!tree) { tree = await window.files.menuTree(); startMenuCache = tree; }
-  const map = {};
-  let seq = 0;
-  const toItems = (nodes) => {
-    const out = [];
-    for (const n of nodes || []) {
-      if (n.isDir) {
-        const sub = toItems(n.children || []);
-        if (sub.length) out.push({ label: n.name, submenu: sub });
-      } else {
-        const id = 'sm' + (seq++);
-        map[id] = { path: n.path, url: !!n.url };
-        out.push({ id, label: n.name });
-      }
-    }
-    return out;
-  };
-  let items = toItems(tree);
-  if (!items.length) items = [{ id: '_none', label: L('（プログラムが見つかりません）'), enabled: false }];
-  else {
-    items.push({ separator: true });
-    items.push({ id: '_refresh', label: L('🔄 一覧を更新') });
+// --- App menu (XP/7-style Start menu, embedded in the ☰ menu) ---------------
+// Reads the Windows Start Menu Programs tree (all-users + per-user, merged) and
+// shows it as an in-place, expandable two-pane panel: pinned apps + all
+// programs on the left (with search + real icons), shortcuts on the right.
+// macOS reads /Applications. Lives inside the ☰ drawer, no separate window.
+let appMenuTree = null; // cached merged tree for the session
+function appIconEl(p, fallback) {
+  const ico = el('span', 'ss-am-ico', fallback || '📄');
+  if (p && !/^https?:/i.test(p)) window.files.icon(p).then((u) => { if (u) { ico.textContent = ''; const img = document.createElement('img'); img.src = u; img.className = 'ss-am-img'; ico.append(img); } });
+  return ico;
+}
+function buildAppMenu() {
+  const wrap = el('div', 'ss-appmenu');
+  const searchWrap = el('div', 'ss-am-searchwrap');
+  const search = el('input', 'ss-am-search'); search.type = 'search'; search.placeholder = L('🔍 アプリを検索…');
+  searchWrap.append(search);
+  const panes = el('div', 'ss-am-panes');
+  const left = el('div', 'ss-am-left');
+  const right = el('div', 'ss-am-right');
+  panes.append(left, right);
+  wrap.append(searchWrap, panes);
+
+  const anchor = () => document.querySelector('.ss-menu') || document.getElementById('bar');
+  const openItem = (it) => { if (it && it.url) window.system.external(it.url || it.path); else if (it && it.path) window.files.open(it.path); };
+  // Lazy icon loading: only fetch the native icon once a row scrolls into view,
+  // so a Start Menu with hundreds of programs never fires hundreds of icon
+  // lookups at once. Pinned/right-pane icons (few) load eagerly.
+  const io = ('IntersectionObserver' in window) ? new IntersectionObserver((ents, ob) => {
+    ents.forEach((en) => { if (en.isIntersecting) { ob.unobserve(en.target); loadIcon(en.target); } });
+  }, { rootMargin: '120px' }) : null;
+  function loadIcon(ico) {
+    const p = ico.dataset.icoPath; if (!p) return;
+    window.files.icon(p).then((u) => { if (u) { ico.textContent = ''; const img = document.createElement('img'); img.src = u; img.className = 'ss-am-img'; ico.append(img); } });
   }
-  const action = await window.system.menu(items);
-  if (action === '_refresh') { startMenuCache = null; return openStartMenu(); }
-  if (action && map[action]) { const it = map[action]; if (it.url) window.system.external(it.path); else window.files.open(it.path); }
+  function iconFor(p, fallback, lazy) {
+    const ico = el('span', 'ss-am-ico', fallback || '📄');
+    if (p && !/^https?:/i.test(p)) { ico.dataset.icoPath = p; if (io && lazy) io.observe(ico); else loadIcon(ico); }
+    return ico;
+  }
+  const isPinned = (p) => Store.getPins().some((x) => x.path === p);
+  function togglePin(it) {
+    const a = Store.getPins();
+    const i = a.findIndex((x) => x.path === it.path);
+    if (i >= 0) a.splice(i, 1); else a.push({ path: it.path, label: it.label || pathBase(it.path), dir: !!it.dir });
+    Store.savePins(a); renderPins();
+  }
+  async function itemMenu(e, it) {
+    e.preventDefault();
+    const a = await window.system.menu([
+      { id: 'open', label: L('開く') },
+      { id: 'pin', label: isPinned(it.path) ? L('ピン留めを解除') : L('★ ピン留め') },
+      it.dir ? null : { id: 'reveal', label: L('場所を開く') },
+    ].filter(Boolean));
+    if (a === 'open') openItem(it);
+    else if (a === 'pin') togglePin(it);
+    else if (a === 'reveal') window.files.reveal(it.path);
+  }
+
+  // ---- left: pinned grid + all-programs tree + (search) results ----
+  const pinsSec = el('div', 'ss-am-sec', L('★ ピン留め'));
+  const pinsBox = el('div', 'ss-am-pins');
+  const allSec = el('div', 'ss-am-sec', L('すべてのプログラム'));
+  const treeBox = el('div', 'ss-am-tree');
+  const results = el('div', 'ss-am-results'); results.style.display = 'none';
+  left.append(pinsSec, pinsBox, el('div', 'ss-am-hr'), allSec, treeBox, results);
+
+  function renderPins() {
+    pinsBox.innerHTML = '';
+    const pins = Store.getPins();
+    if (!pins.length) { pinsBox.append(el('div', 'ss-am-hint', L('プログラムを右クリック →「★ ピン留め」でここに追加'))); return; }
+    pins.forEach((p) => {
+      const cell = el('button', 'ss-am-pin');
+      cell.title = p.path;
+      cell.append(appIconEl(p.path, p.dir ? '📁' : launchEmoji(p.path)), el('span', 'ss-am-pinlabel', p.label || pathBase(p.path)));
+      cell.onclick = () => openItem(p);
+      cell.oncontextmenu = (e) => itemMenu(e, p);
+      pinsBox.append(cell);
+    });
+  }
+
+  function renderTree(container, nodes, depth) {
+    nodes.forEach((n) => {
+      if (n.isDir) {
+        const row = el('div', 'ss-am-item ss-am-folder');
+        row.style.paddingLeft = (8 + depth * 14) + 'px';
+        const caret = el('span', 'ss-am-caret', '▸');
+        row.append(caret, el('span', 'ss-am-ico', '📁'), el('span', 'ss-am-label', n.name));
+        const kids = el('div', 'ss-am-children'); kids.style.display = 'none';
+        row.onclick = () => {
+          const open = kids.style.display === 'none';
+          kids.style.display = open ? 'block' : 'none'; caret.textContent = open ? '▾' : '▸';
+          if (open && !kids.dataset.built) { renderTree(kids, n.children || [], depth + 1); kids.dataset.built = '1'; }
+        };
+        container.append(row, kids);
+      } else {
+        const row = el('div', 'ss-am-item');
+        row.style.paddingLeft = (8 + depth * 14 + 18) + 'px';
+        row.title = n.path;
+        row.append(iconFor(n.path, launchEmoji(n.path), true), el('span', 'ss-am-label', n.name));
+        row.onclick = () => openItem(n);
+        row.oncontextmenu = (e) => itemMenu(e, n);
+        container.append(row);
+      }
+    });
+  }
+
+  function flatten(nodes, out) { (nodes || []).forEach((n) => { if (n.isDir) flatten(n.children, out); else out.push(n); }); return out; }
+  function runSearch(v) {
+    v = v.trim().toLowerCase();
+    const searching = !!v;
+    pinsSec.style.display = pinsBox.style.display = allSec.style.display = treeBox.style.display = searching ? 'none' : '';
+    results.style.display = searching ? 'block' : 'none';
+    if (!searching) return;
+    results.innerHTML = '';
+    const hits = flatten(appMenuTree || [], []).filter((n) => (n.name || '').toLowerCase().includes(v)).slice(0, 200);
+    if (!hits.length) { results.append(el('div', 'ss-am-hint', L('該当なし'))); return; }
+    hits.forEach((n) => {
+      const row = el('div', 'ss-am-item'); row.style.paddingLeft = '8px'; row.title = n.path;
+      row.append(iconFor(n.path, launchEmoji(n.path), true), el('span', 'ss-am-label', n.name));
+      row.onclick = () => openItem(n);
+      row.oncontextmenu = (e) => itemMenu(e, n);
+      results.append(row);
+    });
+  }
+  search.addEventListener('input', () => runSearch(search.value));
+
+  // ---- right: places / system / Google shortcuts ----
+  const ritem = (icon, label, fn, iconColor) => {
+    const r = el('div', 'ss-am-item');
+    const ic = el('span', 'ss-am-ico', icon); if (iconColor) ic.style.background = iconColor, ic.style.color = '#fff';
+    r.append(ic, el('span', 'ss-am-label', label));
+    r.onclick = fn; right.append(r);
+  };
+  const rsec = (t) => right.append(el('div', 'ss-am-sec', t));
+  const openFolder = (id, label, icon, path) => openTab({ id: 'am-' + id, label, icon, type: path === '@pc' ? 'files' : 'folder', path, width: 480 }, anchor());
+  const openPage = (id, label, icon, url) => openTab({ id: 'am-' + id, label, icon, type: 'page', url, width: 760 }, anchor());
+
+  rsec(L('📂 場所'));
+  ritem('💻', L('PC'), () => openFolder('pc', L('PC'), '💻', '@pc'));
+  ritem('🗂', L('ドキュメント'), () => openFolder('docs', L('ドキュメント'), '🗂', '@documents'));
+  ritem('🖼', L('ピクチャ'), () => openFolder('pics', L('ピクチャ'), '🖼', '@pictures'));
+  ritem('⬇', L('ダウンロード'), () => openFolder('dl', L('ダウンロード'), '⬇', '@downloads'));
+  ritem('🖨', L('プリンター'), () => window.system.open('printersFolder'));
+  rsec(L('⚙ システム'));
+  ritem('⚙', L('設定'), () => window.system.open('settings'));
+  ritem('🎛', L('コントロールパネル'), () => window.system.open('control'));
+  ritem('🛠', L('ゴッドモード（全設定）'), () => window.system.open('godmode'));
+  rsec(L('🌐 Google'));
+  ritem('📄', L('ドキュメント'), () => openPage('gdoc', L('ドキュメント'), '📄', 'https://docs.google.com/document/u/0/'), '#4285f4');
+  ritem('📊', L('スプレッドシート'), () => openPage('gsheet', L('スプレッドシート'), '📊', 'https://docs.google.com/spreadsheets/u/0/'), '#0f9d58');
+  ritem('📽', L('スライド'), () => openPage('gslide', L('スライド'), '📽', 'https://docs.google.com/presentation/u/0/'), '#f4b400');
+
+  // ---- load the program tree ----
+  renderPins();
+  if (appMenuTree) renderTree(treeBox, appMenuTree, 0);
+  else {
+    treeBox.append(el('div', 'ss-am-hint', L('読み込み中…')));
+    window.files.menuTree().then((t) => { appMenuTree = t || []; treeBox.innerHTML = ''; renderTree(treeBox, appMenuTree, 0); if (!appMenuTree.length) treeBox.append(el('div', 'ss-am-hint', L('プログラムが見つかりません'))); });
+  }
+  return wrap;
 }
 
 function buildLauncherPanel(tab) {
@@ -2392,14 +2522,14 @@ function buildTabFields(t, extras) {
   const wlabel = el('span', 'ss-set-wlabel', L('幅'));
   const row2 = el('div', 'ss-set-row');
 
-  if (!['page', 'tabs', 'files', 'folder', 'tool', 'scrap', 'camera', 'launcher', 'startmenu'].includes(t.type)) {
+  if (!['page', 'tabs', 'files', 'folder', 'tool', 'scrap', 'camera', 'launcher'].includes(t.type)) {
     row2.append(el('span', 'ss-set-note', L('特殊表示（編集不可）')), wlabel, width);
     wrap.append(top, row2);
     return wrap;
   }
 
   const type = el('select', 'ss-set-type');
-  [['page', L('ページ')], ['browser', L('ブラウザ')], ['tabs', L('タブ')], ['files', L('PC全体')], ['folder', L('フォルダ')], ['launcher', L('ランチャー')], ['startmenu', L('スタートメニュー')], ['tool', L('ツール')], ['camera', L('カメラ')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; type.appendChild(op); });
+  [['page', L('ページ')], ['browser', L('ブラウザ')], ['tabs', L('タブ')], ['files', L('PC全体')], ['folder', L('フォルダ')], ['launcher', L('ランチャー')], ['tool', L('ツール')], ['camera', L('カメラ')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; type.appendChild(op); });
   type.value = t.type;
   const mobileWrap = el('label', 'ss-set-check'); const mobile = document.createElement('input'); mobile.type = 'checkbox'; mobile.checked = !!t.mobile; mobile.onchange = () => { t.mobile = mobile.checked; }; mobileWrap.append(mobile, document.createTextNode(L(' スマホ表示')));
   const keepWrap = el('label', 'ss-set-check'); const keep = document.createElement('input'); keep.type = 'checkbox'; keep.checked = !!t.keepAlive; keep.onchange = () => { t.keepAlive = keep.checked; }; keepWrap.append(keep, document.createTextNode(L(' 閉じても止めない')));
@@ -2812,10 +2942,11 @@ function buildMenuPanel() {
   renderAccounts();
 
   const tabsBar = el('div', 'ss-menu-tabs');
+  const bApps = el('button', 'ss-menu-tab', L('🚀 アプリ'));
   const bSettings = el('button', 'ss-menu-tab', L('⚙ 設定'));
   const bTools = el('button', 'ss-menu-tab', L('🧰 ツール'));
   const bHelp = el('button', 'ss-menu-tab', L('❔ ヘルプ'));
-  tabsBar.append(bSettings, bTools, bHelp);
+  tabsBar.append(bApps, bSettings, bTools, bHelp);
   const view = el('div', 'ss-menu-view');
 
   const footer = el('div', 'ss-menu-foot');
@@ -2836,15 +2967,17 @@ function buildMenuPanel() {
 
   function show(which) {
     view.innerHTML = '';
+    bApps.classList.toggle('active', which === 'a');
     bSettings.classList.toggle('active', which === 's');
     bTools.classList.toggle('active', which === 't');
     bHelp.classList.toggle('active', which === 'h');
-    view.appendChild(which === 's' ? buildSettings() : which === 't' ? buildTools() : buildHelp());
+    view.appendChild(which === 'a' ? buildAppMenu() : which === 's' ? buildSettings() : which === 't' ? buildTools() : buildHelp());
   }
+  bApps.onclick = () => show('a');
   bSettings.onclick = () => show('s');
   bTools.onclick = () => show('t');
   bHelp.onclick = () => show('h');
-  show('s');
+  show('a');
   return wrap;
 }
 
@@ -3071,7 +3204,7 @@ function renderBar() {
     if (tab.type === 'tool' && /timer|stopwatch|clock/.test(tab.tool || '')) { btn.classList.add('ss-clockbtn'); btn.appendChild(el('span', 'ss-clocklabel')); }
     btn.addEventListener('click', () => {
       if (tab.type === 'launch') window.files.open(tab.path); // open with default app
-      else if (tab.type === 'startmenu') openStartMenu(); // classic cascading menu (no drawer)
+      else if (tab.type === 'startmenu') openTab(MENU_TAB, btn); // legacy: now the ☰ app menu
       else openTab(tab, btn);
     });
     btn.addEventListener('contextmenu', (e) => { e.preventDefault(); tabContextMenu(tab, btn); });

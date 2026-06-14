@@ -69,6 +69,7 @@ const TARGETS = {
   devmgr: () => run('start "" devmgmt.msc'),
   godmode: () => run('explorer shell:::{ED7BA470-8E54-465E-825C-99712043E01C}'),
   printers: () => run('control printers'),
+  printersFolder: () => run('explorer shell:PrintersFolder'),
   scanners: () => shell.openExternal('ms-settings:printers'),
 };
 

@@ -13,9 +13,6 @@
 // The drawer opens directly beneath its button (left edges aligned, clamped
 // into view). Drag the drawer's right/bottom/corner to resize; size is remembered.
 window.SS_TABS = [
-  // Classic cascading Start Menu (reads the Windows Start Menu Programs tree).
-  { id: 'start', label: L('スタート'), icon: '🪟', type: 'startmenu' },
-
   { id: 'mail', label: L('メール'), icon: '✉', type: 'page', mobile: false, width: 720,
     url: 'https://mail.google.com/' },
 
@@ -59,9 +56,6 @@ window.SS_TABS = [
     url: 'https://ja.m.wikipedia.org/' },
 
   { id: 'desktop', label: 'Desktop', icon: '🖳', type: 'folder', path: '@desktop', width: 460 },
-
-  // Installed apps: Windows Start Menu programs / macOS Applications (auto per-OS).
-  { id: 'apps', label: L('アプリ'), icon: '🚀', type: 'folder', path: '@apps', width: 460 },
 
   // Launcher: drop app shortcuts / files here to register one-click buttons.
   { id: 'launch', label: L('ランチャー'), icon: '🎯', type: 'launcher', width: 340 },
