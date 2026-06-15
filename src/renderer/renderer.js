@@ -3324,6 +3324,21 @@ function renderBar() {
 
   // right-end 🔍 search box (opens the system browser)
   const right = el('div', 'ss-right');
+
+  // macOS: exit the frontmost window's full screen (its green traffic-light can
+  // sit under the bar). ⌃⌘F via the main process; first use prompts for the
+  // Accessibility permission it needs.
+  if (window.overlay.platform === 'darwin') {
+    const fsBtn = el('button', 'ss-btn ss-exitfs');
+    fsBtn.title = L('全画面を終了（最前面のウインドウ）');
+    fsBtn.append(el('span', 'ss-ico', '🟢'));
+    fsBtn.addEventListener('click', async () => {
+      const ok = window.system.exitFullscreen && await window.system.exitFullscreen();
+      if (!ok) toast(L('全画面を終了できませんでした。システム設定 → プライバシーとセキュリティ → アクセシビリティ で DeskHatch を許可してください'));
+    });
+    right.appendChild(fsBtn);
+  }
+
   const searchBtn = el('button', 'ss-btn ss-search-btn');
   searchBtn.title = L('検索 / URL（標準ブラウザで開く）');
   searchBtn.append(el('span', 'ss-ico', '🔍'));

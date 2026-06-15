@@ -106,6 +106,21 @@ function register() {
 
   ipcMain.handle('system:external', (_e, url) => openUrl(url)); // default browser exe, then shell fallback
 
+  // macOS: toggle the frontmost window's full-screen via the standard
+  // ⌃⌘F shortcut (key code 3 = "f"). Used by the bar's "exit fullscreen" button
+  // so the green traffic-light it can overlap stays reachable. Needs Accessibility
+  // permission; the first call makes macOS prompt for it. On failure we open the
+  // Accessibility settings pane so the user can grant it.
+  ipcMain.handle('system:exit-fullscreen', () => {
+    if (process.platform !== 'darwin') return false;
+    return new Promise((resolve) => {
+      exec("osascript -e 'tell application \"System Events\" to key code 3 using {command down, control down}'", { windowsHide: true }, (err) => {
+        if (err) { try { shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'); } catch (_) {} }
+        resolve(!err);
+      });
+    });
+  });
+
   ipcMain.handle('system:clipboard', () => {
     const img = clipboard.readImage();
     return { text: clipboard.readText(), image: img.isEmpty() ? null : img.toDataURL() };

@@ -107,6 +107,7 @@ contextBridge.exposeInMainWorld('files', {
 contextBridge.exposeInMainWorld('system', {
   open: (key) => ipcRenderer.invoke('system:open', key),
   external: (url) => ipcRenderer.invoke('system:external', url),
+  exitFullscreen: () => ipcRenderer.invoke('system:exit-fullscreen'),
   clipboard: () => ipcRenderer.invoke('system:clipboard'),
   bookmarks: () => ipcRenderer.invoke('system:bookmarks'),
   menu: (items) => ipcRenderer.invoke('menu:popup', items),
