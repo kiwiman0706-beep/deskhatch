@@ -1,6 +1,6 @@
 # DeskHatch のリリースと winget 公開
 
-PackageIdentifier: **`Theta.Deskhatch`**
+PackageIdentifier: **`Theta.DeskHatch`**
 配布: **GitHub Releases（公開）** / 自動化: **GitHub Actions** / 署名: なし
 
 ---
@@ -50,7 +50,7 @@ PackageIdentifier: **`Theta.Deskhatch`**
    ```powershell
    wingetcreate new https://github.com/kiwiman0706-beep/deskhatch/releases/download/v0.1.0/DeskHatch-Setup-0.1.0-x64.exe
    ```
-   - PackageIdentifier に **`Theta.Deskhatch`**
+   - PackageIdentifier に **`Theta.DeskHatch`**
    - Publisher: `Theta` / PackageName: `DeskHatch` / Moniker: `deskhatch`
    - License など聞かれたら入力（`MIT` 等）
    - 最後に「submit?」で **Yes**（GitHub 認証を求められる）→ microsoft/winget-pkgs に PR が作られます。
@@ -60,7 +60,7 @@ PackageIdentifier: **`Theta.Deskhatch`**
 
 ## ユーザーのインストール方法（公開後）
 ```powershell
-winget install Theta.Deskhatch
+winget install Theta.DeskHatch
 ```
 
 ## メモ

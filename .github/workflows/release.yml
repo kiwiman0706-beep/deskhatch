@@ -92,7 +92,7 @@ jobs:
         continue-on-error: true
         uses: vedantmgoyal9/winget-releaser@v2
         with:
-          identifier: Theta.Deskhatch
+          identifier: Theta.DeskHatch
           installers-regex: 'Setup-.*\.exe$'
           release-tag: ${{ env.RELEASE_TAG }}
           fork-user: kiwiman0706-beep
