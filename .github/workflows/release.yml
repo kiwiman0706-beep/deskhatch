@@ -40,10 +40,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
+          # A tag with a '-' (e.g. v0.1.65-beta.1) is a prerelease: electron-updater
+          # ignores it for stable users; only beta-channel opt-ins receive it.
+          prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
           files: |
             dist/DeskHatch-Setup-*.exe
             dist/DeskHatch-Portable-*.exe
-            dist/latest.yml
+            dist/*.yml
             dist/*.blockmap
           generate_release_notes: true
 
@@ -70,6 +73,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
+          prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
           files: |
             dist/*.dmg
             dist/*.zip
@@ -80,6 +84,8 @@ jobs:
   # the package exists, this keeps it updated automatically on every release.
   winget:
     needs: build-windows
+    # Don't push beta/prerelease tags to winget — stable releases only.
+    if: ${{ !contains(github.event.inputs.version || github.ref_name, '-') }}
     runs-on: ubuntu-latest
     steps:
       - name: Submit / update winget manifest

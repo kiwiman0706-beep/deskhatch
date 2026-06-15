@@ -420,6 +420,8 @@ ipcMain.on('app:relaunch', () => { app.relaunch(); app.quit(); });
 
 ipcMain.handle('app:version', () => app.getVersion());
 ipcMain.on('app:check-updates', () => updater.checkNow());
+ipcMain.handle('update:get-beta', () => updater.getBeta());
+ipcMain.on('update:set-beta', (_e, on) => updater.setBeta(!!on));
 
 ipcMain.on('overlay:set-ignore-mouse', (e, ignore) => {
   const w = BrowserWindow.fromWebContents(e.sender);

@@ -11,10 +11,29 @@
 // including a "you're on the latest version" dialog.
 
 const { app, dialog, shell, net } = require('electron');
+const fs = require('fs');
+const path = require('path');
 
 const isJa = () => { try { return app.getLocale().toLowerCase().startsWith('ja'); } catch (_) { return false; } };
 const OWNER = 'kiwiman0706-beep';
 const REPO = 'deskhatch';
+
+// --- Update channel (stable | beta) -----------------------------------------
+// Default users stay on STABLE: betas are published as GitHub "prerelease"
+// releases with a -beta tag, which electron-updater ignores unless prereleases
+// are allowed, and which GitHub's /releases/latest (the macOS path) excludes.
+// Opting in flips allowPrerelease/channel so this machine also gets betas.
+function chanFile() { return path.join(app.getPath('userData'), 'channel.json'); }
+function getBeta() { try { return JSON.parse(fs.readFileSync(chanFile(), 'utf8')).beta === true; } catch (_) { return false; } }
+function applyChannel(au) {
+  const b = getBeta();
+  try { au.allowPrerelease = b; au.channel = b ? 'beta' : 'latest'; } catch (_) {}
+}
+function setBeta(on) {
+  try { fs.writeFileSync(chanFile(), JSON.stringify({ beta: !!on })); } catch (_) {}
+  if (autoUpdater) applyChannel(autoUpdater);
+  init(); // re-check on the newly selected channel (no-op in dev)
+}
 
 function box(opts) { try { return dialog.showMessageBox(opts); } catch (_) { return Promise.resolve({ response: 1 }); } }
 
@@ -38,6 +57,7 @@ function ensureWin() {
   // signature check rejects every update ("not signed by the application owner").
   // Skip that check — the package is still fetched over HTTPS from GitHub Releases.
   try { autoUpdater.verifyUpdateCodeSignature = () => Promise.resolve(null); } catch (_) {}
+  applyChannel(autoUpdater);
   if (!auWired) {
     auWired = true;
     autoUpdater.on('error', (e) => {
@@ -81,12 +101,21 @@ function ensureWin() {
 }
 
 // --- macOS / other: lightweight "there's a newer release" notice -------------
-function isNewer(a, b) {
-  const pa = String(a).split('.').map(Number), pb = String(b).split('.').map(Number);
-  for (let i = 0; i < 3; i++) {
-    if ((pb[i] || 0) > (pa[i] || 0)) return true;
-    if ((pb[i] || 0) < (pa[i] || 0)) return false;
-  }
+// Semver-ish compare that understands -beta tags: 1.2.3 > 1.2.3-beta.2 >
+// 1.2.3-beta.1. Returns true when `cand` is strictly newer than `cur`.
+function parseV(v) {
+  const s = String(v || '').replace(/^v/, '');
+  const dash = s.indexOf('-');
+  const core = dash >= 0 ? s.slice(0, dash) : s;
+  const pre = dash >= 0 ? s.slice(dash + 1) : '';
+  return { nums: core.split('.').map((n) => parseInt(n, 10) || 0), pre };
+}
+function isNewer(cur, cand) {
+  const a = parseV(cur), b = parseV(cand);
+  for (let i = 0; i < 3; i++) { const x = a.nums[i] || 0, y = b.nums[i] || 0; if (y > x) return true; if (y < x) return false; }
+  if (a.pre && !b.pre) return true;   // a stable release beats our prerelease
+  if (!a.pre && b.pre) return false;  // a prerelease is older than our stable
+  if (a.pre && b.pre) return b.pre.localeCompare(a.pre, undefined, { numeric: true }) > 0;
   return false;
 }
 
@@ -105,11 +134,18 @@ function fetchJson(url) {
   });
 }
 
+async function latestRelease(beta) {
+  const base = 'https://api.github.com/repos/' + OWNER + '/' + REPO + '/releases';
+  if (!beta) return fetchJson(base + '/latest'); // excludes prereleases
+  const list = await fetchJson(base + '?per_page=15');
+  return Array.isArray(list) ? list.find((r) => r && !r.draft) : null; // newest incl. prerelease
+}
+
 async function checkAndNotify(isManual) {
   const ja = isJa();
   try {
-    const rel = await fetchJson('https://api.github.com/repos/' + OWNER + '/' + REPO + '/releases/latest');
-    const latest = String(rel.tag_name || '').replace(/^v/, '');
+    const rel = await latestRelease(getBeta());
+    const latest = String((rel && rel.tag_name) || '').replace(/^v/, '');
     if (latest && isNewer(app.getVersion(), latest)) {
       const { response } = await box({
         type: 'info',
@@ -156,4 +192,4 @@ function checkNow() {
   }
 }
 
-module.exports = { init, checkNow };
+module.exports = { init, checkNow, getBeta, setBeta };

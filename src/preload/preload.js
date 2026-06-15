@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('overlay', {
   onAddImage: (cb) => ipcRenderer.on('clip:add-image', (_e, url) => cb(url)),
   version: () => ipcRenderer.invoke('app:version'),
   checkUpdates: () => ipcRenderer.send('app:check-updates'),
+  getBeta: () => ipcRenderer.invoke('update:get-beta'),
+  setBeta: (on) => ipcRenderer.send('update:set-beta', on),
 
   // Launch at login.
   getStartup: () => ipcRenderer.invoke('startup:get'),

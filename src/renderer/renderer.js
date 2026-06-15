@@ -1530,11 +1530,6 @@ function openLauncher(it) { if (it.url) window.system.external(it.path); else wi
 // programs on the left (with search + real icons), shortcuts on the right.
 // macOS reads /Applications. Lives inside the ☰ drawer, no separate window.
 let appMenuTree = null; // cached merged tree for the session
-function appIconEl(p, fallback) {
-  const ico = el('span', 'ss-am-ico', fallback || '📄');
-  if (p && !/^https?:/i.test(p)) window.files.icon(p).then((u) => { if (u) { ico.textContent = ''; const img = document.createElement('img'); img.src = u; img.className = 'ss-am-img'; ico.append(img); } });
-  return ico;
-}
 function buildAppMenu() {
   const wrap = el('div', 'ss-appmenu');
   const searchWrap = el('div', 'ss-am-searchwrap');
@@ -1548,19 +1543,27 @@ function buildAppMenu() {
 
   const anchor = () => document.querySelector('.ss-menu') || document.getElementById('bar');
   const openItem = (it) => { if (it && it.url) window.system.external(it.url || it.path); else if (it && it.path) window.files.open(it.path); };
-  // Lazy icon loading: only fetch the native icon once a row scrolls into view,
-  // so a Start Menu with hundreds of programs never fires hundreds of icon
-  // lookups at once. Pinned/right-pane icons (few) load eagerly.
-  const io = ('IntersectionObserver' in window) ? new IntersectionObserver((ents, ob) => {
-    ents.forEach((en) => { if (en.isIntersecting) { ob.unobserve(en.target); loadIcon(en.target); } });
-  }, { rootMargin: '120px' }) : null;
-  function loadIcon(ico) {
-    const p = ico.dataset.icoPath; if (!p) return;
-    window.files.icon(p).then((u) => { if (u) { ico.textContent = ''; const img = document.createElement('img'); img.src = u; img.className = 'ss-am-img'; ico.append(img); } });
+  // Native icons via a small concurrency-limited queue, so a Start Menu with
+  // hundreds of programs never fires hundreds of icon lookups at once (and it
+  // works on every OS — the old IntersectionObserver approach didn't fire
+  // reliably inside the macOS drawer). Only rendered rows enqueue (folders
+  // build their children lazily on expand), so the queue stays small.
+  const iconQueue = []; let iconActive = 0;
+  function pumpIcons() {
+    while (iconActive < 8 && iconQueue.length) {
+      const ico = iconQueue.shift();
+      const p = ico && ico.dataset.icoPath;
+      if (!p) continue;
+      iconActive++;
+      window.files.icon(p)
+        .then((u) => { if (u) { ico.textContent = ''; const img = document.createElement('img'); img.src = u; img.className = 'ss-am-img'; ico.append(img); } })
+        .catch(() => {})
+        .then(() => { iconActive--; pumpIcons(); });
+    }
   }
-  function iconFor(p, fallback, lazy) {
+  function iconFor(p, fallback) {
     const ico = el('span', 'ss-am-ico', fallback || '📄');
-    if (p && !/^https?:/i.test(p)) { ico.dataset.icoPath = p; if (io && lazy) io.observe(ico); else loadIcon(ico); }
+    if (p && !/^https?:/i.test(p)) { ico.dataset.icoPath = p; iconQueue.push(ico); pumpIcons(); }
     return ico;
   }
   const isPinned = (p) => Store.getPins().some((x) => x.path === p);
@@ -1597,7 +1600,7 @@ function buildAppMenu() {
     pins.forEach((p) => {
       const cell = el('button', 'ss-am-pin');
       cell.title = p.path;
-      cell.append(appIconEl(p.path, p.dir ? '📁' : launchEmoji(p.path)), el('span', 'ss-am-pinlabel', p.label || pathBase(p.path)));
+      cell.append(iconFor(p.path, p.dir ? '📁' : launchEmoji(p.path)), el('span', 'ss-am-pinlabel', p.label || pathBase(p.path)));
       cell.onclick = () => openItem(p);
       cell.oncontextmenu = (e) => itemMenu(e, p);
       pinsBox.append(cell);
@@ -1622,7 +1625,7 @@ function buildAppMenu() {
         const row = el('div', 'ss-am-item');
         row.style.paddingLeft = (8 + depth * 14 + 18) + 'px';
         row.title = n.path;
-        row.append(iconFor(n.path, launchEmoji(n.path), true), el('span', 'ss-am-label', n.name));
+        row.append(iconFor(n.path, launchEmoji(n.path)), el('span', 'ss-am-label', n.name));
         row.onclick = () => openItem(n);
         row.oncontextmenu = (e) => itemMenu(e, n);
         container.append(row);
@@ -1642,7 +1645,7 @@ function buildAppMenu() {
     if (!hits.length) { results.append(el('div', 'ss-am-hint', L('該当なし'))); return; }
     hits.forEach((n) => {
       const row = el('div', 'ss-am-item'); row.style.paddingLeft = '8px'; row.title = n.path;
-      row.append(iconFor(n.path, launchEmoji(n.path), true), el('span', 'ss-am-label', n.name));
+      row.append(iconFor(n.path, launchEmoji(n.path)), el('span', 'ss-am-label', n.name));
       row.onclick = () => openItem(n);
       row.oncontextmenu = (e) => itemMenu(e, n);
       results.append(row);
@@ -2560,6 +2563,17 @@ function buildDisplaySettings() {
   window.overlay.getStartup().then((on) => { startup.checked = !!on; });
   startWrap.append(startup, document.createTextNode(L(' Windows起動時に自動で開く')));
   root.append(startWrap);
+
+  // Update channel: opt in to beta (test) builds. Default off = stable only.
+  if (window.overlay.getBeta) {
+    const betaWrap = el('label', 'ss-set-check');
+    const beta = document.createElement('input');
+    beta.type = 'checkbox';
+    beta.onchange = () => window.overlay.setBeta(beta.checked);
+    window.overlay.getBeta().then((on) => { beta.checked = !!on; });
+    betaWrap.append(beta, document.createTextNode(L(' ベータ版（テスト版）も受け取る')));
+    root.append(betaWrap);
+  }
 
   root.append(el('div', 'ss-disp-note', L('※「常に表示」で重なる場合は「領域を予約」をON。維持方式は通常「イベント駆動」でOK（うまく追従しない時だけ「ポーリング」へ）。')));
   return root;
