@@ -86,7 +86,13 @@ async function listDir(dir) {
 }
 
 async function iconDataUrl(p) {
-  try { const img = await app.getFileIcon(p, { size: 'small' }); return (img && !img.isEmpty()) ? img.toDataURL() : null; } catch (_) { return null; }
+  try { const img = await app.getFileIcon(p, { size: 'normal' }); if (img && !img.isEmpty()) return img.toDataURL(); } catch (_) {}
+  // macOS fallback: getFileIcon can come back empty for some .app bundles;
+  // QuickLook thumbnails return the real app icon there.
+  if (process.platform === 'darwin' && nativeImage.createThumbnailFromPath) {
+    try { const t = await nativeImage.createThumbnailFromPath(p, { width: 64, height: 64 }); if (t && !t.isEmpty()) return t.toDataURL(); } catch (_) {}
+  }
+  return null;
 }
 async function getIcon(p) {
   try {

@@ -93,6 +93,9 @@ const Store = {
   // Start-menu pinned apps: [{ path, label, dir? }].
   getPins() { try { const a = JSON.parse(localStorage.getItem('ss.pins')); return Array.isArray(a) ? a : []; } catch (_) { return []; } },
   savePins(a) { try { localStorage.setItem('ss.pins', JSON.stringify(a || [])); } catch (_) {} },
+  // macOS-only "exit fullscreen" bar button (off by default — opt in).
+  getMacFsBtn() { return localStorage.getItem('ss.macFsBtn') === '1'; },
+  setMacFsBtn(v) { if (v) localStorage.setItem('ss.macFsBtn', '1'); else localStorage.removeItem('ss.macFsBtn'); },
   // "Don't show the intro guide on startup again."
   getHelpSkip() { return localStorage.getItem('ss.help.skip') === '1'; },
   setHelpSkip(v) { if (v) localStorage.setItem('ss.help.skip', '1'); else localStorage.removeItem('ss.help.skip'); },
@@ -2564,6 +2567,16 @@ function buildDisplaySettings() {
   startWrap.append(startup, document.createTextNode(L(' Windows起動時に自動で開く')));
   root.append(startWrap);
 
+  // macOS: optional "exit fullscreen" (🟢) button on the bar.
+  if (window.overlay.platform === 'darwin') {
+    const fsWrap = el('label', 'ss-set-check');
+    const fsCb = document.createElement('input');
+    fsCb.type = 'checkbox'; fsCb.checked = Store.getMacFsBtn();
+    fsCb.onchange = () => { Store.setMacFsBtn(fsCb.checked); renderBar(); };
+    fsWrap.append(fsCb, document.createTextNode(L(' バーに「全画面終了」🟢ボタンを表示（mac／⌘⌃Fでも可）')));
+    root.append(fsWrap);
+  }
+
   // Update channel: opt in to beta (test) builds. Default off = stable only.
   if (window.overlay.getBeta) {
     const betaWrap = el('label', 'ss-set-check');
@@ -3342,7 +3355,7 @@ function renderBar() {
   // macOS: exit the frontmost window's full screen (its green traffic-light can
   // sit under the bar). ⌃⌘F via the main process; first use prompts for the
   // Accessibility permission it needs.
-  if (window.overlay.platform === 'darwin') {
+  if (window.overlay.platform === 'darwin' && Store.getMacFsBtn()) {
     const fsBtn = el('button', 'ss-btn ss-exitfs');
     fsBtn.title = L('全画面を終了（最前面のウインドウ）');
     fsBtn.append(el('span', 'ss-ico', '🟢'));

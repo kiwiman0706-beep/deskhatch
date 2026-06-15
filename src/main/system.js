@@ -12,6 +12,38 @@ function run(cmd) {
   exec(cmd, { windowsHide: true }, () => {}); // best-effort; cmd.exe handles `start`/shell verbs
 }
 
+// --- macOS synthetic key events (CGEventPost via koffi) ----------------------
+// Posts keystrokes from our own process, attributed to DeskHatch, so only the
+// Accessibility permission is required. Lazily loaded + fully guarded; returns
+// false on any platform/FFI failure so callers degrade gracefully.
+let mac = null;
+function macKeys() {
+  if (mac !== null) return mac;
+  if (process.platform !== 'darwin') { mac = false; return mac; }
+  try {
+    const koffi = require('koffi');
+    const as = koffi.load('/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices');
+    const cf = koffi.load('/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation');
+    const CGEventCreateKeyboardEvent = as.func('void* CGEventCreateKeyboardEvent(void* src, uint16 key, bool down)');
+    const CGEventPost = as.func('void CGEventPost(uint32 tap, void* ev)');
+    const CGEventSetFlags = as.func('void CGEventSetFlags(void* ev, uint64 flags)');
+    const AXIsProcessTrusted = as.func('bool AXIsProcessTrusted()');
+    const CFRelease = cf.func('void CFRelease(void* p)');
+    const FLAGS = 0x40000 | 0x100000; // control + command
+    const postKey = (key) => {
+      [true, false].forEach((down) => {
+        const ev = CGEventCreateKeyboardEvent(null, key, down);
+        if (!ev) return;
+        CGEventSetFlags(ev, FLAGS);
+        CGEventPost(0, ev); // 0 = kCGHIDEventTap
+        CFRelease(ev);
+      });
+    };
+    mac = { postKey, trusted: () => { try { return !!AXIsProcessTrusted(); } catch (_) { return false; } } };
+  } catch (_) { mac = false; }
+  return mac;
+}
+
 // --- Open URLs in the actual default BROWSER (Windows) ----------------------
 // shell.openExternal() goes through ShellExecute, which honors per-site "Apps
 // for websites" handlers — so e.g. google.com can be hijacked by an installed
@@ -106,19 +138,18 @@ function register() {
 
   ipcMain.handle('system:external', (_e, url) => openUrl(url)); // default browser exe, then shell fallback
 
-  // macOS: toggle the frontmost window's full-screen via the standard
-  // ⌃⌘F shortcut (key code 3 = "f"). Used by the bar's "exit fullscreen" button
-  // so the green traffic-light it can overlap stays reachable. Needs Accessibility
-  // permission; the first call makes macOS prompt for it. On failure we open the
-  // Accessibility settings pane so the user can grant it.
+  // macOS: toggle the frontmost window out of full screen by posting ⌃⌘F as a
+  // synthetic key event from our OWN process (CGEventPost). Unlike the System
+  // Events / AppleScript route, this needs only the Accessibility permission
+  // (not a separate Automation grant), so it actually works once the user has
+  // ticked DeskHatch in Privacy → Accessibility. If we're not yet trusted we
+  // open that pane instead. Used by the bar's "exit fullscreen" button.
   ipcMain.handle('system:exit-fullscreen', () => {
     if (process.platform !== 'darwin') return false;
-    return new Promise((resolve) => {
-      exec("osascript -e 'tell application \"System Events\" to key code 3 using {command down, control down}'", { windowsHide: true }, (err) => {
-        if (err) { try { shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'); } catch (_) {} }
-        resolve(!err);
-      });
-    });
+    const m = macKeys();
+    if (!m) return false;
+    if (!m.trusted()) { try { shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'); } catch (_) {} return false; }
+    try { m.postKey(3); return true; } catch (_) { return false; } // key code 3 = "f"
   });
 
   ipcMain.handle('system:clipboard', () => {
