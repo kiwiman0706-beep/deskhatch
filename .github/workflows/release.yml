@@ -50,6 +50,33 @@ jobs:
             dist/*.blockmap
           generate_release_notes: true
 
+  build-windows-arm64:
+    # Secondary native Windows ARM64 build. Isolated + non-blocking
+    # (continue-on-error) so a failure here never affects the x64 / macOS
+    # release. Only the installers are attached — NOT the update *.yml — so the
+    # x64 auto-update channel is left untouched. Camera/ffmpeg uses the bundled
+    # x64 binary via Windows-on-ARM x64 emulation.
+    needs: build-windows
+    continue-on-error: true
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install
+      - name: Build ARM64 installer + portable
+        run: npm run dist -- --arm64 --publish never
+      - name: Add ARM64 artifacts to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
+          files: |
+            dist/DeskHatch-Setup-*-arm64.exe
+            dist/DeskHatch-Portable-*-arm64.exe
+
   build-mac:
     # GitHub's hosted macOS runner (a real Mac VM in the cloud) — no Mac of your
     # own needed. Builds a universal (Intel + Apple Silicon) dmg + zip.
