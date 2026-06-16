@@ -15,7 +15,8 @@
     "pack": "electron-builder --win --dir",
     "dist": "electron-builder --win",
     "dist:mac": "electron-builder --mac",
-    "dist:linux": "electron-builder --linux"
+    "dist:linux": "electron-builder --linux",
+    "dist:msix": "electron-builder --win appx"
   },
   "license": "MIT",
   "dependencies": {
@@ -86,6 +87,15 @@
     },
     "portable": {
       "artifactName": "${productName}-Portable-${version}-${arch}.${ext}"
+    },
+    "appx": {
+      "identityName": "ThetaCorp.DeskHatch",
+      "publisher": "CN=A0CA65A9-A5EE-4D00-9CF0-76817AA1C10F",
+      "publisherDisplayName": "Theta Corp",
+      "applicationId": "DeskHatch",
+      "backgroundColor": "#1f7f7f",
+      "showNameOnTiles": true,
+      "languages": ["en-US", "ja-JP"]
     }
   }
 }
