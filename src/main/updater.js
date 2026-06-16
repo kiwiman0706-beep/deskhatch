@@ -167,16 +167,22 @@ async function checkAndNotify(isManual) {
   }
 }
 
-// Startup check (silent on Windows / notify-only on mac). No-op in dev.
+// Silent auto-update applies to Windows x64 only. The Windows ARM64 build is a
+// secondary artifact with no entry in the (x64) update feed, so it would
+// otherwise auto-download the x64 installer; route it to the notify-only path
+// instead, like macOS, so ARM users grab the ARM installer manually.
+const winAuto = () => process.platform === 'win32' && process.arch !== 'arm64';
+
+// Startup check (silent on Windows x64 / notify-only on mac + Windows ARM). No-op in dev.
 function init() {
   if (!app.isPackaged) return;
-  if (process.platform === 'win32') { const au = ensureWin(); if (au) au.checkForUpdates().catch(() => {}); }
+  if (winAuto()) { const au = ensureWin(); if (au) au.checkForUpdates().catch(() => {}); }
   else checkAndNotify(false);
 }
 
 // Manual "Check for updates" (from the tray). Works in dev too, with feedback.
 function checkNow() {
-  if (process.platform === 'win32') {
+  if (winAuto()) {
     if (!app.isPackaged) {
       const ja = isJa();
       box({ type: 'info', buttons: ['OK'], title: ja ? 'アップデート' : 'Update',
