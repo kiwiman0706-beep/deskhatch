@@ -1530,9 +1530,10 @@ function openLauncher(it) { if (it.url) window.system.external(it.path); else wi
 // "Nyokitt": summon a registered external window (matched by its title). The
 // window slides to the front under the bar and is tucked (minimized) by the
 // main process once focus leaves it. Windows-only; toasts if it can't be found.
-async function summonExtWindow(tab) {
+async function summonExtWindow(tab, btn) {
   if (!window.overlay.summonWindow) return;
-  const ok = await window.overlay.summonWindow(tab.winTitle || tab.label || '');
+  let x; try { x = Math.round((btn || {}).getBoundingClientRect ? btn.getBoundingClientRect().left : undefined); } catch (_) {}
+  const ok = await window.overlay.summonWindow(tab.winTitle || tab.label || '', x);
   if (!ok) toast(L('ウィンドウが見つかりません（先にそのアプリを起動してください）', 'Window not found (launch that app first)'));
 }
 // Pick a running window from a native list and register it as a "window" drawer.
@@ -3327,7 +3328,7 @@ function renderBar() {
     btn.addEventListener('click', () => {
       if (tab.type === 'launch') window.files.open(tab.path); // open with default app
       else if (tab.type === 'startmenu') openTab(MENU_TAB, btn); // legacy: now the ☰ app menu
-      else if (tab.type === 'window') summonExtWindow(tab); // "Nyokitt": summon an external window
+      else if (tab.type === 'window') summonExtWindow(tab, btn); // "Nyokitt": summon an external window
       else openTab(tab, btn);
     });
     btn.addEventListener('contextmenu', (e) => { e.preventDefault(); tabContextMenu(tab, btn); });

@@ -29,7 +29,7 @@ contextBridge.exposeInMainWorld('overlay', {
   openScrap: (root) => ipcRenderer.send('scrap:open', root),
   // "Nyokitt": list external top-level windows / summon one as a drawer (Windows).
   listWindows: () => ipcRenderer.invoke('winmgr:list'),
-  summonWindow: (title) => ipcRenderer.invoke('winmgr:summon', title),
+  summonWindow: (title, x) => ipcRenderer.invoke('winmgr:summon', title, x),
   // Sticky Notes: pin a scrapbook note as a floating window (open), unpin it
   // (close), list currently-pinned note paths, persist a sticky's colour.
   openSticky: (p) => ipcRenderer.send('sticky:open', p),

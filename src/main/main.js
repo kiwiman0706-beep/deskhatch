@@ -368,21 +368,35 @@ function updateFullscreen() {
 // docks it under the bar; updateNyoki() tucks (minimizes) it once focus leaves
 // its process. No-op elsewhere; fully guarded via winmgr.
 let nyoki = null; // { hwnd, pid, since }
-function summonNyoki(title) {
+const nyokiPlaced = new Map(); // titleKey -> { x, y, w, h } we last applied
+function summonNyoki(title, anchorX) {
   if (process.platform !== 'win32') return false;
   const mine = process.pid;
   const list = winmgr.listWindows().filter((w) => w.pid !== mine);
   const t = String(title || '').toLowerCase();
   const win = list.find((w) => w.title.toLowerCase() === t) || list.find((w) => w.title.toLowerCase().includes(t));
   if (!win) return false;
-  const disp = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
-  const wa = disp.workArea;
-  const w = Math.min(960, wa.width - 60);
-  const h = Math.min(680, wa.height - (BAR_HEIGHT + 60));
-  const rect = { x: Math.round(wa.x + (wa.width - w) / 2), y: wa.y + BAR_HEIGHT + 6, w, h };
-  const ok = winmgr.summon(win.hwnd, rect);
-  if (ok) nyoki = { hwnd: win.hwnd, pid: win.pid, since: Date.now() };
-  return ok;
+  const key = win.title.toLowerCase();
+  winmgr.restore(win.hwnd); // un-minimize first so geometry is real
+  // Only dock it the first time (or while the user hasn't moved/resized it).
+  // Once they customize the size/position, leave it where they put it.
+  const rec = nyokiPlaced.get(key);
+  const cur = winmgr.getRect(win.hwnd);
+  const customized = rec && cur && (Math.abs(cur.x - rec.x) > 8 || Math.abs(cur.y - rec.y) > 8 || Math.abs(cur.w - rec.w) > 8 || Math.abs(cur.h - rec.h) > 8);
+  if (!customized) {
+    const disp = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    const wa = disp.workArea;
+    const w = (cur && cur.w) ? Math.min(cur.w, wa.width) : Math.min(960, wa.width - 60);
+    const h = (cur && cur.h) ? Math.min(cur.h, wa.height - (BAR_HEIGHT + 12)) : Math.min(680, wa.height - (BAR_HEIGHT + 60));
+    let x = (typeof anchorX === 'number') ? anchorX : Math.round(wa.x + (wa.width - w) / 2);
+    x = Math.max(wa.x, Math.min(x, wa.x + wa.width - w)); // clamp on-screen
+    const rect = { x, y: wa.y + BAR_HEIGHT + 2, w, h };
+    winmgr.move(win.hwnd, rect);
+    nyokiPlaced.set(key, rect);
+  }
+  winmgr.front(win.hwnd);
+  nyoki = { hwnd: win.hwnd, pid: win.pid, since: Date.now() };
+  return true;
 }
 function updateNyoki() {
   if (!nyoki) return;
@@ -391,7 +405,14 @@ function updateNyoki() {
   if (fpid && fpid !== nyoki.pid) { winmgr.tuck(nyoki.hwnd); nyoki = null; }
 }
 ipcMain.handle('winmgr:list', () => winmgr.listWindows().filter((w) => w.pid !== process.pid));
-ipcMain.handle('winmgr:summon', (_e, title) => summonNyoki(title));
+ipcMain.handle('winmgr:summon', (e, title, clientX) => {
+  let anchorX;
+  try {
+    const w = BrowserWindow.fromWebContents(e.sender);
+    if (w && typeof clientX === 'number') anchorX = Math.round(w.getBounds().x + clientX);
+  } catch (_) {}
+  return summonNyoki(title, anchorX);
+});
 
 function startEdgeWatch() {
   if (edgeTimer) return;
