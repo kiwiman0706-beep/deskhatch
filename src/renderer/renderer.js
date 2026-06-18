@@ -1527,6 +1527,29 @@ function launchLabel(p, isDir) {
 }
 function openLauncher(it) { if (it.url) window.system.external(it.path); else window.files.open(it.path); }
 
+// "Nyokitt": summon a registered external window (matched by its title). The
+// window slides to the front under the bar and is tucked (minimized) by the
+// main process once focus leaves it. Windows-only; toasts if it can't be found.
+async function summonExtWindow(tab) {
+  if (!window.overlay.summonWindow) return;
+  const ok = await window.overlay.summonWindow(tab.winTitle || tab.label || '');
+  if (!ok) toast(L('ウィンドウが見つかりません（先にそのアプリを起動してください）', 'Window not found (launch that app first)'));
+}
+// Pick a running window from a native list and register it as a "window" drawer.
+async function registerExtWindow() {
+  const wins = (window.overlay.listWindows ? await window.overlay.listWindows() : []) || [];
+  if (!wins.length) { toast(L('ウィンドウが見つかりません', 'No windows found')); return; }
+  const items = wins.slice(0, 40).map((w, i) => ({ id: 'w' + i, label: (w.title || '').slice(0, 64) }));
+  const a = await window.system.menu(items);
+  if (!a) return;
+  const w = wins[Number(a.slice(1))];
+  if (!w) return;
+  const arr = JSON.parse(JSON.stringify(tabs));
+  arr.push({ id: 'win-' + Date.now().toString(36), type: 'window', label: (w.title || 'Window').slice(0, 16), icon: '🪟', winTitle: w.title });
+  commitTabs(arr);
+  toast(L('ドロワーに追加しました', 'Added to the bar'));
+}
+
 // --- App menu (XP/7-style Start menu, embedded in the ☰ menu) ---------------
 // Reads the Windows Start Menu Programs tree (all-users + per-user, merged) and
 // shows it as an in-place, expandable two-pane panel: pinned apps + all
@@ -2987,6 +3010,18 @@ function buildTools() {
     .forEach(([label, t]) => { const b = el('button', 'ss-set-btn', label); b.onclick = () => openTab(t, anchor()); tools.appendChild(b); });
 
   root.append(sys, tools);
+
+  // Windows-only "Nyokitt": register any running window as a drawer that
+  // slides in on click and tucks away when focus leaves it (experimental).
+  if (window.overlay.platform === 'win32') {
+    const nyoki = el('div', 'ss-tools-sec');
+    nyoki.append(el('div', 'ss-tools-title', L('ウィンドウ（実験）')));
+    const b = el('button', 'ss-set-btn', L('🪟 ウィンドウをドロワー化（ニョキ）'));
+    b.onclick = registerExtWindow;
+    nyoki.append(b);
+    nyoki.append(el('div', 'ss-disp-note', L('起動中のウィンドウを選ぶとバーに追加。クリックで前面に呼び出し、フォーカスが外れると最小化します。')));
+    root.append(nyoki);
+  }
   return root;
 }
 
@@ -3292,6 +3327,7 @@ function renderBar() {
     btn.addEventListener('click', () => {
       if (tab.type === 'launch') window.files.open(tab.path); // open with default app
       else if (tab.type === 'startmenu') openTab(MENU_TAB, btn); // legacy: now the ☰ app menu
+      else if (tab.type === 'window') summonExtWindow(tab); // "Nyokitt": summon an external window
       else openTab(tab, btn);
     });
     btn.addEventListener('contextmenu', (e) => { e.preventDefault(); tabContextMenu(tab, btn); });

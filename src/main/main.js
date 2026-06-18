@@ -4,6 +4,7 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, globalShor
 const path = require('path');
 const appbar = require('./appbar');
 const fullscreen = require('./fullscreen');
+const winmgr = require('./winmgr');
 const files = require('./files');
 const auth = require('./auth');
 const system = require('./system');
@@ -361,6 +362,37 @@ function updateFullscreen() {
     }
   }
 }
+
+// --- "Nyokitt": summon/tuck an arbitrary external window as a drawer ---------
+// Windows-only. summonNyoki() brings a chosen top-level window to the front and
+// docks it under the bar; updateNyoki() tucks (minimizes) it once focus leaves
+// its process. No-op elsewhere; fully guarded via winmgr.
+let nyoki = null; // { hwnd, pid, since }
+function summonNyoki(title) {
+  if (process.platform !== 'win32') return false;
+  const mine = process.pid;
+  const list = winmgr.listWindows().filter((w) => w.pid !== mine);
+  const t = String(title || '').toLowerCase();
+  const win = list.find((w) => w.title.toLowerCase() === t) || list.find((w) => w.title.toLowerCase().includes(t));
+  if (!win) return false;
+  const disp = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const wa = disp.workArea;
+  const w = Math.min(960, wa.width - 60);
+  const h = Math.min(680, wa.height - (BAR_HEIGHT + 60));
+  const rect = { x: Math.round(wa.x + (wa.width - w) / 2), y: wa.y + BAR_HEIGHT + 6, w, h };
+  const ok = winmgr.summon(win.hwnd, rect);
+  if (ok) nyoki = { hwnd: win.hwnd, pid: win.pid, since: Date.now() };
+  return ok;
+}
+function updateNyoki() {
+  if (!nyoki) return;
+  if (Date.now() - nyoki.since < 700) return; // grace right after summon
+  const fpid = winmgr.foregroundPid();
+  if (fpid && fpid !== nyoki.pid) { winmgr.tuck(nyoki.hwnd); nyoki = null; }
+}
+ipcMain.handle('winmgr:list', () => winmgr.listWindows().filter((w) => w.pid !== process.pid));
+ipcMain.handle('winmgr:summon', (_e, title) => summonNyoki(title));
+
 function startEdgeWatch() {
   if (edgeTimer) return;
   let tick = 0;
@@ -368,6 +400,7 @@ function startEdgeWatch() {
     const p = screen.getCursorScreenPoint();
     const slow = (tick++ % 8) === 0; // ~16ms * 8 ≈ 128ms
     if ((tick % 30) === 0) updateFullscreen(); // ~480ms
+    if (slow) updateNyoki(); // tuck a summoned window when focus leaves it
     for (const e of bars.values()) {
       if (!e.win || e.win.isDestroyed()) continue;
       applyHit(e, p);
