@@ -50,6 +50,10 @@ const logoMark = (color) =>
 // This window's display id (from main via ?d=). Bar items are stored per display
 // so each monitor can have a different bar; everything else is shared.
 const MY_DISPLAY = new URLSearchParams(location.search).get('d') || '';
+// Microsoft Store (MSIX) build: Google blocks embedded sign-in (fails Store
+// certification), so hide the Google sign-in feature and Google default drawers.
+const IS_STORE = new URLSearchParams(location.search).get('store') === '1';
+const isGoogleTab = (t) => !!t && (/(^|\.)google\.com/i.test(String(t.url || '')));
 // Demo mode (for screen recording): show SAMPLE content instead of real web
 // apps/files, keep the bar visible, and auto-cycle drawers. Toggle from the tray.
 const DEMO = (() => { try { return localStorage.getItem('ss.demo') === '1' || new URLSearchParams(location.search).get('demo') === '1'; } catch (_) { return false; } })();
@@ -217,7 +221,11 @@ function applyTheme(key) {
   for (const k in t) document.documentElement.style.setProperty(k, t[k]);
 }
 
-const defaultTabs = () => JSON.parse(JSON.stringify(window.SS_TABS || []));
+const defaultTabs = () => {
+  let t = JSON.parse(JSON.stringify(window.SS_TABS || []));
+  if (IS_STORE) t = t.filter((x) => !isGoogleTab(x)); // Store build: no Google drawers
+  return t;
+};
 const loadTabs = () => Store.getTabs() || defaultTabs();
 
 const bar = document.getElementById('bar');
@@ -1704,10 +1712,12 @@ function buildAppMenu() {
   ritem('⚙', L('設定'), () => window.system.open('settings'));
   ritem('🎛', L('コントロールパネル'), () => window.system.open('control'));
   ritem('🛠', L('ゴッドモード（全設定）'), () => window.system.open('godmode'));
-  rsec(L('🌐 Google'));
-  ritem('📄', L('ドキュメント'), () => openPage('gdoc', L('ドキュメント'), '📄', 'https://docs.google.com/document/u/0/'), '#4285f4');
-  ritem('📊', L('スプレッドシート'), () => openPage('gsheet', L('スプレッドシート'), '📊', 'https://docs.google.com/spreadsheets/u/0/'), '#0f9d58');
-  ritem('📽', L('スライド'), () => openPage('gslide', L('スライド'), '📽', 'https://docs.google.com/presentation/u/0/'), '#f4b400');
+  if (!IS_STORE) { // Store build: Google login is blocked by Google in embedded views
+    rsec(L('🌐 Google'));
+    ritem('📄', L('ドキュメント'), () => openPage('gdoc', L('ドキュメント'), '📄', 'https://docs.google.com/document/u/0/'), '#4285f4');
+    ritem('📊', L('スプレッドシート'), () => openPage('gsheet', L('スプレッドシート'), '📊', 'https://docs.google.com/spreadsheets/u/0/'), '#0f9d58');
+    ritem('📽', L('スライド'), () => openPage('gslide', L('スライド'), '📽', 'https://docs.google.com/presentation/u/0/'), '#f4b400');
+  }
 
   // ---- load the program tree ----
   renderPins();
@@ -3076,7 +3086,7 @@ function buildMenuPanel() {
     };
     acct.append(addName, addBtn);
   }
-  renderAccounts();
+  if (!IS_STORE) renderAccounts(); // Store build: no Google sign-in UI
 
   const tabsBar = el('div', 'ss-menu-tabs');
   const bApps = el('button', 'ss-menu-tab', L('🚀 アプリ'));
@@ -3100,7 +3110,7 @@ function buildMenuPanel() {
   quitBtn.onclick = () => window.overlay.quit();
   footer.append(ver, verSp, updBtn, demoBtn, quitBtn);
 
-  wrap.append(acct, tabsBar, view, footer);
+  wrap.append(...(IS_STORE ? [] : [acct]), tabsBar, view, footer);
 
   function show(which) {
     view.innerHTML = '';

@@ -38,6 +38,10 @@ const allDisplays = () => screen.getAllDisplays();
 const displayObj = (id) => allDisplays().find((d) => d.id === id) || screen.getPrimaryDisplay();
 
 const isMac = process.platform === 'darwin';
+// Running inside the Microsoft Store (MSIX/appx) container. Google blocks
+// sign-in from embedded browsers, which fails Store certification, so the Store
+// build hides the Google sign-in feature and Google default drawers.
+const isStore = !!process.windowsStore;
 // Tiny main-process i18n for native menus/labels (follows the OS locale).
 const LM = (ja, en) => { try { return app.getLocale().toLowerCase().startsWith('ja') ? ja : en; } catch (_) { return en; } };
 // Top Y for the bar on a display. On macOS we sit just below the system menu
@@ -77,7 +81,7 @@ function makeOverlay(display) {
   // button — see system:exit-fullscreen.)
   w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   w.setIgnoreMouseEvents(true, { forward: true });
-  w.loadFile(INDEX, { query: { d: String(display.id) } }); // tell the renderer its display
+  w.loadFile(INDEX, { query: { d: String(display.id), store: isStore ? '1' : '' } }); // tell the renderer its display
   return w;
 }
 
@@ -460,7 +464,7 @@ function createTray() {
   tray.setToolTip('DeskHatch');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: LM('表示 / 非表示', 'Show / Hide'), click: toggleAll },
-    { label: LM('Google にログイン', 'Sign in to Google'), click: () => auth.openLogin() },
+    ...(isStore ? [] : [{ label: LM('Google にログイン', 'Sign in to Google'), click: () => auth.openLogin() }]),
     { type: 'separator' },
     { label: LM('デモモード（録画用）', 'Demo mode (recording)'), click: () => sendToBar('demo:toggle') },
     { label: LM('更新を確認', 'Check for updates…'), click: () => updater.checkNow() },
