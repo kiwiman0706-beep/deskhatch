@@ -96,6 +96,9 @@ const Store = {
   // macOS-only "exit fullscreen" bar button (off by default — opt in).
   getMacFsBtn() { return localStorage.getItem('ss.macFsBtn') === '1'; },
   setMacFsBtn(v) { if (v) localStorage.setItem('ss.macFsBtn', '1'); else localStorage.removeItem('ss.macFsBtn'); },
+  // Windows-only: disable the system minimize/maximize animation while running.
+  getMinAnimOff() { return localStorage.getItem('ss.minAnimOff') === '1'; },
+  setMinAnimOff(v) { if (v) localStorage.setItem('ss.minAnimOff', '1'); else localStorage.removeItem('ss.minAnimOff'); },
   // "Don't show the intro guide on startup again."
   getHelpSkip() { return localStorage.getItem('ss.help.skip') === '1'; },
   setHelpSkip(v) { if (v) localStorage.setItem('ss.help.skip', '1'); else localStorage.removeItem('ss.help.skip'); },
@@ -2601,6 +2604,17 @@ function buildDisplaySettings() {
     root.append(fsWrap);
   }
 
+  // Windows: disable the system minimize/maximize animation (so the "nyoki"
+  // tuck doesn't fly toward the taskbar). System-wide; restored when DeskHatch quits.
+  if (window.overlay.platform === 'win32') {
+    const maWrap = el('label', 'ss-set-check');
+    const maCb = document.createElement('input');
+    maCb.type = 'checkbox'; maCb.checked = Store.getMinAnimOff();
+    maCb.onchange = () => { Store.setMinAnimOff(maCb.checked); if (window.overlay.setMinAnim) window.overlay.setMinAnim(maCb.checked); };
+    maWrap.append(maCb, document.createTextNode(L(' 最小化アニメを無効化（Windows全体・終了時に戻す）')));
+    root.append(maWrap);
+  }
+
   // Update channel: opt in to beta (test) builds. Default off = stable only.
   if (window.overlay.getBeta) {
     const betaWrap = el('label', 'ss-set-check');
@@ -3544,6 +3558,7 @@ window.overlay.onReserveStatus((status, requested) => {
 });
 
 applyDisplay(); // push the saved display mode to main and set initial visibility
+if (window.overlay.platform === 'win32' && window.overlay.setMinAnim && Store.getMinAnimOff()) window.overlay.setMinAnim(true);
 if (DEMO) setTimeout(stageDemo, 700);
 
 // First run: pop the guide once (until "don't show again" is ticked). Only on

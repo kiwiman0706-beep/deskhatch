@@ -404,6 +404,24 @@ function updateNyoki() {
   const fpid = winmgr.foregroundPid();
   if (fpid && fpid !== nyoki.pid) { winmgr.tuck(nyoki.hwnd); nyoki = null; }
 }
+// Optional: turn OFF Windows' system-wide minimize/maximize animation while
+// DeskHatch runs (so the "nyoki" tuck doesn't fly toward the taskbar). We save
+// the prior state on first disable and restore it when re-enabled or on quit,
+// so we never leave the user's system permanently changed.
+let savedMinAnim; // undefined = we haven't touched it
+function applyMinAnim(disable) {
+  if (process.platform !== 'win32') return;
+  if (disable) {
+    if (savedMinAnim === undefined) savedMinAnim = winmgr.getMinAnimation();
+    winmgr.setMinAnimation(false);
+  } else if (savedMinAnim !== undefined) {
+    winmgr.setMinAnimation(savedMinAnim === null ? true : savedMinAnim);
+    savedMinAnim = undefined;
+  }
+}
+ipcMain.on('winmgr:set-min-anim', (_e, disable) => applyMinAnim(!!disable));
+app.on('before-quit', () => { if (savedMinAnim !== undefined) { try { winmgr.setMinAnimation(savedMinAnim === null ? true : savedMinAnim); } catch (_) {} } });
+
 ipcMain.handle('winmgr:list', () => winmgr.listWindows().filter((w) => w.pid !== process.pid));
 ipcMain.handle('winmgr:summon', (e, title, clientX) => {
   let anchorX;
