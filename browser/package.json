@@ -1,0 +1,17 @@
+{
+  "name": "deskhatch-browser",
+  "version": "0.1.0",
+  "description": "DeskHatch Browser — a thin shell (top bar + tabs + omnibox) that drives the user's REAL Chrome/Edge in a dedicated profile as docked app-mode windows. Google sign-in works because the pages run in a genuine standalone browser, not an embedded webview.",
+  "main": "src/main/main.js",
+  "author": "DeskHatch",
+  "scripts": {
+    "start": "electron ."
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.0.0"
+  },
+  "optionalDependencies": {
+    "koffi": "^2.9.0"
+  }
+}

@@ -1,0 +1,38 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body {
+  font: 13px/1.2 "Segoe UI", system-ui, sans-serif;
+  color: #eef6f6; background: #1f6f6f; user-select: none;
+}
+#bar { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 8px; }
+
+.quick { display: flex; gap: 2px; flex: none; }
+.quick button {
+  border: 0; background: transparent; color: #eef6f6; font-size: 15px;
+  width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
+}
+.quick button:hover { background: rgba(255,255,255,.18); }
+
+#omniform { flex: none; width: 260px; }
+#omni {
+  width: 100%; height: 26px; border: 0; border-radius: 13px; padding: 0 12px;
+  background: rgba(255,255,255,.95); color: #123; font-size: 13px; outline: none;
+}
+
+.tabs { display: flex; gap: 4px; flex: 1 1 auto; overflow-x: auto; min-width: 0; }
+.tabs::-webkit-scrollbar { height: 0; }
+.tab {
+  display: flex; align-items: center; gap: 6px; flex: 0 0 auto; max-width: 200px;
+  height: 28px; padding: 0 6px 0 10px; border-radius: 6px; cursor: pointer;
+  background: rgba(255,255,255,.12);
+}
+.tab:hover { background: rgba(255,255,255,.2); }
+.tab.active { background: rgba(255,255,255,.92); color: #123; }
+.tab .t-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab .t-close {
+  flex: none; width: 16px; height: 16px; line-height: 16px; text-align: center;
+  border-radius: 50%; font-size: 12px; opacity: .7;
+}
+.tab .t-close:hover { background: rgba(0,0,0,.18); opacity: 1; }
+
+.engine { flex: none; font-size: 11px; opacity: .7; padding-right: 4px; }
