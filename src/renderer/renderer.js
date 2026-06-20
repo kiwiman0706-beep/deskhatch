@@ -221,11 +221,7 @@ function applyTheme(key) {
   for (const k in t) document.documentElement.style.setProperty(k, t[k]);
 }
 
-const defaultTabs = () => {
-  let t = JSON.parse(JSON.stringify(window.SS_TABS || []));
-  if (IS_STORE) t = t.filter((x) => !isGoogleTab(x)); // Store build: no Google drawers
-  return t;
-};
+const defaultTabs = () => JSON.parse(JSON.stringify(window.SS_TABS || []));
 const loadTabs = () => Store.getTabs() || defaultTabs();
 
 const bar = document.getElementById('bar');
@@ -1712,12 +1708,12 @@ function buildAppMenu() {
   ritem('⚙', L('設定'), () => window.system.open('settings'));
   ritem('🎛', L('コントロールパネル'), () => window.system.open('control'));
   ritem('🛠', L('ゴッドモード（全設定）'), () => window.system.open('godmode'));
-  if (!IS_STORE) { // Store build: Google login is blocked by Google in embedded views
-    rsec(L('🌐 Google'));
-    ritem('📄', L('ドキュメント'), () => openPage('gdoc', L('ドキュメント'), '📄', 'https://docs.google.com/document/u/0/'), '#4285f4');
-    ritem('📊', L('スプレッドシート'), () => openPage('gsheet', L('スプレッドシート'), '📊', 'https://docs.google.com/spreadsheets/u/0/'), '#0f9d58');
-    ritem('📽', L('スライド'), () => openPage('gslide', L('スライド'), '📽', 'https://docs.google.com/presentation/u/0/'), '#f4b400');
-  }
+  // Store build opens Google in the real browser (embedded login is blocked by Google).
+  const gdoc = (id, label, icon, url, color) => ritem(icon, label, () => (IS_STORE ? window.system.external(url) : openPage(id, label, icon, url)), color);
+  rsec(L('🌐 Google'));
+  gdoc('gdoc', L('ドキュメント'), '📄', 'https://docs.google.com/document/u/0/', '#4285f4');
+  gdoc('gsheet', L('スプレッドシート'), '📊', 'https://docs.google.com/spreadsheets/u/0/', '#0f9d58');
+  gdoc('gslide', L('スライド'), '📽', 'https://docs.google.com/presentation/u/0/', '#f4b400');
 
   // ---- load the program tree ----
   renderPins();
@@ -3353,6 +3349,7 @@ function renderBar() {
       if (tab.type === 'launch') window.files.open(tab.path); // open with default app
       else if (tab.type === 'startmenu') openTab(MENU_TAB, btn); // legacy: now the ☰ app menu
       else if (tab.type === 'window') summonExtWindow(tab, btn); // "Nyokitt": summon an external window
+      else if (IS_STORE && isGoogleTab(tab) && tab.url) window.system.external(tab.url); // Store: Google opens in the real browser (embedded login is blocked by Google)
       else openTab(tab, btn);
     });
     btn.addEventListener('contextmenu', (e) => { e.preventDefault(); tabContextMenu(tab, btn); });
