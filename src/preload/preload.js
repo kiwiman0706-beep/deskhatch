@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld('overlay', {
   // "Nyokitt": list external top-level windows / summon one as a drawer (Windows).
   listWindows: () => ipcRenderer.invoke('winmgr:list'),
   summonWindow: (title, x) => ipcRenderer.invoke('winmgr:summon', title, x),
+  // Open a Google service as a real Edge/Chrome "app-mode" window, docked under
+  // the bar like a drawer (login works; embedded webview login is blocked).
+  openAppWindow: (url, x) => ipcRenderer.invoke('appwin:open', url, x),
   setMinAnim: (disable) => ipcRenderer.send('winmgr:set-min-anim', disable),
   // Sticky Notes: pin a scrapbook note as a floating window (open), unpin it
   // (close), list currently-pinned note paths, persist a sticky's colour.

@@ -2,6 +2,7 @@
 
 const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, globalShortcut, clipboard, desktopCapturer } = require('electron');
 const path = require('path');
+const { spawn } = require('child_process');
 const appbar = require('./appbar');
 const fullscreen = require('./fullscreen');
 const winmgr = require('./winmgr');
@@ -425,6 +426,66 @@ function applyMinAnim(disable) {
 }
 ipcMain.on('winmgr:set-min-anim', (_e, disable) => applyMinAnim(!!disable));
 app.on('before-quit', () => { if (savedMinAnim !== undefined) { try { winmgr.setMinAnimation(savedMinAnim === null ? true : savedMinAnim); } catch (_) {} } });
+
+// --- "App-mode" Google windows (real Edge/Chrome, docked like a drawer) ------
+// Launch a Google service as a borderless `--app=` window in the user's real
+// browser (so sign-in works and their session is reused), then dock it under
+// the bar and let updateNyoki() tuck it on blur — same feel as an embedded
+// drawer, without Google's embedded-webview block. Falls back to a normal
+// browser tab when no Chromium browser is found or off Windows.
+const appWins = new Map(); // url -> hwnd of the window we last opened for it
+
+function dockUnderBar(hwnd, anchorX) {
+  winmgr.restore(hwnd); // un-minimize so geometry is real
+  const disp = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const wa = disp.workArea;
+  const cur = winmgr.getRect(hwnd);
+  const w = (cur && cur.w) ? Math.min(cur.w, wa.width) : Math.min(820, wa.width - 60);
+  const h = (cur && cur.h) ? Math.min(cur.h, wa.height - (BAR_HEIGHT + 12)) : Math.min(700, wa.height - (BAR_HEIGHT + 60));
+  let x = (typeof anchorX === 'number') ? anchorX : Math.round(wa.x + (wa.width - w) / 2);
+  x = Math.max(wa.x, Math.min(x, wa.x + wa.width - w)); // clamp on-screen
+  winmgr.move(hwnd, { x, y: wa.y + BAR_HEIGHT + 2, w, h });
+  winmgr.front(hwnd);
+  nyoki = { hwnd, pid: (winmgr.listWindows().find((v) => v.hwnd === hwnd) || {}).pid || 0, since: Date.now() };
+}
+
+// Poll for the window that appeared after we spawned the browser (it belongs to
+// the browser process, not our child, so we diff the window list by hwnd).
+function dockNewWindow(url, beforeSet, anchorX, attempt) {
+  attempt = attempt || 0;
+  if (attempt > 28) return; // ~7s give-up
+  const fresh = winmgr.listWindows().find((w) => w.pid !== process.pid && !beforeSet.has(w.hwnd));
+  if (!fresh) { setTimeout(() => dockNewWindow(url, beforeSet, anchorX, attempt + 1), 250); return; }
+  appWins.set(url, fresh.hwnd);
+  dockUnderBar(fresh.hwnd, anchorX);
+}
+
+async function openAppWindow(url, anchorX) {
+  if (!/^https?:\/\//i.test(url || '')) return { ok: false };
+  if (process.platform !== 'win32') { await system.openUrl(url); return { ok: true, docked: false }; }
+  // Re-click: if the window we opened before is still alive, just re-dock it
+  // (toggle/raise) instead of spawning a second one.
+  const prev = appWins.get(url);
+  if (prev && winmgr.listWindows().some((w) => w.hwnd === prev)) { dockUnderBar(prev, anchorX); return { ok: true, docked: true, reused: true }; }
+  if (prev) appWins.delete(url);
+  const exe = await system.appBrowserExe();
+  if (!exe) { await system.openUrl(url); return { ok: true, docked: false }; } // no Chromium browser
+  const before = new Set(winmgr.listWindows().map((w) => w.hwnd));
+  try {
+    const child = spawn(exe, ['--app=' + url], { detached: true, stdio: 'ignore' });
+    child.unref();
+  } catch (_) { await system.openUrl(url); return { ok: true, docked: false }; }
+  dockNewWindow(url, before, anchorX, 0);
+  return { ok: true, docked: true };
+}
+ipcMain.handle('appwin:open', (e, url, clientX) => {
+  let anchorX;
+  try {
+    const w = BrowserWindow.fromWebContents(e.sender);
+    if (w && typeof clientX === 'number') anchorX = Math.round(w.getBounds().x + clientX);
+  } catch (_) {}
+  return openAppWindow(url, anchorX);
+});
 
 ipcMain.handle('winmgr:list', () => winmgr.listWindows().filter((w) => w.pid !== process.pid));
 ipcMain.handle('winmgr:summon', (e, title, clientX) => {

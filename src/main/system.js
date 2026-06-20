@@ -95,6 +95,40 @@ async function openUrl(url) {
   return true;
 }
 
+// --- Resolve a Chromium browser exe for "app mode" windows (Windows) ---------
+// Google blocks sign-in inside embedded webviews, but allows real browsers. So
+// for Google drawers we launch the site as a borderless `--app=` window in the
+// user's real Edge/Chrome — login works and their existing session is reused.
+// This needs a *Chromium* browser (Edge/Chrome): prefer whatever is the user's
+// default (so they're already signed in there), else fall back to known paths.
+function existingExe(paths) {
+  for (const p of paths) { try { if (p && fs.existsSync(p)) return p; } catch (_) {} }
+  return null;
+}
+let cachedAppExe; // undefined = unresolved; null = none found
+async function appBrowserExe() {
+  if (cachedAppExe !== undefined) return cachedAppExe;
+  cachedAppExe = null;
+  if (process.platform !== 'win32') return cachedAppExe;
+  // 1) Default browser, but only if it's Chromium (msedge/chrome support --app).
+  try {
+    const def = await defaultBrowserExe();
+    if (def && /(msedge|chrome)\.exe$/i.test(def)) { cachedAppExe = def; return cachedAppExe; }
+  } catch (_) {}
+  // 2) Known install locations — Edge first (always present on Windows), then Chrome.
+  const pf = process.env['ProgramFiles'] || 'C:\\Program Files';
+  const pf86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+  const la = process.env.LOCALAPPDATA || '';
+  cachedAppExe = existingExe([
+    path.join(pf86, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+    path.join(pf, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+    path.join(pf, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    path.join(pf86, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    la ? path.join(la, 'Google', 'Chrome', 'Application', 'chrome.exe') : '',
+  ]);
+  return cachedAppExe;
+}
+
 const TARGETS = {
   settings: () => shell.openExternal('ms-settings:'),
   control: () => run('control'),
@@ -175,4 +209,4 @@ function register() {
   }));
 }
 
-module.exports = { register };
+module.exports = { register, appBrowserExe, openUrl };

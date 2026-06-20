@@ -1543,6 +1543,18 @@ async function summonExtWindow(tab, btn) {
   const ok = await window.overlay.summonWindow(tab.winTitle || tab.label || '', x);
   if (!ok) toast(L('ウィンドウが見つかりません（先にそのアプリを起動してください）', 'Window not found (launch that app first)'));
 }
+// Google drawers: open the service as a real Edge/Chrome "app-mode" window
+// (so sign-in works and the user's session is reused), docked under the bar and
+// auto-tucked on blur — the embedded-drawer feel without Google's webview block.
+// Falls back to a normal browser tab if app-mode isn't available.
+async function openGoogleApp(tab, btn) {
+  let x; try { x = Math.round((btn || {}).getBoundingClientRect ? btn.getBoundingClientRect().left : undefined); } catch (_) {}
+  if (window.overlay.openAppWindow) {
+    try { const r = await window.overlay.openAppWindow(tab.url, x); if (r && r.ok) return; } catch (_) {}
+  }
+  window.system.external(tab.url); // fallback: plain browser tab
+}
+
 // Pick a running window from a native list and register it as a "window" drawer.
 async function registerExtWindow() {
   const wins = (window.overlay.listWindows ? await window.overlay.listWindows() : []) || [];
@@ -1708,8 +1720,8 @@ function buildAppMenu() {
   ritem('⚙', L('設定'), () => window.system.open('settings'));
   ritem('🎛', L('コントロールパネル'), () => window.system.open('control'));
   ritem('🛠', L('ゴッドモード（全設定）'), () => window.system.open('godmode'));
-  // Store build opens Google in the real browser (embedded login is blocked by Google).
-  const gdoc = (id, label, icon, url, color) => ritem(icon, label, () => (IS_STORE ? window.system.external(url) : openPage(id, label, icon, url)), color);
+  // Google opens as a real Edge/Chrome "app-mode" window (embedded login is blocked by Google).
+  const gdoc = (id, label, icon, url, color) => ritem(icon, label, () => openGoogleApp({ id, label, icon, url }), color);
   rsec(L('🌐 Google'));
   gdoc('gdoc', L('ドキュメント'), '📄', 'https://docs.google.com/document/u/0/', '#4285f4');
   gdoc('gsheet', L('スプレッドシート'), '📊', 'https://docs.google.com/spreadsheets/u/0/', '#0f9d58');
@@ -3349,7 +3361,7 @@ function renderBar() {
       if (tab.type === 'launch') window.files.open(tab.path); // open with default app
       else if (tab.type === 'startmenu') openTab(MENU_TAB, btn); // legacy: now the ☰ app menu
       else if (tab.type === 'window') summonExtWindow(tab, btn); // "Nyokitt": summon an external window
-      else if (IS_STORE && isGoogleTab(tab) && tab.url) window.system.external(tab.url); // Store: Google opens in the real browser (embedded login is blocked by Google)
+      else if (isGoogleTab(tab) && tab.url) openGoogleApp(tab, btn); // Google: real Edge/Chrome "app-mode" window docked under the bar (embedded login is blocked by Google)
       else openTab(tab, btn);
     });
     btn.addEventListener('contextmenu', (e) => { e.preventDefault(); tabContextMenu(tab, btn); });
