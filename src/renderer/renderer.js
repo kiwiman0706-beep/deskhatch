@@ -538,6 +538,15 @@ function makeWebview(url, mobile, partition) {
   const part = partition || 'persist:smartsuite';
   window.auth.ensure(part); // make sure this partition has the desktop Chrome UA
   wv.setAttribute('partition', part);
+  // Run the same "look like plain Chrome" preload Google's sign-in window uses,
+  // so logged-in Google pages opened in a drawer aren't flagged as an embedded
+  // browser either. Needs contextIsolation off so it patches the page's own
+  // navigator before the site's scripts read it (matches the sign-in window).
+  const dp = window.auth && window.auth.disguisePath;
+  if (dp) {
+    wv.setAttribute('preload', dp);
+    wv.setAttribute('webpreferences', 'contextIsolation=no');
+  }
   wv.setAttribute('allowpopups', '');
   if (mobile) wv.setAttribute('useragent', MOBILE_UA);
   let safe = 'about:blank';

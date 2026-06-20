@@ -128,10 +128,23 @@ contextBridge.exposeInMainWorld('camera', {
 });
 
 // Google sign-in helper (one session partition per account).
+//
+// `disguisePath` is a file:// URL to the same preload the sign-in window uses, so
+// the embedded-browser drawers can run it too (via the <webview> `preload`
+// attribute) and present a plain Chrome to Google after login — not just during
+// it. Built once here where Node's path/url are available.
+let DISGUISE_URL = '';
+try {
+  DISGUISE_URL = require('url').pathToFileURL(
+    nodePath.join(__dirname, 'disguise.js'),
+  ).href;
+} catch (_) { /* leave empty -> webview just skips the preload */ }
+
 contextBridge.exposeInMainWorld('auth', {
   login: (partition) => ipcRenderer.invoke('auth:login', partition),
   logout: (partition) => ipcRenderer.invoke('auth:logout', partition),
   ensure: (partition) => ipcRenderer.send('auth:ensure', partition),
+  disguisePath: DISGUISE_URL,
 });
 
 // Language packs: read src/renderer/locales/*.json synchronously so the UI can
