@@ -292,5 +292,12 @@
   "ホットキー（このドロワーを開く）": "Hotkey (open this drawer)",
   "スクリーンショット": "Screenshot",
   "範囲キャプチャ": "Region capture",
-  "📷 範囲": "📷 Region"
+  "📷 範囲": "📷 Region",
+  "埋め込み": "Embedded",
+  "本物ブラウザ": "Real browser",
+  "開き方 ": "Open as ",
+  "Webドロワーの既定の開き方 ": "Default open mode for web drawers ",
+  "自動（Googleは本物・他は埋め込み）": "Auto (Google: real, others: embedded)",
+  "埋め込み（アプリ内・自然なドロワー）": "Embedded (in-app, natural drawer)",
+  "本物ブラウザ（別窓・ログイン確実）": "Real browser (separate window, reliable sign-in)"
 }

@@ -54,6 +54,17 @@ const MY_DISPLAY = new URLSearchParams(location.search).get('d') || '';
 // certification), so hide the Google sign-in feature and Google default drawers.
 const IS_STORE = new URLSearchParams(location.search).get('store') === '1';
 const isGoogleTab = (t) => !!t && (/(^|\.)google\.com/i.test(String(t.url || '')));
+// How a 'page' drawer should open: 'real' = a genuine Edge/Chrome window docked
+// under the bar (sign-in works, but it's a separate OS window so the drawer feel
+// is less natural); 'embed' = an in-app webview drawer (natural drawer, but
+// Google may block sign-in). Per-tab `engine` wins; else the global default;
+// else 'auto' (Google needs a real browser, everything else embeds).
+function tabEngine(t) {
+  if (t && (t.engine === 'real' || t.engine === 'embed')) return t.engine;
+  const def = Store.getDefaultEngine();
+  if (def === 'real' || def === 'embed') return def;
+  return isGoogleTab(t) ? 'real' : 'embed';
+}
 // Demo mode (for screen recording): show SAMPLE content instead of real web
 // apps/files, keep the bar visible, and auto-cycle drawers. Toggle from the tray.
 const DEMO = (() => { try { return localStorage.getItem('ss.demo') === '1' || new URLSearchParams(location.search).get('demo') === '1'; } catch (_) { return false; } })();
@@ -122,6 +133,14 @@ const Store = {
   // Search engine for the right-end 🔍 box (id into SEARCH_ENGINES).
   getSearchEngine() { return localStorage.getItem('ss.search.engine') || 'google'; },
   setSearchEngine(id) { localStorage.setItem('ss.search.engine', id); },
+  // Default open engine for website ('page') drawers:
+  //   'auto'  -> Google sites open as a real browser window, others embedded,
+  //   'embed' -> always an in-app webview drawer (natural drawer; Google login
+  //              may be blocked), 'real' -> always a real Edge/Chrome window
+  //              docked under the bar (login works; separate OS window).
+  // A per-tab `engine` field overrides this.
+  getDefaultEngine() { const v = localStorage.getItem('ss.engine'); return (v === 'embed' || v === 'real') ? v : 'auto'; },
+  setDefaultEngine(v) { if (v === 'embed' || v === 'real') localStorage.setItem('ss.engine', v); else localStorage.removeItem('ss.engine'); },
 };
 
 // Search-box presets. %s is replaced with the URL-encoded query.
@@ -2642,6 +2661,17 @@ function buildDisplaySettings() {
     root.append(maWrap);
   }
 
+  // Default open engine for website drawers: in-app webview (natural drawer) vs
+  // a real Edge/Chrome window (reliable Google sign-in). Per-drawer overrides
+  // live in each drawer's editor ("開き方").
+  const defEngRow = el('div', 'ss-set-check');
+  const defEngSel = el('select', 'ss-set-type');
+  [['auto', L('自動（Googleは本物・他は埋め込み）')], ['embed', L('埋め込み（アプリ内・自然なドロワー）')], ['real', L('本物ブラウザ（別窓・ログイン確実）')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; defEngSel.appendChild(op); });
+  defEngSel.value = Store.getDefaultEngine();
+  defEngSel.onchange = () => Store.setDefaultEngine(defEngSel.value);
+  defEngRow.append(document.createTextNode(L('Webドロワーの既定の開き方 ')), defEngSel);
+  root.append(defEngRow);
+
   // Update channel: opt in to beta (test) builds. Default off = stable only.
   if (window.overlay.getBeta) {
     const betaWrap = el('label', 'ss-set-check');
@@ -2684,10 +2714,16 @@ function buildTabFields(t, extras) {
   [['page', L('ページ')], ['browser', L('ブラウザ')], ['tabs', L('タブ')], ['files', L('PC全体')], ['folder', L('フォルダ')], ['launcher', L('ランチャー')], ['tool', L('ツール')], ['camera', L('カメラ')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; type.appendChild(op); });
   type.value = t.type;
   const mobileWrap = el('label', 'ss-set-check'); const mobile = document.createElement('input'); mobile.type = 'checkbox'; mobile.checked = !!t.mobile; mobile.onchange = () => { t.mobile = mobile.checked; }; mobileWrap.append(mobile, document.createTextNode(L(' スマホ表示')));
+  // How this page drawer opens: in-app webview vs a real browser window.
+  const engWrap = el('label', 'ss-set-check'); const engSel = el('select', 'ss-set-type');
+  [['', L('既定')], ['embed', L('埋め込み')], ['real', L('本物ブラウザ')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; engSel.appendChild(op); });
+  engSel.value = (t.engine === 'embed' || t.engine === 'real') ? t.engine : '';
+  engSel.onchange = () => { t.engine = (engSel.value === 'embed' || engSel.value === 'real') ? engSel.value : undefined; };
+  engWrap.append(document.createTextNode(L('開き方 ')), engSel);
   const keepWrap = el('label', 'ss-set-check'); const keep = document.createElement('input'); keep.type = 'checkbox'; keep.checked = !!t.keepAlive; keep.onchange = () => { t.keepAlive = keep.checked; }; keepWrap.append(keep, document.createTextNode(L(' 閉じても止めない')));
   const toolWrap = el('label', 'ss-set-check'); const toolSel = el('select', 'ss-set-type'); [['editor', L('簡易エディタ')], ['calc', L('電卓')], ['clipboard', L('クリップボード')], ['bookmarks', L('ブックマーク')], ['clock', L('タイマー＆ストップウォッチ')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; toolSel.appendChild(op); }); toolSel.value = t.tool || 'editor'; toolSel.onchange = () => { t.tool = toolSel.value; }; toolWrap.append(document.createTextNode(L('ツール ')), toolSel);
   const acctWrap = el('label', 'ss-set-check'); const acctSel = el('select', 'ss-set-type'); accountsFull().forEach((a) => { const op = el('option', null, a.name); op.value = a.id; acctSel.appendChild(op); }); acctSel.value = t.account || 'default'; acctSel.onchange = () => { t.account = acctSel.value === 'default' ? undefined : acctSel.value; }; acctWrap.append(document.createTextNode(L('アカウント ')), acctSel);
-  row2.append(type, mobileWrap, acctWrap, toolWrap, keepWrap, wlabel, width);
+  row2.append(type, mobileWrap, engWrap, acctWrap, toolWrap, keepWrap, wlabel, width);
 
   const url = field(t.url, 'https://…'); url.classList.add('ss-set-url'); url.oninput = () => { t.url = url.value; };
   const pathInput = field(t.path, L('フォルダ未選択')); pathInput.classList.add('ss-set-url'); pathInput.readOnly = true;
@@ -2713,6 +2749,7 @@ function buildTabFields(t, extras) {
     const isPage = t.type === 'page', isFolder = t.type === 'folder', isTabs = t.type === 'tabs', isTool = t.type === 'tool', isCamera = t.type === 'camera', isBrowser = t.type === 'browser';
     url.style.display = (isPage || isBrowser) ? '' : 'none'; // browser: optional home page
     mobileWrap.style.display = isPage ? '' : 'none';
+    engWrap.style.display = isPage ? '' : 'none';
     acctWrap.style.display = (isPage || isTabs || isBrowser) ? '' : 'none';
     toolWrap.style.display = isTool ? '' : 'none';
     keepWrap.style.display = (isPage || isTabs || isCamera || isBrowser) ? '' : 'none';
@@ -3370,8 +3407,8 @@ function renderBar() {
       if (tab.type === 'launch') window.files.open(tab.path); // open with default app
       else if (tab.type === 'startmenu') openTab(MENU_TAB, btn); // legacy: now the ☰ app menu
       else if (tab.type === 'window') summonExtWindow(tab, btn); // "Nyokitt": summon an external window
-      else if (isGoogleTab(tab) && tab.url) openGoogleApp(tab, btn); // Google: real Edge/Chrome "app-mode" window docked under the bar (embedded login is blocked by Google)
-      else openTab(tab, btn);
+      else if (tab.type === 'page' && tab.url && tabEngine(tab) === 'real') openGoogleApp(tab, btn); // real Edge/Chrome "app-mode" window docked under the bar (sign-in works; separate OS window)
+      else openTab(tab, btn); // in-app webview drawer (natural drawer)
     });
     btn.addEventListener('contextmenu', (e) => { e.preventDefault(); tabContextMenu(tab, btn); });
     btn.draggable = true;
