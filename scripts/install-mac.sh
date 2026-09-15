@@ -78,9 +78,17 @@ echo "==> Unpacking..."
 # Releases built before the ad-hoc signing hook shipped carry no signature at
 # all, which makes macOS call the bundle damaged. Signing locally costs nothing
 # and is a no-op for builds that already carry one.
-echo "==> Signing locally (ad-hoc)..."
-codesign --force --deep --sign - --timestamp=none "$tmp/app/$APP_NAME" 2>/dev/null \
-  || echo "    (could not sign; continuing)"
+#
+# codesign ships with the Xcode Command Line Tools, and on a Mac without them
+# /usr/bin/codesign is a shim that pops the "install developer tools?" dialog —
+# so check for the tools first rather than springing that on someone.
+if /usr/bin/xcode-select -p >/dev/null 2>&1; then
+  echo "==> Signing locally (ad-hoc)..."
+  codesign --force --deep --sign - --timestamp=none "$tmp/app/$APP_NAME" 2>/dev/null \
+    || echo "    (could not sign; continuing)"
+else
+  echo "==> Skipping local signing (Xcode Command Line Tools not installed)"
+fi
 
 # --- install ------------------------------------------------------------------
 if [ ! -w "$DEST" ]; then

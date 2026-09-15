@@ -42,8 +42,8 @@ notes, files and tools, one slam-to-the-top away.
 - **Yours to shape.** Add / remove / reorder / edit buttons, drag to merge into
   tabs, themes (incl. classic-Mac rounded corners), multi-monitor.
 - **Polished plumbing.** Windows AppBar space-reservation, **auto-update**
-  (Windows), **English / 日本語** UI (auto-detected, switchable; drop-in language
-  packs), system-tray Restart / Quit.
+  (Windows and macOS), **English / 日本語** UI (auto-detected, switchable;
+  drop-in language packs), system-tray Restart / Quit.
 
 ## ⬇️ Install
 

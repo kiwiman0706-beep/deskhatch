@@ -17,6 +17,11 @@ GitHub Releases: <https://github.com/kiwiman0706-beep/deskhatch/releases>
   スキャン対象になっていた。証明書があれば署名＋公証、無ければアドホック署名する
   ビルドに変更し、hardened runtime 用の entitlements を追加。
   導入手順は `docs/MACOS-INSTALL.md` / `docs/PUBLISHING.md`。
+- feat(macOS): アプリ内自動更新（`src/main/mac-update.js`）。これまで macOS は
+  「ダウンロードページを開く」だけで、そのブラウザ経由のダウンロードが隔離属性を
+  付けてしまい問題を再発させていた。リリースの universal zip を取得 → `ditto` で
+  展開 → アドホック署名 → バンドルを差し替え → 再起動、までアプリ内で完結する。
+  差し替えは旧バンドルを rename して退避してから行うので、失敗しても巻き戻る。
 - feat(macOS): `scripts/install-mac.sh` — `curl` でリリースを取得してインストールする
   スクリプト。隔離属性 `com.apple.quarantine` はブラウザが付けるもので `curl` は
   付けないため、**未署名・未公証のままでもブロックも削除もされない**。年 99 USD の

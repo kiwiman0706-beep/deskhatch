@@ -4,8 +4,11 @@
 // refuses to apply updates to an app that isn't code-signed + notarized, which
 // we don't pay for:
 //   - Windows: full silent auto-update via electron-updater (works unsigned).
-//   - macOS / other: just CHECK GitHub Releases and offer to open the download
-//     page — no silent install, but free and signature-free.
+//   - macOS: our own in-place update (./mac-update) — fetch the release zip,
+//     unpack, ad-hoc sign, swap the bundle, relaunch. Signature-free, and it
+//     never routes the download through a browser, which would attach
+//     com.apple.quarantine and get the new copy blocked (docs/MACOS-INSTALL.md).
+//   - Other / unpackaged: CHECK GitHub Releases and offer the download page.
 // init() runs once at startup (no-op when unpackaged). checkNow() is the manual
 // "Check for updates" action (from the tray) and gives explicit feedback,
 // including a "you're on the latest version" dialog.
@@ -17,6 +20,7 @@ const path = require('path');
 const isJa = () => { try { return app.getLocale().toLowerCase().startsWith('ja'); } catch (_) { return false; } };
 const OWNER = 'kiwiman0706-beep';
 const REPO = 'deskhatch';
+const INSTALL_SH = 'https://raw.githubusercontent.com/' + OWNER + '/' + REPO + '/HEAD/scripts/install-mac.sh';
 
 // --- Update channel (stable | beta) -----------------------------------------
 // Default users stay on STABLE: betas are published as GitHub "prerelease"
@@ -141,21 +145,58 @@ async function latestRelease(beta) {
   return Array.isArray(list) ? list.find((r) => r && !r.draft) : null; // newest incl. prerelease
 }
 
+// macOS: apply the update in place rather than opening the download page.
+// Sending the user to a browser is what attaches com.apple.quarantine, and a
+// quarantined unsigned app is the thing macOS blocks or deletes — so the one
+// "helpful" fallback we must not use is the one that breaks the install.
+async function macInstall(rel, latest) {
+  const ja = isJa();
+  box({ type: 'info', buttons: ['OK'], title: ja ? 'アップデート' : 'Update',
+    message: ja ? ('バージョン ' + latest + ' をダウンロード中…') : ('Downloading version ' + latest + '…'),
+    detail: ja ? '約190MBあるため数分かかります。完了したら再起動を促します。'
+               : "It's about 190MB, so this may take a few minutes. You'll be prompted to restart when it's ready." });
+  try {
+    const mac = require('./mac-update');
+    await mac.downloadAndInstall(rel, (f) => { try { console.log('[update] ' + Math.round(f * 100) + '%'); } catch (_) {} });
+    const { response } = await box({
+      type: 'info',
+      buttons: [ja ? '今すぐ再起動' : 'Restart now', ja ? '後で' : 'Later'],
+      defaultId: 0, cancelId: 1,
+      title: ja ? 'アップデート' : 'Update',
+      message: ja ? ('バージョン ' + latest + ' を適用しました。') : ('Version ' + latest + ' has been installed.'),
+      detail: ja ? '再起動すると新しいバージョンで起動します。' : 'Restart to run the new version.',
+    });
+    if (response === 0) { app.relaunch(); app.quit(); }
+  } catch (e) {
+    // Falling back to the release page would re-quarantine the download, so
+    // point at the install command instead — that one always works.
+    box({ type: 'warning', buttons: ['OK'], title: ja ? 'アップデート' : 'Update',
+      message: ja ? '自動更新に失敗しました。' : 'The in-app update failed.',
+      detail: ((e && e.message) || '') + (ja
+        ? '\n\nターミナルで次を実行すると更新できます:\n\ncurl -fsSL ' + INSTALL_SH + ' | bash'
+        : '\n\nUpdate from a terminal instead:\n\ncurl -fsSL ' + INSTALL_SH + ' | bash') });
+  }
+}
+
 async function checkAndNotify(isManual) {
   const ja = isJa();
   try {
     const rel = await latestRelease(getBeta());
     const latest = String((rel && rel.tag_name) || '').replace(/^v/, '');
     if (latest && isNewer(app.getVersion(), latest)) {
+      const canSelfUpdate = process.platform === 'darwin' && app.isPackaged;
       const { response } = await box({
         type: 'info',
-        buttons: [ja ? 'ダウンロード' : 'Download', ja ? '後で' : 'Later'],
+        buttons: [canSelfUpdate ? (ja ? '今すぐ更新' : 'Update now') : (ja ? 'ダウンロード' : 'Download'),
+                  ja ? '後で' : 'Later'],
         defaultId: 0, cancelId: 1,
         title: ja ? 'アップデート' : 'Update',
         message: ja ? ('新しいバージョン ' + latest + ' があります。') : ('Version ' + latest + ' is available.'),
         detail: (ja ? '現在のバージョン: ' : 'Current version: ') + app.getVersion(),
       });
-      if (response === 0) shell.openExternal(rel.html_url || ('https://github.com/' + OWNER + '/' + REPO + '/releases/latest'));
+      if (response !== 0) return;
+      if (canSelfUpdate) await macInstall(rel, latest);
+      else shell.openExternal(rel.html_url || ('https://github.com/' + OWNER + '/' + REPO + '/releases/latest'));
     } else if (isManual) {
       box({ type: 'info', buttons: ['OK'], title: ja ? 'アップデート' : 'Update',
         message: ja ? 'お使いのバージョンが最新です。' : "You're on the latest version.",
