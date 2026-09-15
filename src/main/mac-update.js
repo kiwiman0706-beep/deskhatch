@@ -62,7 +62,9 @@ function download(url, dest, onProgress) {
       const out = fs.createWriteStream(dest);
       res.on('data', (chunk) => {
         got += chunk.length;
-        out.write(chunk);
+        // Honour backpressure: the archive is ~190MB, and writing faster than
+        // the disk drains would hold all of it in memory.
+        if (!out.write(chunk)) { res.pause(); out.once('drain', () => res.resume()); }
         if (onProgress && total) onProgress(got / total);
       });
       res.on('end', () => out.end(() => resolve(got)));
@@ -82,13 +84,13 @@ function bundleVersion(appPath) {
   } catch (_) { return ''; }
 }
 
-// Fetch + stage the new version. Returns the staged .app path; the caller
-// installs it separately so a failed download never touches the running app.
-async function stage(rel, onProgress) {
+// Fetch + stage the new version into `dir`. Returns the staged .app path; the
+// caller installs it separately so a failed download never touches the running
+// app. ~400MB lands in the temp dir (zip + unpacked), hence the caller's cleanup.
+async function stage(rel, dir, onProgress) {
   const asset = pickAsset(rel);
   if (!asset) throw new Error('no universal .zip in that release');
 
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'deskhatch-update-'));
   const zip = path.join(dir, 'DeskHatch.zip');
   const got = await download(asset.browser_download_url, zip, onProgress);
   // The release metadata says how big the asset is, so a truncated transfer is
@@ -97,11 +99,16 @@ async function stage(rel, onProgress) {
     throw new Error('download incomplete (' + got + ' of ' + asset.size + ' bytes)');
   }
 
+  // ditto, not unzip: it preserves the symlinks and extended attributes an .app
+  // bundle needs, which plain unzip flattens.
   const unpacked = path.join(dir, 'app');
   await run('/usr/bin/ditto', ['-x', '-k', zip, unpacked]);
   const staged = path.join(unpacked, 'DeskHatch.app');
   if (!fs.existsSync(staged)) throw new Error('DeskHatch.app missing from the archive');
 
+  // electron-builder keeps the prerelease suffix in CFBundleShortVersionString
+  // (verified: a v0.1.71-beta.2 build reads back "0.1.71-beta.2"), so this
+  // compares cleanly against the tag on both channels.
   const ver = bundleVersion(staged);
   const want = String(rel.tag_name || '').replace(/^v/, '');
   if (ver && want && ver !== want) throw new Error('archive is v' + ver + ', expected v' + want);
@@ -115,7 +122,7 @@ async function stage(rel, onProgress) {
     } catch (e) { console.warn('[update] ad-hoc signing skipped: ' + e.message); }
   }
 
-  return { staged, dir };
+  return staged;
 }
 
 // Swap the staged bundle in. Replacing a running .app is safe on macOS — the
@@ -144,9 +151,11 @@ async function install(staged) {
 }
 
 async function downloadAndInstall(rel, onProgress) {
-  const { staged, dir } = await stage(rel, onProgress);
+  // The temp dir is created out here so a failure anywhere inside — including a
+  // download that dies half way — still cleans up its few hundred MB.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'deskhatch-update-'));
   try {
-    return await install(staged);
+    return await install(await stage(rel, dir, onProgress));
   } finally {
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
   }
