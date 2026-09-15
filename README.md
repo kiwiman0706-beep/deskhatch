@@ -51,17 +51,20 @@ notes, files and tools, one slam-to-the-top away.
 or the portable `.exe` from the [**latest release**](https://github.com/kiwiman0706-beep/deskhatch/releases/latest).
 *(A winget package is on the way.)*
 
-**macOS** — download the universal `.dmg` from the
-[latest release](https://github.com/kiwiman0706-beep/deskhatch/releases/latest).
-The build is **not signed or notarized yet**, so macOS 15 (Sequoia) and later
-will block it — and may delete it as malware. **Read
-[`docs/MACOS-INSTALL.md`](docs/MACOS-INSTALL.md) before installing.**
-Right-click → *Open* no longer works on current macOS; you have to strip the
-quarantine bit:
+**macOS** — install from the terminal:
 
 ```bash
-sudo xattr -dr com.apple.quarantine /Applications/DeskHatch.app
+curl -fsSL https://raw.githubusercontent.com/kiwiman0706-beep/deskhatch/HEAD/scripts/install-mac.sh | bash
 ```
+
+The build is not notarized (that needs a paid Apple Developer account), and on
+macOS 15 (Sequoia) and later a browser-downloaded `.dmg` gets blocked — sometimes
+deleted outright as "malware". The line above fetches the same release with
+`curl`, which doesn't attach the quarantine attribute that triggers the check, so
+the app just runs. Add `-s -- --beta` for prereleases. If you'd rather use the
+`.dmg` from the [latest release](https://github.com/kiwiman0706-beep/deskhatch/releases/latest),
+read [`docs/MACOS-INSTALL.md`](docs/MACOS-INSTALL.md) first — right-click → *Open*
+no longer works on current macOS.
 
 > On Windows the unsigned build may show a SmartScreen prompt on first run
 > (choose *More info → Run*). The app then updates itself.

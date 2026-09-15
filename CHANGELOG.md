@@ -17,6 +17,10 @@ GitHub Releases: <https://github.com/kiwiman0706-beep/deskhatch/releases>
   スキャン対象になっていた。証明書があれば署名＋公証、無ければアドホック署名する
   ビルドに変更し、hardened runtime 用の entitlements を追加。
   導入手順は `docs/MACOS-INSTALL.md` / `docs/PUBLISHING.md`。
+- feat(macOS): `scripts/install-mac.sh` — `curl` でリリースを取得してインストールする
+  スクリプト。隔離属性 `com.apple.quarantine` はブラウザが付けるもので `curl` は
+  付けないため、**未署名・未公証のままでもブロックも削除もされない**。年 99 USD の
+  Apple Developer Program 無しで実用上の問題を解消する経路。
 - docs: add CHANGELOG with full version history and release dates (`155a6c6`)
 
 ## v0.1.71-beta.2 — 2026-06-20 20:45 UTC · beta

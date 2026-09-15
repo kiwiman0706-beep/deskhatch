@@ -1,107 +1,142 @@
 # macOS でのインストール / Installing on macOS
 
-> **要約 / TL;DR** — 現在の macOS ビルドは Apple の署名・公証（notarization）を
-> 受けていません。そのため macOS 15 (Sequoia) 以降では起動をブロックされ、
-> ときには **「マルウェアが含まれているため開けませんでした」と表示されて
-> 自動的にゴミ箱へ移動** されます。下の手順で回避できますが、**恒久的な解決は
-> Apple Developer Program の証明書で署名・公証すること** です。
+> **要約 / TL;DR** — ブラウザで `.dmg` をダウンロードすると、macOS 15 (Sequoia)
+> 以降では起動をブロックされ、ときには「**マルウェアが含まれているため開けません
+> でした**」と表示されて自動的にゴミ箱へ移動されます。
+> **`curl` で入れれば、この問題は起きません。**
 >
-> The macOS builds are not signed or notarized yet. On macOS 15 (Sequoia) and
-> later this can produce **“… contains malware” and the app is moved to the
-> Trash**. Workarounds below; the real fix is Developer ID signing + notarization.
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/kiwiman0706-beep/deskhatch/HEAD/scripts/install-mac.sh | bash
+> ```
+>
+> <sub>Downloading the `.dmg` in a browser can get the app blocked — or deleted
+> as "malware" — on macOS 15+. Installing with the `curl` line above avoids it.</sub>
 
 ---
 
 ## なぜ起きるのか / Why this happens
 
-macOS がダウンロードしたアプリを削除するには、3 つの条件が重なる必要があります。
+アプリが削除されるには、3 つの条件が**すべて**揃う必要があります。
 
-1. **公証されていない** — 公証済みなら Gatekeeper は添付チケットを信頼し、
-   バイナリ自体を走査しません。未公証だと macOS が中身を直接スキャンします。
-2. **隔離属性（quarantine）が付いている** — ブラウザ経由でダウンロードした
-   ファイルに付き、これがあるため「初回起動時」にスキャンが走ります。
-3. **XProtect の YARA ルールに一致した** — Apple のマルウェア定義に含まれる
-   バイト列がたまたま一致すると、誤検知でもアプリは削除されます。
+| # | 条件 | 外せるか |
+|---|---|---|
+| 1 | **公証されていない**（未公証だと macOS はバイナリを直接スキャンする） | ❌ Apple Developer Program（年 99 USD）が必要 |
+| 2 | **隔離属性 `com.apple.quarantine` が付いている**（これがスキャンの引き金） | ✅ **外せる** |
+| 3 | **XProtect の YARA ルールに一致した**（誤検知でも削除される） | ❌ Apple の定義次第 |
 
-3 は Apple 側の定義更新でいつ起きてもおかしくなく、**以前は動いていたビルドが
-定義更新や再起動後に突然消える**こともあります。こちらで制御できるのは 1 だけです。
+ポイントは **2 番**です。隔離属性は「ダウンロードしたアプリ」が付けるもので、
+Safari・Chrome・Firefox は付けますが、**`curl` は付けません**。自分の Mac で
+ビルドしたアプリにも付きません。つまり **2 を外せばスキャン自体が走らず、
+1 と 3 が成立していても何も起きません。**
 
-<sub>Three conditions must line up: no notarization (so Gatekeeper scans the
-binary instead of trusting a ticket), the quarantine bit from the download (so
-the scan happens on launch), and an XProtect YARA rule that matches — which can
-be a false positive. Only the first is under our control.</sub>
+<sub>Three conditions must all line up. The quarantine attribute (#2) is set by
+the downloading app — browsers set it, `curl` does not, and a local build never
+has it. Remove that one and the launch-time scan never runs.</sub>
 
 ---
 
-## 応急処置 / Workarounds
+## 入れ方（おすすめ順）
 
-### すでにゴミ箱へ移動されてしまった場合
-
-1. **ゴミ箱を開き**、`DeskHatch.app` を右クリック →「**戻す**」で元の場所へ復元。
-2. ターミナルで隔離属性を外す（**起動する前に**実行してください）:
+### 方法 1: curl でインストール（無料・推奨）
 
 ```bash
-sudo xattr -dr com.apple.quarantine /Applications/DeskHatch.app
+# 最新の安定版
+curl -fsSL https://raw.githubusercontent.com/kiwiman0706-beep/deskhatch/HEAD/scripts/install-mac.sh | bash
+
+# 最新のベータ版
+curl -fsSL https://raw.githubusercontent.com/kiwiman0706-beep/deskhatch/HEAD/scripts/install-mac.sh | bash -s -- --beta
 ```
 
-3. それでも「壊れているため開けません」と出る場合は、ローカルでアドホック署名:
+スクリプト（[`scripts/install-mac.sh`](../scripts/install-mac.sh)）がやること:
+
+1. GitHub Releases から universal `.zip` を `curl` で取得（→ 隔離属性が付かない）
+2. 展開してローカルでアドホック署名（古いビルドの「壊れている」対策）
+3. `/Applications` へ配置（書き込めなければ `~/Applications`）
+
+更新するときは同じコマンドをもう一度実行するだけです。
+
+> `curl | bash` に抵抗がある場合は、先に中身を読んでから実行してください:
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/kiwiman0706-beep/deskhatch/HEAD/scripts/install-mac.sh -o install-mac.sh
+> less install-mac.sh
+> bash install-mac.sh
+> ```
+
+### 方法 2: 自分の Mac でビルドする（無料・最も確実）
+
+ビルドしたアプリはダウンロードされていないので、隔離属性が最初から付きません。
 
 ```bash
-sudo codesign --force --deep --sign - /Applications/DeskHatch.app
+git clone https://github.com/kiwiman0706-beep/deskhatch.git
+cd deskhatch
+npm install
+npm run dist:mac
+open dist/mac-universal          # ここの DeskHatch.app を /Applications へ
 ```
 
-4. Finder で `DeskHatch.app` を開く。
+Node.js が必要です（`brew install node`）。10 分ほどかかります。
 
-### まだ削除されていない場合（推奨の入れ方）
+### 方法 3: ブラウザでダウンロードした場合の後始末
+
+すでに `.dmg` を落としてしまった、あるいはもう消された場合:
+
+1. **ゴミ箱を開き**、`DeskHatch.app` を右クリック →「**戻す**」で復元
+2. **起動する前に**隔離属性を外す:
 
 ```bash
-# 1. dmg をマウントしてアプリをコピー（Finder でのドラッグでも可）
-# 2. 起動する前に隔離属性を外す
-sudo xattr -dr com.apple.quarantine /Applications/DeskHatch.app
-# 3. 開く
-open /Applications/DeskHatch.app
+xattr -dr com.apple.quarantine /Applications/DeskHatch.app
 ```
 
-> **「右クリック → 開く」は macOS 15 以降では効きません。** Apple がこの
-> 抜け道を廃止し、未公証アプリは **システム設定 → プライバシーとセキュリティ**
-> の一番下に出る「**このまま開く**」から許可する方式に変わりました。ただし
-> XProtect がマルウェア判定を出した場合はその項目自体が出ないため、上記の
-> `xattr` が唯一の手段になります。
+3. それでも「壊れているため開けません」と出る場合はローカルで署名:
+
+```bash
+codesign --force --deep --sign - /Applications/DeskHatch.app
+```
+
+> **「右クリック → 開く」は macOS 15 以降では効きません。** Apple がこの抜け道を
+> 廃止し、**システム設定 → プライバシーとセキュリティ**の下部に出る
+> 「**このまま開く**」から許可する方式になりました。さらに XProtect が
+> マルウェア判定を出した場合はその項目すら出ないため、上の `xattr` が唯一の
+> 手段になります。
 >
 > <sub>Control-click → Open no longer works on macOS 15+. Use System Settings →
-> Privacy & Security → “Open Anyway”, and when XProtect flags the app that
-> option does not appear at all — only removing the quarantine bit helps.</sub>
+> Privacy & Security → "Open Anyway" — and when XProtect flags the app, that
+> option does not appear at all, so only clearing the quarantine bit helps.</sub>
 
-**注意**: これらは Apple の保護を回避する操作です。**このリポジトリの
+**注意**: 方法 3 は Apple の保護を意図的に外す操作です。**このリポジトリの
 GitHub Releases から入手した**ファイルに対してのみ実行してください。
 
 ---
 
-## 恒久対策 / The real fix
+## 残るリスク / What this does not fix
 
-**Apple Developer Program（年 99 USD / 約 15,000 円）** に加入し、
-**Developer ID Application** 証明書でアプリを署名 → Apple に公証を依頼 →
-チケットを添付（staple）する。これで上記 3 条件のうち 1 と 3 が同時に消え、
-ユーザーはダブルクリックするだけで起動できます。
+隔離属性を外すと**起動時のスキャン**は走りませんが、macOS には別途
+**XProtect Remediator** が定期的にバックグラウンド走査を行う仕組みがあります。
+可能性は低いものの、これが後からアプリを削除することは理論上あり得ます。
+もし再発したら、方法 1 か 2 で入れ直してください。
 
-ビルド側の受け入れ準備は済んでいます:
+また、**macOS では自動更新が使えません**（electron-updater は署名を検証するため、
+未署名ビルドでは動きません）。README に「auto-update (Windows)」とあるのは
+このためです。更新は方法 1 のコマンド再実行でどうぞ。
+
+---
+
+## 恒久対策（有料）/ The paid fix
+
+**Apple Developer Program（年 99 USD）** に加入して **Developer ID Application**
+証明書で署名し、Apple に公証を依頼してチケットを添付（staple）すれば、上の
+3 条件のうち 1 と 3 が同時に消え、ユーザーはダブルクリックするだけで起動でき、
+macOS の自動更新も使えるようになります。
+
+**個人利用なら方法 1・2 で十分**なので急ぐ必要はありませんが、配布先が増えて
+きたら検討する価値があります。ビルド側の受け入れ準備は済んでいて、GitHub に
+5 つのシークレットを登録した時点で自動的に署名＋公証ビルドへ切り替わります
+（手順は [`PUBLISHING.md`](PUBLISHING.md)）。
 
 | 用意済み | 内容 |
 |---|---|
 | `build/entitlements.mac.plist` | hardened runtime 用の entitlements（Electron の JIT、koffi の dlopen、ffmpeg） |
 | `build/entitlements.mac.inherit.plist` | ヘルパープロセス用 |
 | `scripts/mac-adhoc-sign.js` | 証明書が無いときにアドホック署名する `afterPack` フック |
+| `scripts/install-mac.sh` | 隔離属性を付けずに入れるインストーラー |
 | `.github/workflows/release.yml` | シークレットがあれば署名＋公証、無ければ未署名にフォールバック |
-
-必要な GitHub シークレットは 5 つです（設定手順は `docs/PUBLISHING.md`）:
-
-| シークレット | 中身 |
-|---|---|
-| `MAC_CSC_LINK` | Developer ID Application 証明書（`.p12`）を base64 にしたもの |
-| `MAC_CSC_KEY_PASSWORD` | その `.p12` のパスワード |
-| `APPLE_ID` | Apple ID のメールアドレス |
-| `APPLE_APP_SPECIFIC_PASSWORD` | appleid.apple.com で作る App 用パスワード |
-| `APPLE_TEAM_ID` | 10 文字の Team ID |
-
-5 つを登録すればワークフローが自動的に署名・公証ビルドへ切り替わり、
-このページの応急処置は不要になります。
