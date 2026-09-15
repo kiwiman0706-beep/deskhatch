@@ -1,7 +1,7 @@
 # DeskHatch のリリースと winget 公開
 
 PackageIdentifier: **`Theta.DeskHatch`**
-配布: **GitHub Releases（公開）** / 自動化: **GitHub Actions** / 署名: なし
+配布: **GitHub Releases（公開）** / 自動化: **GitHub Actions** / 署名: なし（macOS の署名・公証は下記参照）
 
 ---
 
@@ -67,3 +67,59 @@ winget install Theta.DeskHatch
 - **未署名**のため、初回起動時に SmartScreen 警告が出ることがあります（詳細情報 → 実行）。
 - winget はインストーラーを**サイレント実行**します（NSIS の `/S`）。本アプリのインストーラーは対応済み。
 - 署名証明書を入れた場合は、警告が消え、winget の信頼性表示も改善します（必要時に設定案内します）。
+
+---
+
+## macOS の署名・公証（notarization）
+
+現状 macOS ビルドは**未署名**です。macOS 15 (Sequoia) 以降ではこれが原因で
+起動をブロックされ、XProtect の誤検知で**アプリが勝手にゴミ箱へ移動される**
+ことがあります（症状と応急処置は [`MACOS-INSTALL.md`](MACOS-INSTALL.md)）。
+
+ワークフロー側の受け入れ準備は済んでいるので、**下の 5 つのシークレットを
+登録した時点で、次のリリースから自動的に署名＋公証ビルドに切り替わります。**
+登録しなければ従来どおり未署名ビルドが出ます（ビルドは失敗しません）。
+
+### 1. Apple Developer Program に加入
+年 99 USD。<https://developer.apple.com/programs/> から。承認まで数日かかることがあります。
+
+### 2. Developer ID Application 証明書を作る
+1. Mac の **キーチェーンアクセス → 証明書アシスタント → 認証局に証明書を要求**
+   で CSR (`.certSigningRequest`) を作成（「ディスクに保存」を選択）。
+2. <https://developer.apple.com/account/resources/certificates/list> →
+   **+** → **Developer ID Application** を選び、CSR をアップロード。
+3. 発行された `.cer` をダウンロードしてダブルクリック（キーチェーンに入る）。
+4. キーチェーンで **秘密鍵ごと**書き出して `.p12` にする（パスワードを設定）。
+
+### 3. App 用パスワードと Team ID
+- App 用パスワード: <https://appleid.apple.com> → サインインとセキュリティ →
+  **App 用パスワード** で生成（`xxxx-xxxx-xxxx-xxxx` 形式）。
+- Team ID: <https://developer.apple.com/account> の Membership に載っている 10 文字。
+
+### 4. GitHub シークレットに登録
+リポジトリの **Settings → Secrets and variables → Actions** で以下を追加。
+
+| 名前 | 値 |
+|---|---|
+| `MAC_CSC_LINK` | `.p12` を base64 にした文字列 → `base64 -i cert.p12 \| pbcopy` |
+| `MAC_CSC_KEY_PASSWORD` | `.p12` のパスワード |
+| `APPLE_ID` | Apple ID のメールアドレス |
+| `APPLE_APP_SPECIFIC_PASSWORD` | 手順 3 の App 用パスワード |
+| `APPLE_TEAM_ID` | 10 文字の Team ID |
+
+### 5. 確認
+次のリリース後、`build-mac` ジョブの **Report signing status** ステップを見る。
+
+- `Authority=Developer ID Application: ...` が出ていれば署名 OK
+- `source=Notarized Developer ID` が出ていれば Gatekeeper 通過
+- `The validate action worked!` が出ていればチケットの staple 成功
+
+公証は Apple のサーバー待ちで 5〜30 分ほどかかるため、mac ジョブの所要時間が伸びます。
+
+### 関連ファイル
+- `build/entitlements.mac.plist` / `build/entitlements.mac.inherit.plist` —
+  hardened runtime 用。Electron の JIT、koffi の `dlopen`、`ffmpeg-static` に
+  必要な権限が入っています。**これが無いと公証済みビルドは起動直後に落ちます。**
+- `scripts/mac-adhoc-sign.js` — 証明書が無いときに**アドホック署名**だけ付ける
+  `afterPack` フック。公証の代わりにはなりませんが、バンドルとして壊れていない
+  状態にはなります。

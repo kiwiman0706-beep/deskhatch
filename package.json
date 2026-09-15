@@ -49,6 +49,7 @@
       "assets/**/*",
       "package.json"
     ],
+    "afterPack": "scripts/mac-adhoc-sign.js",
     "asarUnpack": [
       "**/node_modules/ffmpeg-static/**",
       "**/node_modules/koffi/**"
@@ -69,7 +70,10 @@
       ],
       "category": "public.app-category.productivity",
       "icon": "assets/icon.png",
-      "hardenedRuntime": true
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "gatekeeperAssess": false
     },
     "linux": {
       "target": [

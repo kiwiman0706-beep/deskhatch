@@ -53,10 +53,18 @@ or the portable `.exe` from the [**latest release**](https://github.com/kiwiman0
 
 **macOS** — download the universal `.dmg` from the
 [latest release](https://github.com/kiwiman0706-beep/deskhatch/releases/latest).
-It's unsigned, so on first launch **right-click the app → Open**.
+The build is **not signed or notarized yet**, so macOS 15 (Sequoia) and later
+will block it — and may delete it as malware. **Read
+[`docs/MACOS-INSTALL.md`](docs/MACOS-INSTALL.md) before installing.**
+Right-click → *Open* no longer works on current macOS; you have to strip the
+quarantine bit:
 
-> Unsigned builds may show a SmartScreen / Gatekeeper prompt on first run
-> (choose *More info → Run* / *Open*). The app then updates itself on Windows.
+```bash
+sudo xattr -dr com.apple.quarantine /Applications/DeskHatch.app
+```
+
+> On Windows the unsigned build may show a SmartScreen prompt on first run
+> (choose *More info → Run*). The app then updates itself.
 
 ## 🖼️ Screenshots
 

@@ -11,6 +11,12 @@ GitHub Releases: <https://github.com/kiwiman0706-beep/deskhatch/releases>
 
 ## Unreleased（未リリース）
 
+- fix(macOS): macOS が「マルウェア」としてアプリをゴミ箱へ移動する問題への対応。
+  配布ビルドが**完全に未署名**（`_CodeSignature` 無し、x86_64 スライスに
+  `LC_CODE_SIGNATURE` 無し）だったため、隔離属性付きのダウンロードが XProtect の
+  スキャン対象になっていた。証明書があれば署名＋公証、無ければアドホック署名する
+  ビルドに変更し、hardened runtime 用の entitlements を追加。
+  導入手順は `docs/MACOS-INSTALL.md` / `docs/PUBLISHING.md`。
 - docs: add CHANGELOG with full version history and release dates (`155a6c6`)
 
 ## v0.1.71-beta.2 — 2026-06-20 20:45 UTC · beta

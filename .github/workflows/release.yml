@@ -90,12 +90,48 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm install
-      - name: Build dmg + zip (universal, unsigned)
-        run: npm run dist:mac -- --universal --publish never
+      # With an Apple Developer ID in the repo secrets: sign with the hardened
+      # runtime (entitlements in build/entitlements.mac*.plist) and notarize, so
+      # Gatekeeper trusts the stapled ticket and never sends the binary through
+      # XProtect's on-launch scan. Without them: an unsigned build that the
+      # afterPack hook (scripts/mac-adhoc-sign.js) ad-hoc signs, which users have
+      # to un-quarantine by hand -- see docs/MACOS-INSTALL.md.
+      # Secrets: MAC_CSC_LINK (base64 .p12), MAC_CSC_KEY_PASSWORD, APPLE_ID,
+      # APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID. See docs/PUBLISHING.md.
+      - name: Build dmg + zip (universal)
         env:
-          # No paid Apple Developer cert: build unsigned instead of failing while
-          # hunting for a signing identity. Users open via right-click -> Open.
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -eu
+          if [ -n "${CSC_LINK:-}" ] && [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+            echo "Developer ID secrets present -> signed + notarized build"
+            # -c.mac.notarize.teamId is what selects notarytool; without a teamId
+            # electron-builder falls back to the retired altool path.
+            npm run dist:mac -- --universal --publish never \
+              -c.mac.notarize.teamId="$APPLE_TEAM_ID"
+          else
+            echo "::warning title=macOS build is unsigned::No Apple Developer ID secrets. macOS may block or delete this build (XProtect). See docs/MACOS-INSTALL.md."
+            CSC_IDENTITY_AUTO_DISCOVERY=false \
+              npm run dist:mac -- --universal --publish never
+          fi
+
+      # Prints what actually shipped, so a release never again quietly goes out
+      # unsigned without anyone noticing. Informational only.
+      - name: Report signing status
+        if: always()
+        run: |
+          APP=dist/mac-universal/DeskHatch.app
+          [ -d "$APP" ] || APP=dist/mac/DeskHatch.app
+          [ -d "$APP" ] || { echo "no .app found"; exit 0; }
+          codesign -dv --verbose=4 "$APP" 2>&1 | head -20 || true
+          echo '--- Gatekeeper verdict ---'
+          spctl -a -vvv -t install "$APP" 2>&1 || true
+          echo '--- notarization ticket ---'
+          xcrun stapler validate "$APP" 2>&1 || true
       - name: Add macOS artifacts to the release
         uses: softprops/action-gh-release@v2
         with:
