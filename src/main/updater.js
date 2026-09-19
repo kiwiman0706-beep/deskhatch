@@ -138,11 +138,29 @@ function fetchJson(url) {
   });
 }
 
+// A release is only usable on macOS if it actually carries the universal .zip.
+// A release whose macOS job failed still publishes its Windows artifacts, and
+// offering that as "the latest version" would strand every Mac on a version it
+// cannot download — which is exactly what v0.1.72-beta.1 did.
+function hasMacAsset(rel) {
+  try { return !!require('./mac-update').pickAsset(rel); } catch (_) { return true; }
+}
+
+// Newest release worth offering, from a GitHub /releases listing (newest first).
+function pickRelease(list, beta, needsMacAsset) {
+  if (!Array.isArray(list)) return null;
+  return list.find((r) => r && !r.draft
+    && (beta || !r.prerelease)
+    && (!needsMacAsset || hasMacAsset(r))) || null;
+}
+
 async function latestRelease(beta) {
   const base = 'https://api.github.com/repos/' + OWNER + '/' + REPO + '/releases';
-  if (!beta) return fetchJson(base + '/latest'); // excludes prereleases
-  const list = await fetchJson(base + '?per_page=15');
-  return Array.isArray(list) ? list.find((r) => r && !r.draft) : null; // newest incl. prerelease
+  const hit = pickRelease(await fetchJson(base + '?per_page=30'), beta, process.platform === 'darwin');
+  if (hit) return hit;
+  // Nothing usable in the recent window — fall back to GitHub's own idea of the
+  // latest stable rather than reporting "no update" forever.
+  return beta ? null : fetchJson(base + '/latest');
 }
 
 // macOS: apply the update in place rather than opening the download page.
@@ -240,3 +258,6 @@ function checkNow() {
 }
 
 module.exports = { init, checkNow, getBeta, setBeta };
+// Exposed for the unit tests (pure release-selection logic, no Electron needed).
+module.exports.pickRelease = pickRelease;
+module.exports.isNewer = isNewer;
