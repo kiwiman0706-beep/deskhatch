@@ -1,6 +1,6 @@
 {
   "name": "deskhatch",
-  "version": "0.1.72-beta.2",
+  "version": "0.1.73-beta.1",
   "description": "DeskHatch — a SmartCenter-style top-edge drawer launcher (Electron). A thin bar docks at the top of the screen; clicking a button slides a drawer down directly beneath it.",
   "main": "src/main/main.js",
   "author": "DeskHatch",
@@ -26,8 +26,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",
-    "electron": "^31.0.0",
-    "electron-builder": "^24.13.3",
+    "electron": "^44.0.0",
+    "electron-builder": "^26.0.0",
     "sharp": "^0.33.5",
     "vitest": "^2.0.0"
   },

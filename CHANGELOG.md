@@ -11,6 +11,17 @@ GitHub Releases: <https://github.com/kiwiman0706-beep/deskhatch/releases>
 
 ## Unreleased（未リリース）
 
+- chore: **Electron 31 → 44**（Chromium 126 → 152、Node 20.18 → 24.21）。Electron 31 は
+  サポート対象（最新3メジャー）から外れて EOL になっており、Chromium 126 は2024年6月版で
+  2年以上の未修正脆弱性を抱えていた。任意のWebページを `<webview>` で開くアプリなのでここは
+  実害が出うる。併せて Google が「このブラウザ バージョンのサポートは終了しました」を
+  出すようになっていた問題も解消する（UA は `process.versions.chrome` を正直に申告する
+  実装のままで、偽装はしていない）。
+  electron-builder も 24 → 26 へ。CI の Node も 20 → 22。
+  検証: `<webview>`（`partition`／`useragent` 属性を含む）、koffi の FFI 呼び出し、
+  アプリの実起動、electron-builder の設定読み込みと ad-hoc 署名フックの解決を
+  Electron 44 で実機確認済み。
+
 - fix(macOS): macOS が「マルウェア」としてアプリをゴミ箱へ移動する問題への対応。
   配布ビルドが**完全に未署名**（`_CodeSignature` 無し、x86_64 スライスに
   `LC_CODE_SIGNATURE` 無し）だったため、隔離属性付きのダウンロードが XProtect の
