@@ -12,6 +12,7 @@ const system = require('./system');
 const camera = require('./camera');
 const fileserver = require('./fileserver');
 const updater = require('./updater');
+const localapp = require('./localapp');
 
 const BAR_HEIGHT = 44; // collapsed strip height (px)
 const INDEX = path.join(__dirname, '..', 'renderer', 'index.html');
@@ -762,6 +763,7 @@ app.whenReady().then(() => {
   // fight the menu bar we sit just beneath. Lives in the tray instead.
   if (isMac && app.setActivationPolicy) app.setActivationPolicy('accessory');
   auth.setup();
+  localapp.setup();
   lastDisplayIds = displayIdsKey();
   if (SELFTEST) { runSelfTest(); return; }
   reconcile();      // initial bar(s) (primary by default; renderer refines via display:set)

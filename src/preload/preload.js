@@ -127,6 +127,18 @@ contextBridge.exposeInMainWorld('camera', {
   url: (rtsp) => ipcRenderer.invoke('camera:url', rtsp),
 });
 
+// "Local app" drawers: a companion desktop app that serves its UI over loopback
+// HTTP. See docs/LOCALAPP-PROTOCOL.md. `health`/`get` are loopback-only and
+// `launch` spawns an argv array with no shell — both enforced in the main
+// process, since a drawer definition is only data.
+contextBridge.exposeInMainWorld('localapp', {
+  health: (url) => ipcRenderer.invoke('localapp:health', url),
+  get: (url) => ipcRenderer.invoke('localapp:get', url),
+  resolve: (exe) => ipcRenderer.invoke('localapp:resolve', exe),
+  launch: (exe, args) => ipcRenderer.invoke('localapp:launch', exe, args),
+  pickExe: () => ipcRenderer.invoke('localapp:pick-exe'),
+});
+
 // Google sign-in helper (one session partition per account).
 //
 // `disguisePath` is a file:// URL to the same preload the sign-in window uses, so

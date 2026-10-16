@@ -64,3 +64,45 @@ window.SS_TABS = [
 
   { id: 'pc', label: 'My Computer', icon: '💻', type: 'files', width: 460 },
 ];
+
+// Local-app presets: companion desktop apps that serve their UI over loopback
+// HTTP and can be opened as a drawer. These are NOT on the bar by default —
+// they appear in ☰ → 設定 → "＋ 項目を追加" and in a button's right-click
+// "新規項目を追加", so a user adds the ones they actually have installed.
+//
+// Adding another app (a business-card manager, a document manager…) is one
+// entry here — no new code — as long as that app satisfies the contract in
+// docs/LOCALAPP-PROTOCOL.md:
+//
+//   url        the UI to embed. Loopback only (127.0.0.1 / ::1 / localhost).
+//   health     GET endpoint that proves the app is up. Relative to `url`.
+//   expect     subset the health JSON must match, so we don't mistake another
+//              process that happens to hold the port for our app.
+//   launch     per-platform { exe, args } — 'win32'/'win', 'darwin'/'mac',
+//              'linux'. %VARS% in `exe` are expanded. The app is started
+//              detached and is NOT stopped when the drawer closes or DeskHatch
+//              quits. `args` should put it in a "serve, don't show a window"
+//              mode if it has one.
+//   actions    extra right-click entries. `get` hits a loopback endpoint on the
+//              running app; `launchArgs` starts the executable with those
+//              arguments. With both, `get` is used when the app is up.
+//   platforms  where this drawer makes sense; omit for "everywhere".
+//   download   optional page to open when the executable can't be found.
+window.SS_LOCALAPPS = [
+  {
+    id: 'dsbooks', label: L('本棚'), icon: '📚', type: 'localapp', width: 520,
+    url: 'http://127.0.0.1:47817/',
+    health: '/ping',
+    expect: { app: 'dsbooks' },
+    launch: {
+      win32: { exe: '%LOCALAPPDATA%\\Programs\\DSBooks\\DSBooks.exe', args: ['--background'] },
+    },
+    actions: [
+      // Running: bring DSBooks' own shelf window forward. Not running: start it
+      // with no --background, which shows that window itself.
+      { label: L('本棚ウインドウを開く'), get: '/show', launchArgs: [] },
+      { label: L('表紙キャッシュ作成ツール'), launchArgs: ['--library-tools'] },
+    ],
+    platforms: ['win32'], // no macOS build of DSBooks yet
+  },
+];

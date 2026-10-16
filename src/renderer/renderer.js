@@ -141,6 +141,16 @@ const Store = {
   // A per-tab `engine` field overrides this.
   getDefaultEngine() { const v = localStorage.getItem('ss.engine'); return (v === 'embed' || v === 'real') ? v : 'auto'; },
   setDefaultEngine(v) { if (v === 'embed' || v === 'real') localStorage.setItem('ss.engine', v); else localStorage.removeItem('ss.engine'); },
+  // Where a 'localapp' drawer's companion executable lives, when it isn't at
+  // the preset's default path (the user pointed us at it). Keyed by drawer id
+  // so two drawers of the same app on different monitors share one answer.
+  getLocalAppExe(id) { try { return (JSON.parse(localStorage.getItem('ss.localapp.exe')) || {})[id] || ''; } catch (_) { return ''; } },
+  setLocalAppExe(id, p) {
+    let m = {};
+    try { m = JSON.parse(localStorage.getItem('ss.localapp.exe')) || {}; } catch (_) { m = {}; }
+    if (p) m[id] = p; else delete m[id];
+    localStorage.setItem('ss.localapp.exe', JSON.stringify(m));
+  },
 };
 
 // Search-box presets. %s is replaced with the URL-encoded query.
@@ -908,6 +918,179 @@ function buildBookmarks() {
   search.oninput = () => render(search.value);
   window.system.bookmarks().then((b) => { all = b || []; render(''); });
   return wrap;
+}
+
+// --- "Local app" drawers ----------------------------------------------------
+// A drawer backed by a companion desktop app that serves its UI over loopback
+// HTTP. Opening one: probe the health endpoint; if the app isn't running, start
+// it detached and poll until the port answers; then swap in the webview. See
+// docs/LOCALAPP-PROTOCOL.md for the contract — nothing here is app-specific.
+
+const LA = () => window.SSLocalApp;
+
+// The executable this drawer should launch: whatever the user pointed us at,
+// else the preset's default for this platform.
+function localAppExe(tab) {
+  const custom = Store.getLocalAppExe(tab.id);
+  if (custom) return custom;
+  const spec = LA().launchSpecFor(tab, window.overlay.platform);
+  return (spec && spec.exe) || '';
+}
+function localAppArgs(tab) {
+  const spec = LA().launchSpecFor(tab, window.overlay.platform);
+  return (spec && spec.args) || [];
+}
+
+async function localAppHealthy(tab) {
+  const url = LA().endpoint(tab.url, tab.health || '/');
+  if (!url) return false;
+  const r = await window.localapp.health(url);
+  return !!(r && r.ok && LA().matchExpect(r.json, tab.expect));
+}
+
+function buildLocalApp(tab) {
+  const wrap = el('div', 'ss-localapp');
+  const status = el('div', 'ss-localapp-status');
+  const msg = el('div', 'ss-localapp-msg');
+  const sub = el('div', 'ss-localapp-sub');
+  const btns = el('div', 'ss-localapp-btns');
+  status.append(msg, sub, btns);
+  wrap.appendChild(status);
+
+  let dead = false; // the drawer was closed mid-flight; stop touching the DOM
+  const obs = new MutationObserver(() => { if (!wrap.isConnected) { dead = true; obs.disconnect(); } });
+  try { obs.observe(document.body, { childList: true, subtree: true }); } catch (_) {}
+
+  const show = (text, detail, buttons) => {
+    if (dead) return;
+    msg.textContent = text;
+    sub.textContent = detail || '';
+    btns.innerHTML = '';
+    for (const b of buttons || []) {
+      const el2 = el('button', 'ss-set-btn', b.label);
+      el2.onclick = b.onclick;
+      btns.appendChild(el2);
+    }
+    status.style.display = '';
+  };
+
+  // Replace the status panel with the app's own UI.
+  const showApp = () => {
+    if (dead) return;
+    status.style.display = 'none';
+    if (wrap.querySelector('webview')) return;
+    const wv = makeLocalAppWebview(tab);
+    wrap.appendChild(wv);
+  };
+
+  const retry = () => { btns.innerHTML = ''; run(); };
+
+  async function pickExe() {
+    const r = await window.localapp.pickExe();
+    if (r && r.path) { Store.setLocalAppExe(tab.id, r.path); retry(); }
+  }
+
+  function missing(exe) {
+    const buttons = [{ label: L('場所を指定…'), onclick: pickExe }];
+    if (tab.download) buttons.push({ label: L('ダウンロード'), onclick: () => window.system.external(tab.download) });
+    buttons.push({ label: L('再試行'), onclick: retry });
+    show(
+      (tab.label || tab.id) + L(' が見つかりません'),
+      exe ? L('探した場所: ') + exe : '',
+      buttons,
+    );
+  }
+
+  async function run() {
+    show(L('確認しています…'), '', []);
+    if (await localAppHealthy(tab)) { showApp(); return; }
+    if (dead) return;
+
+    const exe = localAppExe(tab);
+    const step = LA().nextStep({
+      healthy: false,
+      hasLaunchSpec: !!LA().launchSpecFor(tab, window.overlay.platform),
+      exePath: exe,
+    });
+    if (step === 'unsupported') {
+      show((tab.label || tab.id) + L(' はこのOSでは利用できません'), '', []);
+      return;
+    }
+    if (step === 'missing') { missing(exe); return; }
+
+    show(L('起動しています…'), tab.label || '', []);
+    const r = await window.localapp.launch(exe, localAppArgs(tab));
+    if (dead) return;
+    if (!r || !r.ok) { missing((r && r.path) || exe); return; }
+
+    // The process is up but the port may not be bound yet.
+    for (const delay of LA().pollDelays(15000)) {
+      await new Promise((res) => setTimeout(res, delay));
+      if (dead) return;
+      if (await localAppHealthy(tab)) { showApp(); return; }
+      if (dead) return;
+    }
+    show(
+      (tab.label || tab.id) + L(' が応答しません'),
+      L('起動には成功しましたが、時間内に接続できませんでした。'),
+      [{ label: L('再試行'), onclick: retry }, { label: L('場所を指定…'), onclick: pickExe }],
+    );
+  }
+
+  run();
+  return wrap;
+}
+
+// A webview for a local app: its own partition (no Google sign-in UA rewriting
+// — this is a loopback app, not a website), and anything that navigates away
+// from the app's own origin goes to the system browser instead of taking the
+// drawer with it.
+function makeLocalAppWebview(tab) {
+  const wv = document.createElement('webview');
+  wv.className = 'ss-webview';
+  wv.setAttribute('partition', 'persist:localapp-' + tab.id);
+  wv.setAttribute('allowpopups', '');
+  wv.setAttribute('src', tab.url);
+  const sameApp = (u) => { try { return new URL(u).origin === new URL(tab.url).origin; } catch (_) { return false; } };
+  const divert = (e) => {
+    if (!e.url || sameApp(e.url)) return;
+    e.preventDefault && e.preventDefault();
+    window.system.external(e.url);
+  };
+  wv.addEventListener('will-navigate', divert);
+  wv.addEventListener('new-window', divert);
+  return wv;
+}
+
+// A right-click entry declared by a local-app drawer. Two shapes, which
+// compose: `get` is a loopback endpoint to hit on the running app (e.g. "bring
+// your own window to the front"), `launchArgs` starts the executable with extra
+// arguments (e.g. a maintenance tool). An action with both hits the endpoint
+// when the app is up and falls back to launching when it isn't.
+async function runLocalAppAction(tab, action) {
+  if (!action) return;
+  const exe = localAppExe(tab);
+  const hasArgs = Array.isArray(action.launchArgs);
+
+  if (action.get) {
+    const url = LA().endpoint(tab.url, action.get);
+    if (await localAppHealthy(tab)) { await window.localapp.get(url); return; }
+    if (!hasArgs) return;            // nothing to fall back to
+    const r = await window.localapp.launch(exe, action.launchArgs);
+    if (!r || !r.ok) { toast((tab.label || tab.id) + L(' が見つかりません')); return; }
+    // Launching with no --background already shows the app's own window, so
+    // the GET is only a nudge; best-effort once the port answers.
+    for (const delay of LA().pollDelays(8000)) {
+      await new Promise((res) => setTimeout(res, delay));
+      if (await localAppHealthy(tab)) { await window.localapp.get(url); return; }
+    }
+    return;
+  }
+
+  if (hasArgs) {
+    const r = await window.localapp.launch(exe, action.launchArgs);
+    if (!r || !r.ok) toast((tab.label || tab.id) + L(' が見つかりません'));
+  }
 }
 
 function buildCamera(tab) {
@@ -2222,6 +2405,8 @@ function buildBody(tab) {
     body.appendChild(buildFilesPanel(tab.path));
   } else if (tab.type === 'folder') {
     body.appendChild(buildFilesPanel(tab.path || '@pc'));
+  } else if (tab.type === 'localapp') {
+    body.appendChild(buildLocalApp(tab));
   } else if (tab.type === 'camera') {
     body.appendChild(buildCamera(tab));
   } else if (tab.type === 'viewer') {
@@ -2814,7 +2999,19 @@ function buildSettings() {
 
   const actions = el('div', 'ss-set-actions');
   const addBtn = el('button', 'ss-set-btn', L('＋ 項目を追加'));
-  addBtn.onclick = () => {
+  addBtn.onclick = async () => {
+    const presets = localAppPresets();
+    if (presets.length) {
+      const items = [{ id: 'blank', label: L('ページ（URLを指定）') }, { separator: true }];
+      presets.forEach((p, i) => items.push({ id: 'p' + i, label: (p.icon ? p.icon + ' ' : '') + (p.label || p.id) }));
+      const pick = await window.system.menu(items);
+      if (!pick) return;
+      if (/^p\d+$/.test(String(pick))) {
+        working.push(presetToTab(presets[Number(String(pick).slice(1))], working));
+        render();
+        return;
+      }
+    }
     working.push({ id: 'tab' + Date.now(), label: L('新規'), icon: '🔖', type: 'page', url: 'https://', mobile: true, width: 420 });
     render();
   };
@@ -3314,7 +3511,36 @@ function deleteTab(id) {
   commitTabs(tabs.filter((t) => t.id !== id));
 }
 
-function addNewTab() {
+// Local-app presets that make sense on this OS (config.js → SS_LOCALAPPS).
+function localAppPresets() {
+  const list = Array.isArray(window.SS_LOCALAPPS) ? window.SS_LOCALAPPS : [];
+  return list.filter((p) => LA().isSupported(p, window.overlay.platform));
+}
+
+// A fresh copy of a preset, with an id that won't collide with an existing one.
+function presetToTab(preset, existing) {
+  const t = JSON.parse(JSON.stringify(preset));
+  const taken = new Set((existing || []).map((x) => x.id));
+  if (taken.has(t.id)) t.id = t.id + '-' + Math.random().toString(36).slice(2, 6);
+  return t;
+}
+
+async function addNewTab() {
+  // With local apps available, ask what kind of item this is; otherwise keep
+  // the old one-click "new page" behaviour.
+  const presets = localAppPresets();
+  if (presets.length) {
+    const items = [{ id: 'blank', label: L('ページ（URLを指定）') }, { separator: true }];
+    presets.forEach((p, i) => items.push({ id: 'p' + i, label: (p.icon ? p.icon + ' ' : '') + (p.label || p.id) }));
+    const pick = await window.system.menu(items);
+    if (!pick) return;
+    if (/^p\d+$/.test(String(pick))) {
+      const arr = JSON.parse(JSON.stringify(tabs));
+      arr.push(presetToTab(presets[Number(String(pick).slice(1))], arr));
+      commitTabs(arr);
+      return; // a preset is complete as-is; no editor needed
+    }
+  }
   const id = 'tab' + Date.now().toString(36);
   const arr = JSON.parse(JSON.stringify(tabs));
   arr.push({ id, label: L('新規'), icon: '🔖', type: 'page', url: 'https://', mobile: true, width: 460 });
@@ -3329,6 +3555,13 @@ async function tabContextMenu(tab, btn) {
     { id: 'dup', label: L('この項目を複製') },
   ];
   if (tab.type === 'tabs') items.push({ id: 'ungroup', label: L('タブを分解') });
+  // A local app declares its own extra entries (open its real window, launch a
+  // companion tool, …). Each is a loopback GET and/or a launch with extra args.
+  const laActions = (tab.type === 'localapp' && Array.isArray(tab.actions)) ? tab.actions : [];
+  if (laActions.length) {
+    items.push({ separator: true });
+    laActions.forEach((a, i) => items.push({ id: 'la' + i, label: L(a.label || '') }));
+  }
   items.push(
     { separator: true },
     { id: 'add', label: L('新規項目を追加') },
@@ -3338,6 +3571,7 @@ async function tabContextMenu(tab, btn) {
     { id: 'del', label: L('削除') },
   );
   const action = await window.system.menu(items);
+  if (/^la\d+$/.test(String(action))) { runLocalAppAction(tab, laActions[Number(String(action).slice(2))]); return; }
   if (action === 'edit') openEditor(tab, btn);
   else if (action === 'dup') duplicateTab(tab.id);
   else if (action === 'ungroup') ungroupTab(tab.id);

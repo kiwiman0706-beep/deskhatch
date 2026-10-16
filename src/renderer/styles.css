@@ -353,6 +353,16 @@ html, body {
 .ss-cam-video { flex: 1; width: 100%; min-height: 0; background: #000; object-fit: contain; }
 .ss-cam-msg { color: #ddd; padding: 12px; font-size: 12.5px; }
 
+/* local-app drawer: status panel shown while probing / launching the companion
+   app, replaced by its webview once the loopback port answers */
+.ss-localapp { display: flex; flex-direction: column; height: 100%; }
+.ss-localapp .ss-webview { flex: 1; min-height: 0; }
+.ss-localapp-status { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; flex: 1; padding: 20px; text-align: center; }
+.ss-localapp-msg { font-size: 13.5px; color: #234; }
+.ss-localapp-sub { font-size: 11.5px; color: #789; word-break: break-all; max-width: 100%; }
+.ss-localapp-btns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+
 /* bookmarks tool */
 .ss-bm { display: flex; flex-direction: column; height: 100%; }
 .ss-bm-search { margin: 8px; padding: 6px 8px; border: 1px solid #cfdcdc; border-radius: 6px; font-size: 12.5px; }
