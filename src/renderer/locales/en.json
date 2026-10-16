@@ -299,5 +299,20 @@
   "Webドロワーの既定の開き方 ": "Default open mode for web drawers ",
   "自動（Googleは本物・他は埋め込み）": "Auto (Google: real, others: embedded)",
   "埋め込み（アプリ内・自然なドロワー）": "Embedded (in-app, natural drawer)",
-  "本物ブラウザ（別窓・ログイン確実）": "Real browser (separate window, reliable sign-in)"
+  "本物ブラウザ（別窓・ログイン確実）": "Real browser (separate window, reliable sign-in)",
+  "本物ブラウザ（既定・別窓・ログイン確実）": "Real browser (default, separate window, reliable sign-in)",
+  "確認しています…": "Checking…",
+  "起動しています…": "Starting…",
+  "場所を指定…": "Locate…",
+  "ダウンロード": "Download",
+  "再試行": "Retry",
+  " が見つかりません": " was not found",
+  "探した場所: ": "Looked in: ",
+  " はこのOSでは利用できません": " is not available on this OS",
+  " が応答しません": " is not responding",
+  "起動には成功しましたが、時間内に接続できませんでした。": "It started, but did not answer in time.",
+  "ページ（URLを指定）": "Web page (enter a URL)",
+  "本棚": "Bookshelf",
+  "本棚ウインドウを開く": "Open the bookshelf window",
+  "表紙キャッシュ作成ツール": "Cover cache tool"
 }

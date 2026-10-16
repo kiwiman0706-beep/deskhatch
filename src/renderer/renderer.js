@@ -57,8 +57,15 @@ const isGoogleTab = (t) => !!t && (/(^|\.)google\.com/i.test(String(t.url || '')
 // How a 'page' drawer should open: 'real' = a genuine Edge/Chrome window docked
 // under the bar (sign-in works, but it's a separate OS window so the drawer feel
 // is less natural); 'embed' = an in-app webview drawer (natural drawer, but
-// Google may block sign-in). Per-tab `engine` wins; else the global default;
-// else 'auto' (Google needs a real browser, everything else embeds).
+// Google may block sign-in). Per-tab `engine` wins; else the global default
+// (now 'real'); 'auto' keeps the old split — Google real, everything else
+// embedded.
+//
+// 'real' is the default because the embedded path keeps costing more than it is
+// worth: Google blocks sign-in in an embedded browser, which is what
+// src/preload/disguise.js exists to work around, and an embedded Chromium is
+// always some versions behind whatever the sites have decided to support. A
+// real browser window is always current and always signs in.
 function tabEngine(t) {
   if (t && (t.engine === 'real' || t.engine === 'embed')) return t.engine;
   const def = Store.getDefaultEngine();
@@ -139,8 +146,11 @@ const Store = {
   //              may be blocked), 'real' -> always a real Edge/Chrome window
   //              docked under the bar (login works; separate OS window).
   // A per-tab `engine` field overrides this.
-  getDefaultEngine() { const v = localStorage.getItem('ss.engine'); return (v === 'embed' || v === 'real') ? v : 'auto'; },
-  setDefaultEngine(v) { if (v === 'embed' || v === 'real') localStorage.setItem('ss.engine', v); else localStorage.removeItem('ss.engine'); },
+  // Unset means 'real'. All three choices are stored explicitly — 'auto' used to
+  // be "no key", and leaving it that way would silently convert everyone who
+  // deliberately picked 'auto' over to the new default.
+  getDefaultEngine() { const v = localStorage.getItem('ss.engine'); return (v === 'embed' || v === 'real' || v === 'auto') ? v : 'real'; },
+  setDefaultEngine(v) { if (v === 'embed' || v === 'real' || v === 'auto') localStorage.setItem('ss.engine', v); else localStorage.removeItem('ss.engine'); },
   // Where a 'localapp' drawer's companion executable lives, when it isn't at
   // the preset's default path (the user pointed us at it). Keyed by drawer id
   // so two drawers of the same app on different monitors share one answer.
@@ -2851,7 +2861,7 @@ function buildDisplaySettings() {
   // live in each drawer's editor ("開き方").
   const defEngRow = el('div', 'ss-set-check');
   const defEngSel = el('select', 'ss-set-type');
-  [['auto', L('自動（Googleは本物・他は埋め込み）')], ['embed', L('埋め込み（アプリ内・自然なドロワー）')], ['real', L('本物ブラウザ（別窓・ログイン確実）')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; defEngSel.appendChild(op); });
+  [['real', L('本物ブラウザ（既定・別窓・ログイン確実）')], ['embed', L('埋め込み（アプリ内・自然なドロワー）')], ['auto', L('自動（Googleは本物・他は埋め込み）')]].forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; defEngSel.appendChild(op); });
   defEngSel.value = Store.getDefaultEngine();
   defEngSel.onchange = () => Store.setDefaultEngine(defEngSel.value);
   defEngRow.append(document.createTextNode(L('Webドロワーの既定の開き方 ')), defEngSel);
