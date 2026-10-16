@@ -103,6 +103,13 @@ Edit `src/renderer/config.js`:
 ```
 `type: 'page'` embeds a URL, `'folder'` pins a folder, `'files'` opens *This PC*.
 
+### Add a local app as a drawer
+A desktop app that serves its UI on `127.0.0.1` can be embedded as a drawer:
+DeskHatch probes its health endpoint, starts it if it isn't running, and loads
+it in the drawer. Adding one is a single entry in `SS_LOCALAPPS`
+(`src/renderer/config.js`) — no code. The contract an app has to satisfy is in
+[`docs/LOCALAPP-PROTOCOL.md`](docs/LOCALAPP-PROTOCOL.md).
+
 ### Add a language
 Copy `src/renderer/locales/en.json` to e.g. `fr.json`, set `"__name__"`, translate
 the values — it appears automatically in **Settings → Language**.
