@@ -13,8 +13,11 @@ const camera = require('./camera');
 const fileserver = require('./fileserver');
 const updater = require('./updater');
 const localapp = require('./localapp');
+// Pure, unit-tested geometry shared with the renderer. The bar can hug any
+// screen edge; everything below is written in terms of that edge.
+const layout = require('../renderer/lib/layout');
 
-const BAR_HEIGHT = 44; // collapsed strip height (px)
+const BAR_HEIGHT = 44; // collapsed strip thickness (px): height when horizontal, width when vertical
 const INDEX = path.join(__dirname, '..', 'renderer', 'index.html');
 // `electron . --selftest`: force top-edge reservation on every monitor, then
 // verify (numerically, no GUI needed) that each spacer's bottom edge lines up
@@ -30,7 +33,12 @@ let tray = null;
 // displayId -> { displayId, win, spacer, reserveActive, repinMode, rePinnedOnce, pinning, lastEdge, hit, ignoring }
 const bars = new Map();
 // Last display config pushed from a renderer (shared across windows in Phase 1).
-let cfg = { mode: 'autohide', reserve: false, repin: 'event', monitors: null, barColor: '#1f6f6f', hideFs: true };
+// `edges` maps displayId -> 'top' | 'left' | 'right' | 'both'; `edge` is the
+// fallback for a display that has no entry. One bar per display per edge, so a
+// display set to 'both' carries two independent bars (separate tab sets).
+// DESKHATCH_EDGE forces the default edge for a run, so the window geometry for
+// a side bar can be exercised before the renderer lays itself out vertically.
+let cfg = { mode: 'autohide', reserve: false, repin: 'event', monitors: null, barColor: '#1f6f6f', hideFs: true, edges: {}, edge: layout.normalizeEdge(process.env.DESKHATCH_EDGE || 'top') };
 let edgeTimer = null;
 let metricsTimer = null;
 let suppressMetricsUntil = 0; // ignore metrics events caused by our own reservation
@@ -46,27 +54,35 @@ const isMac = process.platform === 'darwin';
 const isStore = !!process.windowsStore;
 // Tiny main-process i18n for native menus/labels (follows the OS locale).
 const LM = (ja, en) => { try { return app.getLocale().toLowerCase().startsWith('ja') ? ja : en; } catch (_) { return en; } };
-// Top Y for the bar on a display. On macOS we sit just below the system menu
-// bar (the work-area top) so we don't fight it; everywhere else we hug the
-// absolute top edge of the screen (Fitts's-law slam target).
+// The bar's rect on a display for a given edge. On macOS we keep inside the
+// work area so we don't fight the system menu bar (or sit under the Dock);
+// everywhere else we hug the physical screen edge (Fitts's-law slam target).
+// `extent` is how far the window currently reaches across its thickness axis —
+// it grows as drawers open.
+function barRectFor(display, edge, extent) {
+  return layout.barRect(display.bounds, display.workArea, edge, BAR_HEIGHT, isMac, extent);
+}
+// Back-compat helper for the horizontal case (spacer maths below).
 function barTop(display) {
   return isMac ? display.workArea.y : display.bounds.y;
 }
 
-function wantedDisplays() {
+// Which bars should exist: one per selected display per chosen edge, with
+// 'both' expanding into a left and a right bar on that display.
+function wantedBarSpecs() {
   const ids = (cfg.monitors && cfg.monitors.length) ? cfg.monitors : [screen.getPrimaryDisplay().id];
-  const want = allDisplays().filter((d) => ids.includes(d.id));
+  let want = allDisplays().filter((d) => ids.includes(d.id));
   // Safety: never end up with zero bars (e.g. the chosen monitor was unplugged)
   // — fall back to the primary so the user can still reach the menu.
-  return want.length ? want : [screen.getPrimaryDisplay()];
+  if (!want.length) want = [screen.getPrimaryDisplay()];
+  return layout.wantedBars(want.map((d) => d.id), cfg.edges, cfg.edge);
 }
 
 // --- window factories -------------------------------------------------------
-function makeOverlay(display) {
-  const { x, width } = display.bounds;
-  const y = barTop(display);
+function makeOverlay(display, edge) {
+  const { x, y, width, height } = barRectFor(display, edge);
   const w = new BrowserWindow({
-    x, y, width, height: BAR_HEIGHT,
+    x, y, width, height,
     frame: false, transparent: true, resizable: false, movable: false,
     minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true,
     hasShadow: false, alwaysOnTop: true,
@@ -83,16 +99,18 @@ function makeOverlay(display) {
   // button — see system:exit-fullscreen.)
   w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   w.setIgnoreMouseEvents(true, { forward: true });
-  w.loadFile(INDEX, { query: { d: String(display.id), store: isStore ? '1' : '' } }); // tell the renderer its display
+  // Tell the renderer which display AND which edge it is, so it can lay itself
+  // out along the right axis and keep its own tab set (a display set to 'both'
+  // runs two bars whose tabs are configured separately).
+  w.loadFile(INDEX, { query: { d: String(display.id), edge: layout.normalizeEdge(edge), store: isStore ? '1' : '' } });
   return w;
 }
 
-function makeSpacer(display) {
-  const { x, width } = display.bounds;
-  const y = barTop(display);
+function makeSpacer(display, edge) {
+  const { x, y, width, height } = barRectFor(display, edge);
   const col = cfg.barColor || '#1f6f6f';
   const s = new BrowserWindow({
-    x, y, width, height: BAR_HEIGHT,
+    x, y, width, height,
     frame: false, transparent: false, backgroundColor: col,
     resizable: false, movable: false, minimizable: false, maximizable: false,
     fullscreenable: false, skipTaskbar: true, focusable: false, hasShadow: false,
@@ -120,8 +138,7 @@ function paintSpacer(entry) {
 // fallback before/without a reservation.
 function stripDip(entry) {
   if (entry.reservedDip) return entry.reservedDip;
-  const d = displayObj(entry.displayId);
-  return { x: d.bounds.x, y: barTop(d), width: d.bounds.width, height: BAR_HEIGHT };
+  return barRectFor(displayObj(entry.displayId), entry.edge);
 }
 
 // Place the opaque AppBar spacer so its BOTTOM edge aligns exactly with the
@@ -142,6 +159,20 @@ function placeSpacer(entry) {
   // below the bar). Bottom-align: if the clamped height is taller than the bar,
   // spill the surplus UPWARD off the top edge instead of below over windows.
   const cur = s.getBounds();
+  if (layout.isVertical(entry.edge)) {
+    // Vertical strip: the same minimum applies to WIDTH, so the surplus has to
+    // spill sideways off the screen instead of over the desktop. A left bar
+    // spills further left (negative x); a right bar keeps its right edge
+    // pinned, so widening already pushes x leftwards and no correction is due.
+    const overflow = cur.width - BAR_HEIGHT;
+    const wantX = (overflow > 0 && entry.edge === 'left') ? dr.x - overflow : dr.x;
+    if (cur.y === dr.y && cur.height === dr.height && cur.x === wantX) return;
+    entry.placingSpacer = true;
+    try {
+      s.setBounds({ x: wantX, y: dr.y, width: cur.width, height: dr.height });
+    } finally { entry.placingSpacer = false; }
+    return;
+  }
   const overflow = cur.height - BAR_HEIGHT;
   const wantY = overflow > 0 ? dr.y - overflow : dr.y;
   if (cur.x === dr.x && cur.width === dr.width && cur.y === wantY) return; // already correct
@@ -158,7 +189,19 @@ function rePin(entry, reason) {
   try {
     if (entry.spacer && !entry.spacer.isDestroyed()) placeSpacer(entry);
     const wb = entry.win.getBounds();
-    if (wb.x !== dr.x || wb.y !== dr.y || wb.width !== dr.width) {
+    if (layout.isVertical(entry.edge)) {
+      // Keep the strip's length and its anchored edge; let the window stay as
+      // wide as the open drawers have made it. A right bar's x is derived from
+      // that width so its right edge stays flush with the screen.
+      const w = Math.max(dr.width, wb.width);
+      const want = barRectFor(displayObj(entry.displayId), entry.edge, w);
+      const x = entry.reservedDip ? (entry.edge === 'right' ? dr.x + dr.width - w : dr.x) : want.x;
+      if (wb.x !== x || wb.y !== dr.y || wb.height !== dr.height) {
+        if (!entry.rePinnedOnce) { console.info('[appbar] re-pin (' + reason + ') display ' + entry.displayId + ' edge=' + entry.edge + ' strip=' + JSON.stringify(dr)); entry.rePinnedOnce = true; }
+        entry.win.setBounds({ x, y: dr.y, width: w, height: dr.height });
+        entry.win.moveTop();
+      }
+    } else if (wb.x !== dr.x || wb.y !== dr.y || wb.width !== dr.width) {
       if (!entry.rePinnedOnce) { console.info('[appbar] re-pin (' + reason + ') display ' + entry.displayId + ' strip=' + JSON.stringify(dr)); entry.rePinnedOnce = true; }
       entry.win.setBounds({ x: dr.x, y: dr.y, width: dr.width, height: Math.max(dr.height, wb.height) });
       entry.win.moveTop();
@@ -176,11 +219,11 @@ function applyReserve(entry) {
   let status = 'off';
   if (reserve) {
     if (!entry.spacer || entry.spacer.isDestroyed()) {
-      entry.spacer = makeSpacer(displayObj(entry.displayId));
+      entry.spacer = makeSpacer(displayObj(entry.displayId), entry.edge);
       entry.spacer.webContents.once('dom-ready', () => paintSpacer(entry));
     }
     paintSpacer(entry);
-    status = appbar.register(entry.spacer, { edge: 'top', height: BAR_HEIGHT, display: displayObj(entry.displayId) });
+    status = appbar.register(entry.spacer, { edge: entry.edge, height: BAR_HEIGHT, display: displayObj(entry.displayId) });
     // Convert the OS-granted physical rect back to THIS monitor's DIP — the
     // authoritative, DPI-correct size/position for both windows.
     const rc = appbar.getRect(entry.spacer);
@@ -208,38 +251,41 @@ function applyReserve(entry) {
   if (entry.win && !entry.win.isDestroyed()) entry.win.webContents.send('display:reserve-status', status, reserve);
 }
 
-function createBar(display) {
-  const win = makeOverlay(display);
-  const entry = { displayId: display.id, win, spacer: null, reserveActive: false, repinMode: 'event', rePinnedOnce: false, pinning: false, lastEdge: null,
+function createBar(display, edge) {
+  const key = layout.barKey(display.id, edge);
+  const win = makeOverlay(display, edge);
+  const entry = { displayId: display.id, edge: layout.normalizeEdge(edge), key, win, spacer: null, reserveActive: false, repinMode: 'event', rePinnedOnce: false, pinning: false, lastEdge: null,
     // Click pass-through, driven by the cursor watch from the renderer's reported
     // geometry. mode: 'none' (all through) | 'all' (all captured) | 'rects'.
     // Default 'none' so the desktop stays clickable until the renderer reports in.
     hit: { mode: 'none', rects: [] }, ignoring: true };
   win.on('move', () => { if (entry.repinMode === 'event') rePin(entry, 'move'); });
   win.on('blur', () => { if (!win.isDestroyed()) win.webContents.send('overlay:blur'); });
-  win.on('closed', () => { bars.delete(display.id); });
+  win.on('closed', () => { bars.delete(key); });
   win.webContents.once('did-finish-load', () => {
     const d = displayObj(display.id);
-    console.info('[diag] display ' + display.id + ' bounds=' + JSON.stringify(d.bounds) + ' sf=' + d.scaleFactor);
+    const wb = (win && !win.isDestroyed()) ? win.getBounds() : null;
+    console.info('[diag] display ' + display.id + ' edge=' + entry.edge + ' bounds=' + JSON.stringify(d.bounds)
+      + ' sf=' + d.scaleFactor + ' bar=' + JSON.stringify(wb));
   });
-  bars.set(display.id, entry);
+  bars.set(key, entry);
   return entry;
 }
 
-function destroyBar(id) {
-  const e = bars.get(id);
+function destroyBar(key) {
+  const e = bars.get(key);
   if (!e) return;
   if (e.spacer && !e.spacer.isDestroyed()) { appbar.unregister(e.spacer); e.spacer.close(); }
   if (e.win && !e.win.isDestroyed()) e.win.close();
-  bars.delete(id);
+  bars.delete(key);
 }
 
 // Create/destroy bars to match the wanted displays, then apply reserve to each.
 function reconcile() {
-  const want = wantedDisplays();
-  const wantIds = want.map((d) => d.id);
-  for (const id of [...bars.keys()]) if (!wantIds.includes(id)) destroyBar(id);
-  for (const d of want) if (!bars.has(d.id)) createBar(d);
+  const want = wantedBarSpecs();
+  const wantKeys = want.map((b) => b.key);
+  for (const key of [...bars.keys()]) if (!wantKeys.includes(key)) destroyBar(key);
+  for (const b of want) if (!bars.has(b.key)) createBar(displayObj(b.displayId), b.edge);
   for (const e of bars.values()) applyReserve(e);
   // Reserving changes the work area, which fires display-metrics-changed.
   // Ignore those for a moment so we don't re-reconcile in a runaway loop.
@@ -511,11 +557,14 @@ function startEdgeWatch() {
       applyHit(e, p);
       if (!slow || !e.win.isVisible()) continue;
       const dd = displayObj(e.displayId);
-      const d = dd.bounds;
       if (e.reserveActive) rePin(e, 'poll'); // always re-pin (robust on multi-monitor)
-      const top = barTop(dd);
-      const atTop = p.y <= top + 2 && p.x >= d.x && p.x < d.x + d.width;
-      if (e.lastEdge !== atTop) { e.lastEdge = atTop; e.win.webContents.send('overlay:edge', atTop); }
+      // Is the cursor slammed into THIS bar's edge of THIS display? atEdge()
+      // requires the cursor to be on the display first, so a bar never answers
+      // for a cursor that is really on the neighbouring screen.
+      const rect = barRectFor(dd, e.edge);
+      const probe = isMac ? dd.workArea : dd.bounds;
+      const hit = layout.atEdge(p, probe, e.edge, 2) || layout.atEdge(p, rect, e.edge, 2);
+      if (e.lastEdge !== hit) { e.lastEdge = hit; e.win.webContents.send('overlay:edge', hit); }
     }
   }, 16);
 }
@@ -581,12 +630,23 @@ ipcMain.on('overlay:raise', (e) => {
   if (w && !w.isDestroyed()) { w.setAlwaysOnTop(true, 'screen-saver'); w.moveTop(); }
 });
 
-ipcMain.on('overlay:set-height', (e, height) => {
+// The renderer reports how far the open drawers reach across the bar's
+// thickness axis; the window grows to match so the desktop stays clickable
+// everywhere else. For a vertical bar that is a WIDTH, and a right-edge bar
+// also has to move left as it widens to keep its right edge on the screen edge.
+ipcMain.on('overlay:set-height', (e, extent) => {
   const w = BrowserWindow.fromWebContents(e.sender);
   if (!w || w.isDestroyed()) return;
+  const entry = [...bars.values()].find((b) => b.win === w);
   const b = w.getBounds();
-  const h = Math.max(BAR_HEIGHT, Math.ceil(height) || BAR_HEIGHT);
-  if (b.height !== h) w.setBounds({ x: b.x, y: b.y, width: b.width, height: h });
+  const want = Math.max(BAR_HEIGHT, Math.ceil(extent) || BAR_HEIGHT);
+  if (entry && layout.isVertical(entry.edge)) {
+    if (b.width === want) return;
+    const r = barRectFor(displayObj(entry.displayId), entry.edge, want);
+    w.setBounds({ x: r.x, y: b.y, width: want, height: b.height });
+    return;
+  }
+  if (b.height !== want) w.setBounds({ x: b.x, y: b.y, width: b.width, height: want });
 });
 
 ipcMain.on('app:quit', () => app.quit());
@@ -685,6 +745,10 @@ ipcMain.on('display:set', (_e, d) => {
     monitors: Array.isArray(d && d.monitors) ? d.monitors : null,
     barColor: (d && d.barColor) || '#1f6f6f',
     hideFs: (d && d.hideOnFullscreen) !== false, // default ON
+    // Per-display edge choice. Kept separate from `monitors` because a display
+    // set to 'both' produces two bars from one entry.
+    edges: (d && d.edges && typeof d.edges === 'object') ? d.edges : {},
+    edge: layout.normalizeEdge(d && d.edge ? d.edge : cfg.edge),
   };
   reconcile();
 });

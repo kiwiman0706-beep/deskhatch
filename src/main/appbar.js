@@ -11,7 +11,11 @@ const ABM_NEW = 0x00000000;
 const ABM_REMOVE = 0x00000001;
 const ABM_QUERYPOS = 0x00000002;
 const ABM_SETPOS = 0x00000003;
+// Screen edges, as Windows numbers them.
+const ABE_LEFT = 0;
 const ABE_TOP = 1;
+const ABE_RIGHT = 2;
+const ABE_EDGE = { left: ABE_LEFT, top: ABE_TOP, right: ABE_RIGHT };
 
 let api = null;   // { SHAppBarMessage, sizeof } — built once
 const regs = new Map(); // win.id -> APPBARDATA while registered (one per display)
@@ -62,24 +66,34 @@ function register(win, opts = {}) {
     const { SHAppBarMessage, sizeof } = api;
     const height = opts.height || 44;
     const { screen } = require('electron');
-    // Always reserve the DISPLAY's top edge (not the window's current, possibly
+    // Always reserve the DISPLAY's edge (not the window's current, possibly
     // drifted, position). dipToScreenRect handles DIP->physical correctly across
     // secondary / mixed-DPI displays.
+    const edge = ABE_EDGE[opts.edge] == null ? ABE_TOP : ABE_EDGE[opts.edge];
     const db = (opts.display && opts.display.bounds) || screen.getDisplayMatching(win.getBounds()).bounds;
-    const phys = screen.dipToScreenRect(win, { x: db.x, y: db.y, width: db.width, height });
+    // A vertical strip reserves a full-height column `height` px wide; a
+    // horizontal one reserves a full-width band `height` px tall.
+    const dip = edge === ABE_LEFT ? { x: db.x, y: db.y, width: height, height: db.height }
+      : edge === ABE_RIGHT ? { x: db.x + db.width - height, y: db.y, width: height, height: db.height }
+      : { x: db.x, y: db.y, width: db.width, height };
+    const phys = screen.dipToScreenRect(win, dip);
 
     const data = {
       cbSize: sizeof,
       hWnd: Number(hwndOf(win)),
       uCallbackMessage: 0,
-      uEdge: ABE_TOP,
+      uEdge: edge,
       rc: { left: phys.x, top: phys.y, right: phys.x + phys.width, bottom: phys.y + phys.height },
       lParam: 0,
     };
 
     if (!regs.has(win.id)) SHAppBarMessage(ABM_NEW, data); // register once per window
     SHAppBarMessage(ABM_QUERYPOS, data);
-    data.rc.bottom = data.rc.top + phys.height;
+    // QUERYPOS may slide the rect along the edge; re-assert our thickness on the
+    // axis we are reserving, so Windows grants exactly the strip we asked for.
+    if (edge === ABE_LEFT) data.rc.right = data.rc.left + phys.width;
+    else if (edge === ABE_RIGHT) data.rc.left = data.rc.right - phys.width;
+    else data.rc.bottom = data.rc.top + phys.height;
     SHAppBarMessage(ABM_SETPOS, data);
     // NOTE: do NOT move the window here; main's rePin positions it in clean DIP.
 
@@ -96,7 +110,7 @@ function unregister(win) {
   if (!api || !win || !regs.has(win.id)) return;
   try {
     api.SHAppBarMessage(ABM_REMOVE, regs.get(win.id));
-    console.info('[appbar] released top edge.');
+    console.info('[appbar] released reserved edge.');
   } catch (_) {
     /* ignore */
   }
