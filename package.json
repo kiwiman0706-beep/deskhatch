@@ -60,7 +60,6 @@
         "portable"
       ],
       "icon": "assets/icon.png",
-      "publisherName": "DeskHatch",
       "verifyUpdateCodeSignature": false
     },
     "mac": {

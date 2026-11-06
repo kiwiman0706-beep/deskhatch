@@ -8,3 +8,7 @@ out/
 test-results/
 playwright-report/
 e2e/screenshot.png
+
+# npm install generates this; the project has never tracked a lockfile
+# (CI runs plain `npm install`), so keep it out of the working tree.
+package-lock.json
