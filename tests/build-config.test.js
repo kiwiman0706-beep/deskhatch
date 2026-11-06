@@ -33,4 +33,16 @@ describe('electron-builder build config', () => {
     expect(c.win.target).toEqual(['nsis', 'portable']);
     expect(c.mac.target).toEqual(['dmg', 'zip']);
   });
+
+  // ffmpeg-static fetches ONE binary for the machine running npm install, so on
+  // the arm64 macOS runner both halves of the universal build get the same
+  // arm64 ffmpeg. @electron/universal refuses to merge an identical Mach-O
+  // unless it is declared, which is what broke the v0.1.73-beta.1 mac build.
+  // Verified against the shipped v0.1.72-beta.2: its bundled ffmpeg is already
+  // a single-arch arm64 binary, so this declaration restores the previous
+  // behaviour rather than introducing a regression. See docs/KNOWN-ISSUES.md.
+  it('declares the single-arch ffmpeg so the universal merge can proceed', async () => {
+    const c = await getConfig(process.cwd(), null, null);
+    expect(c.mac.x64ArchFiles).toBe('**/ffmpeg-static/ffmpeg');
+  });
 });

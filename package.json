@@ -70,6 +70,7 @@
       "category": "public.app-category.productivity",
       "icon": "assets/icon.png",
       "hardenedRuntime": true,
+      "x64ArchFiles": "**/ffmpeg-static/ffmpeg",
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.inherit.plist",
       "gatekeeperAssess": false
