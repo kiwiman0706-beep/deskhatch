@@ -19,8 +19,15 @@ Mach-O** を見つけると merge を拒否するようになった。そのた�
 `package.json` の `mac.x64ArchFiles` でこのファイルを明示的に宣言している:
 
 ```json
-"x64ArchFiles": "**/ffmpeg-static/ffmpeg"
+"x64ArchFiles": "**/app.asar.unpacked/**"
 ```
+
+同じ理由で `koffi` のプリビルド（`darwin_arm64/koffi.node`・`darwin_x64/koffi.node`）も
+弾かれる。こちらはディレクトリ名でアーキテクチャを分けている**正しい**作りなので、
+両ビルドで同一なのは当然。ファイル名を個別に並べるとネイティブ依存を足すたびに
+mac ビルドが壊れるので、`app.asar.unpacked` 全体を対象にしている。
+Electron 自身のバイナリは対象外（あちらは本当にアーキテクチャごとに違うので
+lipo される必要がある）。
 
 これは**検査を黙らせているだけ**で、Intel Mac の問題は解決していない。
 以前と同じ状態に戻しているに過ぎない。

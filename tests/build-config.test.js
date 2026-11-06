@@ -34,15 +34,36 @@ describe('electron-builder build config', () => {
     expect(c.mac.target).toEqual(['dmg', 'zip']);
   });
 
-  // ffmpeg-static fetches ONE binary for the machine running npm install, so on
-  // the arm64 macOS runner both halves of the universal build get the same
-  // arm64 ffmpeg. @electron/universal refuses to merge an identical Mach-O
-  // unless it is declared, which is what broke the v0.1.73-beta.1 mac build.
-  // Verified against the shipped v0.1.72-beta.2: its bundled ffmpeg is already
-  // a single-arch arm64 binary, so this declaration restores the previous
-  // behaviour rather than introducing a regression. See docs/KNOWN-ISSUES.md.
-  it('declares the single-arch ffmpeg so the universal merge can proceed', async () => {
+  // Every native dependency we asarUnpack ships prebuilt binaries that are the
+  // same in both halves of the universal build, and @electron/universal refuses
+  // to merge an identical Mach-O unless it is declared. Two separate files hit
+  // this while releasing v0.1.73-beta.1: ffmpeg-static's ffmpeg (one binary for
+  // whichever arch ran npm install) and koffi's darwin_arm64/darwin_x64
+  // koffi.node (correctly per-arch by directory, so identical across builds).
+  //
+  // The pattern covers app.asar.unpacked rather than naming files, so adding a
+  // native dependency does not break the mac build. It deliberately does NOT
+  // reach Electron's own binaries, which really do differ per arch and must
+  // still be lipo'd. See docs/KNOWN-ISSUES.md.
+  it('declares the unpacked native binaries so the universal merge can proceed', async () => {
     const c = await getConfig(process.cwd(), null, null);
-    expect(c.mac.x64ArchFiles).toBe('**/ffmpeg-static/ffmpeg');
+    expect(c.mac.x64ArchFiles).toBe('**/app.asar.unpacked/**');
+  });
+
+  it('covers every unpacked native binary, and nothing of Electron itself', async () => {
+    const { minimatch } = await import('minimatch');
+    const c = await getConfig(process.cwd(), null, null);
+    const m = (p) => minimatch(p, c.mac.x64ArchFiles, { matchBase: true });
+    const unpacked = 'Contents/Resources/app.asar.unpacked/node_modules/';
+    for (const p of [
+      unpacked + 'ffmpeg-static/ffmpeg',
+      unpacked + 'koffi/build/koffi/darwin_arm64/koffi.node',
+      unpacked + 'koffi/build/koffi/darwin_x64/koffi.node',
+    ]) expect(m(p), p).toBe(true);
+    for (const p of [
+      'Contents/MacOS/DeskHatch',
+      'Contents/Frameworks/Electron Framework.framework/Versions/A/Electron Framework',
+      'Contents/Frameworks/DeskHatch Helper (GPU).app/Contents/MacOS/DeskHatch Helper (GPU)',
+    ]) expect(m(p), p).toBe(false);
   });
 });
