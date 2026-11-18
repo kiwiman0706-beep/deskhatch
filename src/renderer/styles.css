@@ -665,3 +665,91 @@ html, body {
 .ss-right .ss-btn { color: var(--right-fg, var(--bar-fg)); }
 .ss-right .ss-btn:hover { background: var(--right-hover, var(--btn-hover, rgba(255, 255, 255, 0.18))); }
 .ss-right .ss-btn:active { background: var(--right-hover, rgba(255, 255, 255, 0.30)); }
+
+/* ===========================================================================
+   Vertical bar (left / right edge)
+   ---------------------------------------------------------------------------
+   The top edge belongs to the system menu bar on macOS, and a horizontal strip
+   spends the scarcest pixels on a wide screen. On a side edge the bar is a
+   column and drawers slide out sideways, which also gives them the full screen
+   height — much better for the mail / calendar / file lists they mostly hold.
+
+   Everything here hangs off the edge classes the renderer puts on <html>.
+   =========================================================================== */
+
+html.vertical .ss-bar {
+  top: 0; bottom: 0;
+  width: var(--bar-h);
+  height: auto;
+  flex-direction: column;
+  padding: 6px 0;
+  border-bottom: none;
+}
+html.edge-left .ss-bar  { left: 0;  right: auto; border-right: 2px solid var(--teal-dark); box-shadow: 2px 0 6px rgba(0,0,0,.35); }
+html.edge-right .ss-bar { right: 0; left: auto;  border-left: 2px solid var(--teal-dark);  box-shadow: -2px 0 6px rgba(0,0,0,.35); }
+html.edge-left .ss-bar.hidden  { transform: translateX(-100%); }
+html.edge-right .ss-bar.hidden { transform: translateX(100%); }
+html.vertical .ss-bar.round-ends {
+  border-radius: 0;
+  border-top-left-radius: 14px; border-bottom-left-radius: 14px;
+}
+html.edge-left .ss-bar.round-ends {
+  border-top-left-radius: 0; border-bottom-left-radius: 0;
+  border-top-right-radius: 14px; border-bottom-right-radius: 14px;
+}
+
+html.vertical .ss-bar-scroll {
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;        /* the wheel scrolls this natively — no JS translation */
+}
+
+/* Buttons become a column cell: icon upright on top, label below as horizontal
+   text turned 90° — the way Home.Hatch does it.
+   `writing-mode: sideways-rl` rather than `transform: rotate(90deg)`, because a
+   transform does not change the layout box: the label kept its full horizontal
+   width and overlapped the icon and its neighbours. sideways-rl rotates the
+   glyphs AND makes the box tall and narrow, which is what a 44px column needs.
+   (`vertical-rl` would instead set Japanese as真の縦書き — glyphs upright and
+   stacked — which is a different thing and not what a tab label wants.) */
+html.vertical .ss-btn {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  padding: 8px 0;
+  width: 100%;
+  /* Never shrink: with more tabs than fit the screen height, flex would
+     otherwise squeeze every cell until the labels clipped to one character.
+     Let them keep their size and let .ss-bar-scroll scroll instead — which is
+     what the ▲▼ buttons and the wheel are for. */
+  flex: 0 0 auto;
+}
+html.vertical .ss-btn > .ss-ico { writing-mode: horizontal-tb; }  /* keep emoji upright */
+html.vertical .ss-btn > span:not(.ss-ico) {
+  writing-mode: sideways-rl;
+  white-space: nowrap;
+  max-height: 6em;            /* clamp a long label rather than stretch the cell */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11.5px;
+  line-height: 1;
+}
+html.vertical .ss-nav { min-height: 22px; padding: 0; }
+
+html.vertical .ss-peek { top: 0; bottom: 0; width: 4px; height: auto; }
+html.edge-left .ss-peek  { left: 0;  right: auto; }
+html.edge-right .ss-peek { right: 0; left: auto; }
+
+/* Drawers slide out from the strip instead of down from it. `top` is set by
+   anchorDrawer(); the strip-side offset is set there too. */
+html.vertical .ss-drawer {
+  top: auto;
+  border-radius: 8px;
+  border-top: 2px solid var(--teal-dark);
+  max-height: calc(100vh - 12px);
+}
+html.edge-left .ss-drawer  { border-left: none;  border-top-left-radius: 0;  border-bottom-left-radius: 0;  transform: translateX(-100%); }
+html.edge-right .ss-drawer { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; transform: translateX(100%); }
+html.vertical .ss-drawer.open { transform: translateX(0); }
+html.edge-right .ss-drawer.ss-bg { left: auto !important; right: -100000px !important; }

@@ -50,6 +50,11 @@ const logoMark = (color) =>
 // This window's display id (from main via ?d=). Bar items are stored per display
 // so each monitor can have a different bar; everything else is shared.
 const MY_DISPLAY = new URLSearchParams(location.search).get('d') || '';
+// Which screen edge this bar hugs: 'top' (the original horizontal strip) or
+// 'left'/'right' (a vertical strip). The main process decides and passes it in;
+// see src/renderer/lib/layout.js for the shared geometry.
+const EDGE = window.SSLayout.normalizeEdge(new URLSearchParams(location.search).get('edge') || 'top');
+const VERTICAL = window.SSLayout.isVertical(EDGE);
 // Microsoft Store (MSIX) build: Google blocks embedded sign-in (fails Store
 // certification), so hide the Google sign-in feature and Google default drawers.
 const IS_STORE = new URLSearchParams(location.search).get('store') === '1';
@@ -75,16 +80,24 @@ function tabEngine(t) {
 // Demo mode (for screen recording): show SAMPLE content instead of real web
 // apps/files, keep the bar visible, and auto-cycle drawers. Toggle from the tray.
 const DEMO = (() => { try { return localStorage.getItem('ss.demo') === '1' || new URLSearchParams(location.search).get('demo') === '1'; } catch (_) { return false; } })();
-const TABS_KEY = MY_DISPLAY ? 'ss.tabs.' + MY_DISPLAY : 'ss.tabs';
+// Tabs are per display AND per edge: a display set to 'both' runs two bars that
+// are configured separately. The old per-display key is read as a fallback so an
+// existing setup carries over to whichever edge the bar moves to.
+const TABS_KEY = MY_DISPLAY ? 'ss.tabs.' + MY_DISPLAY + (EDGE === 'top' ? '' : '.' + EDGE) : 'ss.tabs';
+const TABS_KEY_FALLBACK = MY_DISPLAY ? 'ss.tabs.' + MY_DISPLAY : 'ss.tabs';
 
 // --- Persistence (localStorage) -------------------------------------------
 const Store = {
   getTabs() {
     try {
       let s = JSON.parse(localStorage.getItem(TABS_KEY));
-      // First run on this monitor: fall back to the shared set, then defaults.
-      if (!(Array.isArray(s) && s.length) && TABS_KEY !== 'ss.tabs') s = JSON.parse(localStorage.getItem('ss.tabs'));
-      return Array.isArray(s) && s.length ? s : null;
+      // First run on this edge: inherit the monitor's existing set (so moving
+      // the bar to a side keeps the tabs that were on top), then the shared
+      // set, then defaults.
+      const has = (v) => Array.isArray(v) && v.length;
+      if (!has(s) && TABS_KEY_FALLBACK !== TABS_KEY) s = JSON.parse(localStorage.getItem(TABS_KEY_FALLBACK));
+      if (!has(s) && TABS_KEY !== 'ss.tabs') s = JSON.parse(localStorage.getItem('ss.tabs'));
+      return has(s) ? s : null;
     } catch (_) { return null; }
   },
   saveTabs(t) { localStorage.setItem(TABS_KEY, JSON.stringify(t)); },
@@ -264,6 +277,9 @@ const defaultTabs = () => JSON.parse(JSON.stringify(window.SS_TABS || []));
 const loadTabs = () => Store.getTabs() || defaultTabs();
 
 const bar = document.getElementById('bar');
+// Tell the stylesheet which edge we are on. Everything edge-dependent in
+// styles.css hangs off these classes rather than off JS-set inline styles.
+document.documentElement.classList.add('edge-' + EDGE, VERTICAL ? 'vertical' : 'horizontal');
 const peek = document.getElementById('peek');
 let tabs = loadTabs();
 
@@ -345,10 +361,14 @@ function reflowHeight() {
   peek.classList.toggle('on', !shown);
   if (!shown) { window.overlay.setHeight(PEEK); }
   else {
-    const heights = Object.keys(open).map((id) => open[id].el.offsetHeight);
-    if (searchEl) heights.push(searchEl.offsetHeight); // fit the search popover
-    if (pickerEl) heights.push(pickerEl.offsetHeight); // fit the drag-intake picker
-    window.overlay.setHeight(window.SSLayout.computeHeight(BAR_H, heights));
+    // How far the open drawers reach across the bar's thickness axis: a height
+    // for the top strip, a width for a side strip. The main process grows the
+    // window to match (and slides a right-edge bar left as it widens).
+    const size = (el) => (VERTICAL ? el.offsetWidth : el.offsetHeight);
+    const sizes = Object.keys(open).map((id) => size(open[id].el));
+    if (searchEl) sizes.push(size(searchEl)); // fit the search popover
+    if (pickerEl) sizes.push(size(pickerEl)); // fit the drag-intake picker
+    window.overlay.setHeight(window.SSLayout.computeExtent(BAR_H, sizes));
   }
   // Re-report the interactive geometry whenever visibility/size changes; the
   // main process drives the actual click pass-through from these rects.
@@ -2562,9 +2582,21 @@ function openExternalFor(tab, d) {
   }
 }
 
-function anchorLeft(btn, width) {
+// Place a drawer against its button. On the top edge that means aligning left
+// edges and clamping into view; on a side edge the same rule applies to the
+// vertical axis instead, and the drawer sits beside the strip rather than under
+// it. Both are the same clamp — see SSLayout.computeStart.
+function anchorDrawer(d, btn) {
   const rect = btn.getBoundingClientRect();
-  return window.SSLayout.computeLeft(rect.left, width, window.innerWidth, MARGIN);
+  if (!VERTICAL) {
+    d.style.left = window.SSLayout.computeStart(rect.left, d.offsetWidth, window.innerWidth, MARGIN) + 'px';
+    return;
+  }
+  d.style.top = window.SSLayout.computeStart(rect.top, d.offsetHeight, window.innerHeight, MARGIN) + 'px';
+  // The window is only as wide as the bar until a drawer opens, so the drawer
+  // is positioned relative to the strip, not the (not yet grown) viewport.
+  if (EDGE === 'left') d.style.left = BAR_H + 'px';
+  else d.style.right = BAR_H + 'px';
 }
 
 function snapshot() {
@@ -2585,7 +2617,7 @@ function openTab(tab, btn) {
     delete bg[tab.id];
     const d = o.el;
     d.classList.remove('ss-bg');
-    d.style.left = anchorLeft(btn, d.offsetWidth) + 'px';
+    anchorDrawer(d, btn);
     bringToFront(d);
     open[tab.id] = { el: d, btn, pinned: false, keepAlive: !!tab.keepAlive, tab };
     btn.classList.add('active');
@@ -2595,7 +2627,7 @@ function openTab(tab, btn) {
 
   const d = createDrawer(tab);
   document.body.appendChild(d);
-  d.style.left = anchorLeft(btn, d.offsetWidth) + 'px';
+  anchorDrawer(d, btn);
   bringToFront(d);
 
   open[tab.id] = { el: d, btn, pinned: false, keepAlive: !!tab.keepAlive, tab };
@@ -3663,7 +3695,8 @@ function renderBar() {
       if (![...e.dataTransfer.types].includes('ss-tab')) return;
       e.preventDefault();
       const r = btn.getBoundingClientRect();
-      const frac = (e.clientX - r.left) / r.width;
+      // Fraction along the bar's main axis: x across the top strip, y down a side one.
+      const frac = VERTICAL ? (e.clientY - r.top) / r.height : (e.clientX - r.left) / r.width;
       const merge = frac > 0.3 && frac < 0.7 && !btn.classList.contains('dragging');
       btn.classList.toggle('merge', merge);
       dragMergeTarget = merge ? tab.id : (dragMergeTarget === tab.id ? null : dragMergeTarget);
@@ -3671,9 +3704,13 @@ function renderBar() {
     btn.addEventListener('dragleave', () => { btn.classList.remove('merge'); if (dragMergeTarget === tab.id) dragMergeTarget = null; });
     scroll.appendChild(btn);
   }
-  scroll.addEventListener('wheel', (e) => {
-    if (e.deltaY) { scroll.scrollLeft += e.deltaY; e.preventDefault(); }
-  }, { passive: false });
+  // A horizontal strip has to turn wheel-down into scroll-right by hand. A
+  // vertical one is scrolled natively by the browser, so leave it alone.
+  if (!VERTICAL) {
+    scroll.addEventListener('wheel', (e) => {
+      if (e.deltaY) { scroll.scrollLeft += e.deltaY; e.preventDefault(); }
+    }, { passive: false });
+  }
   // drag-reorder within the bar
   scroll.addEventListener('dragover', (e) => { if ([...e.dataTransfer.types].includes('ss-tab')) e.preventDefault(); });
   scroll.addEventListener('drop', (e) => {
@@ -3686,21 +3723,30 @@ function renderBar() {
     let beforeId = null;
     for (const b of scroll.querySelectorAll('.ss-btn')) {
       const r = b.getBoundingClientRect();
-      if (e.clientX < r.left + r.width / 2) { beforeId = b.dataset.id; break; }
+      const before = VERTICAL ? e.clientY < r.top + r.height / 2 : e.clientX < r.left + r.width / 2;
+      if (before) { beforeId = b.dataset.id; break; }
     }
     reorderTabs(id, beforeId);
   });
   // ‹ › overflow buttons — shown only when the tabs overflow the bar width.
-  const navL = el('button', 'ss-btn ss-nav', '‹'); navL.title = L('左へスクロール');
-  const navR = el('button', 'ss-btn ss-nav', '›'); navR.title = L('右へスクロール');
-  navL.onclick = () => scroll.scrollBy({ left: -220, behavior: 'smooth' });
-  navR.onclick = () => scroll.scrollBy({ left: 220, behavior: 'smooth' });
+  const navL = el('button', 'ss-btn ss-nav', VERTICAL ? '▲' : '‹');
+  const navR = el('button', 'ss-btn ss-nav', VERTICAL ? '▼' : '›');
+  navL.title = L(VERTICAL ? '上へスクロール' : '左へスクロール');
+  navR.title = L(VERTICAL ? '下へスクロール' : '右へスクロール');
+  const by = (d) => scroll.scrollBy(VERTICAL ? { top: d, behavior: 'smooth' } : { left: d, behavior: 'smooth' });
+  navL.onclick = () => by(-220);
+  navR.onclick = () => by(220);
   function updateNav() {
-    const overflow = scroll.scrollWidth > scroll.clientWidth + 1;
+    const overflow = VERTICAL
+      ? scroll.scrollHeight > scroll.clientHeight + 1
+      : scroll.scrollWidth > scroll.clientWidth + 1;
     navL.style.display = overflow ? '' : 'none';
     navR.style.display = overflow ? '' : 'none';
-    navL.disabled = scroll.scrollLeft <= 0;
-    navR.disabled = scroll.scrollLeft + scroll.clientWidth >= scroll.scrollWidth - 1;
+    const pos = VERTICAL ? scroll.scrollTop : scroll.scrollLeft;
+    const view = VERTICAL ? scroll.clientHeight : scroll.clientWidth;
+    const total = VERTICAL ? scroll.scrollHeight : scroll.scrollWidth;
+    navL.disabled = pos <= 0;
+    navR.disabled = pos + view >= total - 1;
   }
   scroll.addEventListener('scroll', updateNav);
   barNavUpdate = updateNav;
@@ -3886,7 +3932,7 @@ if (!DEMO && !Store.getHelpSkip()) {
 window.addEventListener('resize', () => {
   for (const id in open) {
     const o = open[id];
-    o.el.style.left = anchorLeft(o.btn, o.el.offsetWidth) + 'px';
+    anchorDrawer(o.el, o.btn);
   }
   reflowHeight();
   if (barNavUpdate) barNavUpdate();
