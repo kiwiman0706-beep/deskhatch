@@ -220,57 +220,47 @@ const removeAccount = (id) => {
 };
 
 // Color themes (CSS variables). --bar-fg flips to dark for the light theme.
-const THEMES = {
-  teal: { '--teal-light': '#2e8b8b', '--teal': '#1f6f6f', '--teal-dark': '#145252', '--bar-fg': '#eafafa' },
-  graphite: { '--teal-light': '#4a4f57', '--teal': '#2c3038', '--teal-dark': '#14171c', '--bar-fg': '#eef1f4' },
-  ocean: { '--teal-light': '#2f7fd6', '--teal': '#1f63ad', '--teal-dark': '#154a85', '--bar-fg': '#eaf2fb' },
-  forest: { '--teal-light': '#3f9d5a', '--teal': '#2c7d44', '--teal-dark': '#1d5a30', '--bar-fg': '#eafaef' },
-  plum: { '--teal-light': '#8a5cc0', '--teal': '#6a3fa0', '--teal-dark': '#4c2a78', '--bar-fg': '#f3ecfb' },
-  sunset: { '--teal-light': '#e0913c', '--teal': '#d4682f', '--teal-dark': '#a8481b', '--bar-fg': '#fff1e6' },
-  rose: { '--teal-light': '#e06aa0', '--teal': '#c24683', '--teal-dark': '#933063', '--bar-fg': '#fdeef5' },
-  light: { '--teal-light': '#eef2f6', '--teal': '#d7dee6', '--teal-dark': '#aeb9c6', '--bar-fg': '#2a3340' },
-  classicmac: { '--teal-light': '#fbfbfb', '--teal': '#e9e9ec', '--teal-dark': '#000000', '--bar-fg': '#0a0a0a' },
-  // --- Historic-OS homage (title-bar inspired) ---
-  win95: { '--teal-light': '#dfdfdf', '--teal': '#c0c0c0', '--teal-dark': '#808080', '--bar-fg': '#0a0a0a', '--menu-bg': '#c0c0c0', '--menu-fg': '#0a0a0a', '--btn-hover': '#d8d8d8', '--btn-press': '#b0b0b0', '--btn-active-bg': '#b0b0b0', '--btn-active-fg': '#0a0a0a', '--head-bg': 'linear-gradient(#10109a,#000080)', '--head-fg': '#ffffff', '--right-bg': '#c0c0c0', '--right-fg': '#0a0a0a', '--right-hover': '#d8d8d8' },      // Windows 95/98 navy title bar
-  winxp: { '--teal-light': '#3f8ef0', '--teal': '#245edb', '--teal-dark': '#15428b', '--bar-fg': '#ffffff', '--menu-bg': 'linear-gradient(#7bbf4a,#4e9a30)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(255,255,255,0.28)', '--btn-active-bg': '#3a78d6', '--btn-active-fg': '#ffffff', '--head-bg': 'linear-gradient(#3f8ef0,#245edb)', '--head-fg': '#ffffff', '--right-bg': 'linear-gradient(#2aa0e4,#0e86d4)', '--right-fg': '#ffffff', '--right-hover': 'rgba(255,255,255,0.30)' },      // Windows XP "Luna" blue
-  vista: { '--teal-light': '#3a4049', '--teal': '#16191e', '--teal-dark': '#000000', '--bar-fg': '#eaf2fb', '--menu-bg': 'linear-gradient(#6fb3f0,#1b5fae)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(120,180,255,0.25)', '--btn-press': 'rgba(120,180,255,0.40)', '--btn-active-bg': 'rgba(140,190,255,0.30)', '--btn-active-fg': '#ffffff', '--head-bg': 'linear-gradient(#e3eef8,#bcd3ea)', '--head-fg': '#13314f', '--right-bg': 'rgba(255,255,255,0.06)', '--right-fg': '#eaf2fb', '--right-hover': 'rgba(120,180,255,0.25)' },
-  win7: { '--teal-light': '#9fc7ec', '--teal': '#6d9fd0', '--teal-dark': '#3f6f9f', '--bar-fg': '#0f2236' },       // Windows 7 Aero glass
-  metro: { '--teal-light': '#2d89ef', '--teal': '#0063b1', '--teal-dark': '#004e8c', '--bar-fg': '#ffffff' },      // Windows 8 Metro azure
-  aqua: { '--teal-light': '#6fb3ff', '--teal': '#2a7fe0', '--teal-dark': '#1a5cb0', '--bar-fg': '#ffffff' },
-  macos9: { '--teal-light': '#f4f4f4', '--teal': '#cccccc', '--teal-dark': '#8a8a8a', '--bar-fg': '#111111', '--menu-bg': 'transparent', '--menu-fg': '#111111', '--btn-hover': '#e6e6e6', '--btn-press': '#cfcfcf', '--btn-active-bg': '#b6c6e8', '--btn-active-fg': '#0a0a0a', '--head-bg': '#dddddd', '--head-fg': '#111111', '--right-bg': '#cccccc', '--right-fg': '#111111', '--right-hover': '#e6e6e6' },
-  tiger: { '--teal-light': '#ececec', '--teal': '#bdbdbd', '--teal-dark': '#6f6f6f', '--bar-fg': '#1a1a1a', '--menu-bg': 'transparent', '--menu-fg': '#1a1a1a', '--btn-hover': 'rgba(0,0,0,0.08)', '--btn-press': 'rgba(0,0,0,0.16)', '--btn-active-bg': '#3b86f7', '--btn-active-fg': '#ffffff', '--head-bg': 'linear-gradient(#e8e8e8,#c2c2c2)', '--head-fg': '#1a1a1a', '--right-bg': '#c8c8c8', '--right-fg': '#1a1a1a', '--right-hover': 'rgba(0,0,0,0.08)' },       // Mac OS X Aqua blue
-  next: { '--teal-light': '#b8b8b8', '--teal': '#8a8a8a', '--teal-dark': '#2b2b2b', '--bar-fg': '#141414' },       // NeXTSTEP grayscale
-  beos: { '--teal-light': '#ffe14d', '--teal': '#f4c20d', '--teal-dark': '#8a6d00', '--bar-fg': '#241c00', '--right-bg': '#cfcfcf', '--right-fg': '#222222', '--head-bg': 'linear-gradient(#ffe14d,#f4c20d)', '--head-fg': '#241c00' },       // BeOS yellow tab
-  ubuntu: { '--teal-light': '#7a3a68', '--teal': '#5e2750', '--teal-dark': '#3a1733', '--bar-fg': '#fde7d6', '--menu-bg': 'linear-gradient(#f0824a,#dd4814)', '--menu-fg': '#ffffff', '--btn-active-bg': '#dd4814', '--btn-active-fg': '#ffffff', '--right-bg': '#4a1f40' },
-  vaio: { '--teal-light': '#d8dce1', '--teal': '#b7bec6', '--teal-dark': '#7b838c', '--bar-fg': '#1b2330', '--menu-bg': 'linear-gradient(#7a52c0,#4e2f8e)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(91,58,142,0.14)', '--btn-press': 'rgba(91,58,142,0.26)', '--btn-active-bg': '#5b3a8e', '--btn-active-fg': '#ffffff', '--head-bg': 'linear-gradient(#6e4aa6,#4a2c84)', '--head-fg': '#ffffff', '--right-bg': '#c4ccd2', '--right-fg': '#1b2330', '--right-hover': 'rgba(91,58,142,0.14)' },
-  imac: { '--teal-light': '#2bb3d6', '--teal': '#0095b6', '--teal-dark': '#00697f', '--bar-fg': '#ffffff', '--menu-bg': 'rgba(255,255,255,0.18)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(255,255,255,0.22)', '--btn-press': 'rgba(255,255,255,0.34)', '--btn-active-bg': '#eafaff', '--btn-active-fg': '#00566a', '--head-bg': 'linear-gradient(#eafaff,#c7ebf4)', '--head-fg': '#00566a', '--right-bg': 'linear-gradient(#dff3f9,#bfe6f0)', '--right-fg': '#00566a', '--right-hover': 'rgba(0,86,106,0.12)' },
-  strawberry: { '--teal-light': '#e9709b', '--teal': '#d83b6e', '--teal-dark': '#a32550', '--bar-fg': '#ffffff', '--menu-bg': 'rgba(255,255,255,0.18)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(255,255,255,0.22)', '--btn-press': 'rgba(255,255,255,0.34)', '--btn-active-bg': '#fff0f5', '--btn-active-fg': '#7a1d3c', '--head-bg': 'linear-gradient(#fff0f5,#f6cfdd)', '--head-fg': '#7a1d3c', '--right-bg': '#f6dbe6', '--right-fg': '#7a1d3c', '--right-hover': 'rgba(122,29,60,0.12)' },
-  blueberry: { '--teal-light': '#5b7fd6', '--teal': '#3a57b0', '--teal-dark': '#283f86', '--bar-fg': '#ffffff', '--menu-bg': 'rgba(255,255,255,0.18)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(255,255,255,0.22)', '--btn-press': 'rgba(255,255,255,0.34)', '--btn-active-bg': '#eef2fc', '--btn-active-fg': '#233a78', '--head-bg': 'linear-gradient(#eef2fc,#cdd9f3)', '--head-fg': '#233a78', '--right-bg': '#dde4f6', '--right-fg': '#233a78', '--right-hover': 'rgba(35,58,120,0.12)' },
-  grape: { '--teal-light': '#9a6cd0', '--teal': '#7a4ab8', '--teal-dark': '#553089', '--bar-fg': '#ffffff', '--menu-bg': 'rgba(255,255,255,0.18)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(255,255,255,0.22)', '--btn-press': 'rgba(255,255,255,0.34)', '--btn-active-bg': '#f4eefb', '--btn-active-fg': '#432663', '--head-bg': 'linear-gradient(#f4eefb,#ddccf2)', '--head-fg': '#432663', '--right-bg': '#e7ddf4', '--right-fg': '#432663', '--right-hover': 'rgba(67,38,99,0.12)' },
-  lime: { '--teal-light': '#9bd25a', '--teal': '#79b933', '--teal-dark': '#5a8f24', '--bar-fg': '#16330a', '--menu-bg': 'rgba(255,255,255,0.25)', '--menu-fg': '#16330a', '--btn-hover': 'rgba(255,255,255,0.30)', '--btn-press': 'rgba(0,0,0,0.10)', '--btn-active-bg': '#f2ffe0', '--btn-active-fg': '#3a5e16', '--head-bg': 'linear-gradient(#f2ffe0,#d8f0b0)', '--head-fg': '#3a5e16', '--right-bg': '#e7f4d2', '--right-fg': '#3a5e16', '--right-hover': 'rgba(58,94,22,0.12)' },
-  tangerine: { '--teal-light': '#f3ab4d', '--teal': '#e07a1f', '--teal-dark': '#a8521b', '--bar-fg': '#ffffff', '--menu-bg': 'rgba(255,255,255,0.18)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(255,255,255,0.22)', '--btn-press': 'rgba(255,255,255,0.34)', '--btn-active-bg': '#fff3e6', '--btn-active-fg': '#7a3a10', '--head-bg': 'linear-gradient(#fff3e6,#fad8b3)', '--head-fg': '#7a3a10', '--right-bg': '#fbe6cf', '--right-fg': '#7a3a10', '--right-hover': 'rgba(122,58,16,0.12)' },
-  aquastripe: { '--teal-light': '#5aacff', '--teal': '#2f86f0', '--teal-dark': '#1a5cc0', '--bar-fg': '#ffffff', '--bar-overlay': 'repeating-linear-gradient(0deg, rgba(255,255,255,0.12) 0 1px, transparent 1px 3px)', '--menu-bg': 'rgba(255,255,255,0.18)', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(255,255,255,0.24)', '--btn-press': 'rgba(255,255,255,0.36)', '--btn-active-bg': '#eef6ff', '--btn-active-fg': '#1a4f9c', '--head-bg': 'repeating-linear-gradient(0deg, #eef4fb 0 1px, #e2ecf7 1px 3px)', '--head-fg': '#1a4f9c', '--right-bg': '#dfecfb', '--right-fg': '#1a4f9c', '--right-hover': 'rgba(26,79,156,0.12)' },
-  thinkpad: { '--teal-light': '#2c2c2c', '--teal': '#161616', '--teal-dark': '#000000', '--bar-fg': '#eaeaea', '--menu-bg': '#c0143c', '--menu-fg': '#ffffff', '--btn-hover': 'rgba(255,255,255,0.12)', '--btn-press': 'rgba(192,20,60,0.45)', '--btn-active-bg': '#c0143c', '--btn-active-fg': '#ffffff', '--head-bg': 'linear-gradient(#2c2c2c,#161616)', '--head-fg': '#eaeaea', '--right-bg': '#1e1e1e', '--right-fg': '#eaeaea', '--right-hover': 'rgba(192,20,60,0.30)' },
-  pc98: { '--teal-light': '#1a1ac0', '--teal': '#0000aa', '--teal-dark': '#000060', '--bar-fg': '#67e6e6', '--menu-bg': '#000060', '--menu-fg': '#67e6e6', '--btn-hover': 'rgba(103,230,230,0.18)', '--btn-press': 'rgba(103,230,230,0.32)', '--btn-active-bg': '#67e6e6', '--btn-active-fg': '#000060', '--head-bg': 'linear-gradient(#1a1ac0,#0000aa)', '--head-fg': '#67e6e6', '--right-bg': '#000080', '--right-fg': '#67e6e6', '--right-hover': 'rgba(103,230,230,0.18)' },
-  amiga: { '--teal-light': '#0a6fd0', '--teal': '#0055aa', '--teal-dark': '#003a78', '--bar-fg': '#ffffff', '--menu-bg': '#ff8800', '--menu-fg': '#000000', '--btn-hover': 'rgba(255,255,255,0.18)', '--btn-press': 'rgba(255,136,0,0.40)', '--btn-active-bg': '#ff8800', '--btn-active-fg': '#000000', '--head-bg': '#ffffff', '--head-fg': '#000000', '--right-bg': '#0a6fd0', '--right-fg': '#ffffff', '--right-hover': 'rgba(255,136,0,0.30)' },
-  gb: { '--teal-light': '#9bbc0f', '--teal': '#8bac0f', '--teal-dark': '#0f380f', '--bar-fg': '#0f380f', '--menu-bg': '#306230', '--menu-fg': '#9bbc0f', '--btn-hover': 'rgba(15,56,15,0.12)', '--btn-press': 'rgba(15,56,15,0.24)', '--btn-active-bg': '#306230', '--btn-active-fg': '#9bbc0f', '--head-bg': '#306230', '--head-fg': '#9bbc0f', '--right-bg': '#8bac0f', '--right-fg': '#0f380f', '--right-hover': 'rgba(15,56,15,0.12)' }, // Game Boy DMG LCD
-  smartcenter: { '--teal-light': '#2ea39a', '--teal': '#1f8b82', '--teal-dark': '#0f5f58', '--bar-fg': '#ffffff', '--menu-bg': '#0f5f58', '--menu-fg': '#ffe9a8', '--btn-hover': 'rgba(255,255,255,0.16)', '--btn-press': 'rgba(255,255,255,0.28)', '--btn-active-bg': '#f3ecd6', '--btn-active-fg': '#1f5f58', '--head-bg': 'linear-gradient(#3aa79e,#1f8b82)', '--head-fg': '#ffffff', '--right-bg': '#0f5f58', '--right-fg': '#ffe9a8', '--right-hover': 'rgba(255,255,255,0.16)' }, // Lotus SmartCenter homage // iMac G3 Bondi Blue + icy translucent // Sony VAIO 505 (magnesium silver + VAIO violet)     // Ubuntu aubergine
-};
-const THEME_LABELS = [
-  ['teal', L('Teal（既定）')], ['graphite', L('Graphite（ダーク）')], ['ocean', 'Ocean'],
-  ['forest', 'Forest'], ['plum', 'Plum'], ['sunset', 'Sunset'], ['rose', 'Rose'],
-  ['light', 'Light'],
-  ['_osdiv', '— OS —'],
-  ['win95', 'Windows 95/98'], ['winxp', 'Windows XP'], ['vista', 'Windows Vista'], ['win7', 'Windows 7 (Aero)'], ['metro', 'Windows 8 (Metro)'],
-  ['classicmac', 'Classic Mac OS'], ['macos9', 'Mac OS 9 (Platinum)'], ['tiger', 'Mac OS X Tiger'], ['aqua', 'Mac OS X (Aqua)'], ['next', 'NeXTSTEP'], ['beos', 'BeOS'], ['ubuntu', 'Ubuntu'], ['vaio', 'Sony VAIO (505)'], ['imac', 'iMac G3 (Bondi Blue)'],
-  ['strawberry', 'iMac Strawberry'], ['blueberry', 'iMac Blueberry'], ['grape', 'iMac Grape'], ['lime', 'iMac Lime'], ['tangerine', 'iMac Tangerine'],
-  ['aquastripe', 'Mac OS X 10.0 (Aqua)'], ['thinkpad', 'ThinkPad'], ['pc98', 'NEC PC-98'], ['amiga', 'Amiga Workbench'], ['gb', 'Game Boy'], ['smartcenter', 'Lotus SmartCenter'],
+// --- Skins -----------------------------------------------------------------
+// The look comes from the Theta Hatch series skins (vendor/theta/theta-skins.css,
+// generated upstream from skins.json). Switching one attribute on <html> swaps
+// every colour, corner radius, line weight and shadow; styles.css derives
+// DeskHatch's own variables from those tokens. See the "Theta skin bridge"
+// section there and vendor/theta/README.md.
+//
+// This replaced DeskHatch's own 30-odd themes. They were a separate palette
+// nobody else in the series could use; a Hatch app's user picks a skin in Home
+// and expects the rest — DeskHatch included — to follow.
+const SKINS = ['system', 'dark', 'light', 'pop', 'alert', 'scifi', 'term', 'braun', 'soft', 'window', 'lcd'];
+const SKIN_LABELS = [
+  ['system', L('端末に合わせる')],
+  ['dark', L('ダーク')],
+  ['light', L('ライト')],
+  ['pop', 'POP'],
+  ['alert', 'ALERT'],
+  ['scifi', 'SCI-FI'],
+  ['term', 'TERMINAL'],
+  ['braun', 'BRAUN'],
+  ['soft', 'SOFT'],
+  ['window', 'WINDOW'],
+  ['lcd', 'LCD'],
 ];
-const THEME_VARS = [...new Set([].concat.apply([], Object.values(THEMES).map(Object.keys)))];
+// Everyone who had one of the old themes lands on a skin of the same mood
+// rather than being dumped back on the default.
+const OLD_THEME_TO_SKIN = {
+  teal: 'system', ocean: 'system', forest: 'system', plum: 'system', sunset: 'system',
+  rose: 'system', smartcenter: 'system', win7: 'system', metro: 'system', aqua: 'system',
+  graphite: 'dark', thinkpad: 'dark', next: 'dark', vista: 'dark',
+  light: 'light', classicmac: 'light', macos9: 'light', tiger: 'light', win95: 'window',
+  winxp: 'window', amiga: 'window', vaio: 'light', ubuntu: 'pop', beos: 'pop',
+  imac: 'pop', strawberry: 'pop', blueberry: 'pop', grape: 'pop', lime: 'pop',
+  tangerine: 'pop', aquastripe: 'soft', pc98: 'term', gb: 'lcd',
+};
+function normalizeSkin(key) {
+  if (SKINS.includes(key)) return key;
+  return OLD_THEME_TO_SKIN[key] || 'system';
+}
 function applyTheme(key) {
-  const t = THEMES[key] || THEMES.teal;
-  for (const v of THEME_VARS) document.documentElement.style.removeProperty(v);
-  for (const k in t) document.documentElement.style.setProperty(k, t[k]);
+  document.documentElement.setAttribute('data-theta-skin', normalizeSkin(key));
 }
 
 const defaultTabs = () => JSON.parse(JSON.stringify(window.SS_TABS || []));
@@ -384,7 +374,9 @@ function applyDisplay() {
   Store.saveDisplay(display);
   applyTheme(display.theme);
   bar.classList.toggle('round-ends', !!display.roundEnds);
-  const barColor = (THEMES[display.theme] || THEMES.teal)['--teal'];
+  // The opaque AppBar spacer has to match the bar. Read the resolved token
+  // rather than a table, so it follows the skin (and 'system' light/dark).
+  const barColor = (getComputedStyle(document.documentElement).getPropertyValue('--panel') || '#1f6f6f').trim();
   window.overlay.setDisplay({ ...display, barColor }); // main toggles AppBar reservation + spacer color
   reflowHeight();
 }
@@ -2762,10 +2754,10 @@ function buildDisplaySettings() {
   // Theme / colour
   const themeWrap = el('label', 'ss-set-check');
   const themeSel = el('select', 'ss-set-type');
-  THEME_LABELS.forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; if (v === '_osdiv') op.disabled = true; themeSel.appendChild(op); });
-  themeSel.value = display.theme || 'teal';
+  SKIN_LABELS.forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; themeSel.appendChild(op); });
+  themeSel.value = normalizeSkin(display.theme);
   themeSel.onchange = () => { display = { ...display, theme: themeSel.value }; applyDisplay(); };
-  themeWrap.append(document.createTextNode(L('テーマ ')), themeSel);
+  themeWrap.append(document.createTextNode(L('スキン ')), themeSel);
   root.append(themeWrap);
 
   // Language (auto = follow the OS; override persists in localStorage).
