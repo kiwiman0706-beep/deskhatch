@@ -362,7 +362,12 @@ function reflowHeight() {
     const sizes = Object.keys(open).map((id) => size(open[id].el));
     if (searchEl) sizes.push(size(searchEl)); // fit the search popover
     if (pickerEl) sizes.push(size(pickerEl)); // fit the drag-intake picker
-    window.overlay.setHeight(window.SSLayout.computeExtent(BAR_H, sizes));
+    // Cap at the screen. A drawer sized from the viewport (max-height: 100vh)
+    // would otherwise feed a loop: the window grows, so the viewport grows, so
+    // the drawer grows, so we ask for more — the bar creeping over the screen.
+    // The main process clamps this too; this just stops it at the source.
+    const cap = VERTICAL ? window.screen.availWidth : window.screen.availHeight;
+    window.overlay.setHeight(window.SSLayout.computeExtent(BAR_H, sizes, cap));
   }
   // Re-report the interactive geometry whenever visibility/size changes; the
   // main process drives the actual click pass-through from these rects.

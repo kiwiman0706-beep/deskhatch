@@ -17,9 +17,19 @@
   }
 
   // How tall must the overlay window be to fit the open drawers?
-  function computeHeight(barHeight, drawerHeights) {
+  // `max` caps the result (the display's size across that axis). Without a cap
+  // a single bogus measurement — a drawer measured mid-layout, or one sized
+  // from the viewport the window is itself about to grow — feeds a loop where
+  // the window grows, the drawer grows with it, and the bar creeps across the
+  // whole screen. Sizes that are not positive numbers are ignored for the same
+  // reason: an unmeasured element reports 0 and NaN poisons the maximum.
+  function computeHeight(barHeight, drawerHeights, max) {
     let h = barHeight;
-    for (const dh of drawerHeights || []) h = Math.max(h, barHeight + dh);
+    for (const dh of drawerHeights || []) {
+      if (!(dh > 0)) continue;
+      h = Math.max(h, barHeight + dh);
+    }
+    if (max != null && max > 0) h = Math.min(h, Math.max(barHeight, max));
     return h;
   }
 
@@ -68,6 +78,29 @@
     return { x: r.x, y: r.y, width: r.width, height: depth }; // 'top'
   }
 
+  // The coordinate of a strip's INNER edge: the boundary between the bar and
+  // the rest of the desktop. The bar window and the opaque reservation spacer
+  // must agree on it exactly, or the spacer covers the edge of the windows
+  // underneath (or leaves a gap).
+  function innerEdge(rect, edge) {
+    if (edge === 'left') return rect.x + rect.width;
+    if (edge === 'right') return rect.x;
+    return rect.y + rect.height; // 'top'
+  }
+
+  // The opaque AppBar spacer's rect, given the reserved strip and how deep the
+  // OS will actually let that window be. Windows enforces a minimum window
+  // size (~56 physical px), so on some monitors the spacer cannot be as thin
+  // as the bar; the surplus spills OFF the screen edge rather than inwards
+  // over the desktop, keeping the inner edge pixel-aligned with the bar.
+  function spacerRect(strip, edge, depth) {
+    const own = isVertical(edge) ? strip.width : strip.height;
+    const d = Math.max(own, depth == null ? own : depth);
+    if (edge === 'left') return { x: strip.x + strip.width - d, y: strip.y, width: d, height: strip.height };
+    if (edge === 'right') return { x: strip.x, y: strip.y, width: d, height: strip.height };
+    return { x: strip.x, y: strip.y + strip.height - d, width: strip.width, height: d }; // 'top'
+  }
+
   // Where a drawer's leading edge sits along the MAIN axis: aligned with its
   // button, clamped so the drawer stays fully on screen. Same rule the
   // horizontal bar always used — computeLeft is this function's 'top' case.
@@ -114,7 +147,8 @@
 
   const api = {
     computeLeft, computeHeight, clampSize,
-    EDGES, isVertical, normalizeEdge, barRect, computeStart, computeExtent,
+    EDGES, isVertical, normalizeEdge, barRect, innerEdge, spacerRect,
+    computeStart, computeExtent,
     atEdge, barKey, wantedBars,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

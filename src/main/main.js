@@ -19,18 +19,20 @@ const layout = require('../renderer/lib/layout');
 
 const BAR_HEIGHT = 44; // collapsed strip thickness (px): height when horizontal, width when vertical
 const INDEX = path.join(__dirname, '..', 'renderer', 'index.html');
-// `electron . --selftest`: force top-edge reservation on every monitor, then
-// verify (numerically, no GUI needed) that each spacer's bottom edge lines up
-// with its bar's bottom and never pokes out below. Prints PASS/FAIL and exits
-// with code 0/1 — lets a local agent iterate on the DPI/reservation geometry
-// without anyone having to eyeball the screen.
+// `electron . --selftest`: force reservation on every monitor, then verify
+// (numerically, no GUI needed) that each spacer's INNER edge lines up with its
+// bar's inner edge and never pokes past it over the desktop, and that no bar
+// is deeper than its bar thickness. Prints PASS/FAIL and exits with code 0/1 —
+// lets a local agent iterate on the DPI/reservation geometry without anyone
+// having to eyeball the screen. DESKHATCH_EDGE picks the edge to test.
 const SELFTEST = process.argv.includes('--selftest');
 
 /** @type {Tray | null} */
 let tray = null;
 
 // One "bar" per display we show on. Each entry is independent.
-// displayId -> { displayId, win, spacer, reserveActive, repinMode, rePinnedOnce, pinning, lastEdge, hit, ignoring }
+// key 'displayId:edge' -> { displayId, edge, key, win, spacer, reserveActive,
+//   repinMode, extent, reservedDip, spacerDepth, lastEdge, hit, ignoring }
 const bars = new Map();
 // Last display config pushed from a renderer (shared across windows in Phase 1).
 // `edges` maps displayId -> 'top' | 'left' | 'right' | 'both'; `edge` is the
@@ -38,7 +40,7 @@ const bars = new Map();
 // display set to 'both' carries two independent bars (separate tab sets).
 // DESKHATCH_EDGE forces the default edge for a run, so the window geometry for
 // a side bar can be exercised before the renderer lays itself out vertically.
-let cfg = { mode: 'autohide', reserve: false, repin: 'event', monitors: null, barColor: '#1f6f6f', hideFs: true, edges: {}, edge: layout.normalizeEdge(process.env.DESKHATCH_EDGE || 'top') };
+let cfg = { mode: 'autohide', reserve: false, repin: 'event', monitors: null, barColor: '#1f6f6f', hideFs: true, edges: {}, edge: layout.normalizeEdge(process.env.DESKHATCH_EDGE || 'right') };
 let edgeTimer = null;
 let metricsTimer = null;
 let suppressMetricsUntil = 0; // ignore metrics events caused by our own reservation
@@ -61,10 +63,6 @@ const LM = (ja, en) => { try { return app.getLocale().toLowerCase().startsWith('
 // it grows as drawers open.
 function barRectFor(display, edge, extent) {
   return layout.barRect(display.bounds, display.workArea, edge, BAR_HEIGHT, isMac, extent);
-}
-// Back-compat helper for the horizontal case (spacer maths below).
-function barTop(display) {
-  return isMac ? display.workArea.y : display.bounds.y;
 }
 
 // Which bars should exist: one per selected display per chosen edge, with
@@ -132,81 +130,105 @@ function paintSpacer(entry) {
   ).catch(() => {});
 }
 
-// --- re-pin (keep the bar/spacer at the reserved top edge) ------------------
-// The DIP rect of the bar strip: the OS-granted reservation converted back to
-// this monitor's DIP (authoritative, DPI-correct), or the display top as a
-// fallback before/without a reservation.
-function stripDip(entry) {
-  if (entry.reservedDip) return entry.reservedDip;
-  return barRectFor(displayObj(entry.displayId), entry.edge);
-}
+// --- geometry: one owner, one target rect -----------------------------------
+// Every move of the bar window and of the reservation spacer goes through
+// pinBar(). The target rect is a pure function of (display, edge, the OS
+// reservation, entry.extent) and NEVER of the window's own current bounds.
+//
+// That is the whole point. The previous version derived its target with
+// Math.max() against the live bounds and wrote back the spacer's own clamped
+// height, so the target depended on the last thing we wrote: any stray resize
+// — the OS window minimum, a DPI change, a drawer measured mid-layout — got
+// locked in and could only ever grow. Re-pinning then ratcheted the strip
+// wider on every tick until it covered the screen. Because the target here is
+// independent of current bounds, pinBar() is idempotent: it converges in one
+// write and every later call is a no-op, so a move event it provokes itself
+// cannot start a loop.
 
-// Place the opaque AppBar spacer so its BOTTOM edge aligns exactly with the
-// reserved strip's bottom (= the real bar's bottom). Windows enforces a minimum
-// window height (~56 physical px), so on monitors where that minimum exceeds the
-// bar height the spacer would otherwise poke out BELOW the bar and cover the
-// title bar of maximized windows. We instead let the surplus height spill UPWARD
-// past the top screen edge (off-screen / hidden), keeping the visible bottom
-// pixel-aligned with the bar. The AppBar reservation itself is set from the
-// display bounds and is unaffected by where this window sits.
-function placeSpacer(entry) {
-  const s = entry.spacer;
-  if (!s || s.isDestroyed() || entry.placingSpacer) return;
-  const dr = stripDip(entry);
-  // Read the spacer's CURRENT (OS-clamped) bounds. Registering the AppBar shrinks
-  // the work area and Windows pushes our windows down out of the reserved strip;
-  // we must keep correcting the spacer back, not cache "done" (that left it stuck
-  // below the bar). Bottom-align: if the clamped height is taller than the bar,
-  // spill the surplus UPWARD off the top edge instead of below over windows.
-  const cur = s.getBounds();
+const sameRect = (a, b) => !!a && !!b && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+
+// Does an OS-granted reservation look like the strip we asked for? It must sit
+// on our edge of our display and be about one bar thick. `slack` absorbs
+// DIP<->physical rounding on fractional-scale monitors.
+function plausibleStrip(entry, dip) {
+  if (!dip || !(dip.width > 0) || !(dip.height > 0)) return false;
+  const want = barRectFor(displayObj(entry.displayId), entry.edge);
+  const slack = 4;
+  const near = (a, b) => Math.abs(a - b) <= slack;
+  const depth = layout.isVertical(entry.edge) ? dip.width : dip.height;
+  if (depth > BAR_HEIGHT + slack) return false;
+  // Flush with the edge, and spanning it.
   if (layout.isVertical(entry.edge)) {
-    // Vertical strip: the same minimum applies to WIDTH, so the surplus has to
-    // spill sideways off the screen instead of over the desktop. A left bar
-    // spills further left (negative x); a right bar keeps its right edge
-    // pinned, so widening already pushes x leftwards and no correction is due.
-    const overflow = cur.width - BAR_HEIGHT;
-    const wantX = (overflow > 0 && entry.edge === 'left') ? dr.x - overflow : dr.x;
-    if (cur.y === dr.y && cur.height === dr.height && cur.x === wantX) return;
-    entry.placingSpacer = true;
-    try {
-      s.setBounds({ x: wantX, y: dr.y, width: cur.width, height: dr.height });
-    } finally { entry.placingSpacer = false; }
-    return;
+    return near(layout.innerEdge(dip, entry.edge), layout.innerEdge(want, entry.edge))
+      && near(dip.y, want.y) && near(dip.height, want.height);
   }
-  const overflow = cur.height - BAR_HEIGHT;
-  const wantY = overflow > 0 ? dr.y - overflow : dr.y;
-  if (cur.x === dr.x && cur.width === dr.width && cur.y === wantY) return; // already correct
-  entry.placingSpacer = true;
-  try {
-    s.setBounds({ x: dr.x, y: wantY, width: dr.width, height: cur.height });
-  } finally { entry.placingSpacer = false; }
+  return near(layout.innerEdge(dip, entry.edge), layout.innerEdge(want, entry.edge))
+    && near(dip.x, want.x) && near(dip.width, want.width);
 }
 
-function rePin(entry, reason) {
-  if (!entry.reserveActive || entry.pinning || !entry.win || entry.win.isDestroyed()) return;
-  const dr = stripDip(entry);
-  entry.pinning = true;
+// The reserved strip in DIP: the OS-granted AppBar rect converted back to this
+// monitor's DIP (authoritative and DPI-correct), else the plain edge rect.
+function stripDip(entry) {
+  return entry.reservedDip || barRectFor(displayObj(entry.displayId), entry.edge);
+}
+
+// How deep the bar window is ever allowed to get. A bar cannot be deeper than
+// the display it sits on, so no extent report — however wrong — can swallow
+// the screen.
+function maxExtent(entry) {
+  const d = displayObj(entry.displayId);
+  const r = isMac ? d.workArea : d.bounds;
+  return layout.isVertical(entry.edge) ? r.width : r.height;
+}
+
+// Where the bar window belongs: the strip, grown across its thickness axis by
+// however far the open drawers reach (entry.extent), clamped to the display.
+function targetBarRect(entry) {
+  const strip = stripDip(entry);
+  const depth = Math.min(Math.max(BAR_HEIGHT, entry.extent || BAR_HEIGHT), maxExtent(entry));
+  // barRect() hugs the given rect's `edge` side; the strip is already anchored
+  // there and already spans the edge, so passing it in grows the bar inwards
+  // from exactly the right line.
+  return layout.barRect(strip, strip, entry.edge, BAR_HEIGHT, false, depth);
+}
+
+function targetSpacerRect(entry) {
+  return layout.spacerRect(stripDip(entry), entry.edge, entry.spacerDepth);
+}
+
+// Windows clamps a frameless window to a minimum size (~56 physical px), so on
+// some monitors the spacer cannot be as thin as the bar. Ask the OS once what
+// it grants and remember it; reading it back on every pin is what let the
+// depth ratchet. Capped, so a pathological answer cannot spill a huge window.
+function learnSpacerDepth(entry) {
+  const s = entry.spacer;
+  if (!s || s.isDestroyed()) return;
+  const strip = stripDip(entry);
+  const thin = layout.isVertical(entry.edge) ? strip.width : strip.height;
+  entry.spacerDepth = thin;
   try {
-    if (entry.spacer && !entry.spacer.isDestroyed()) placeSpacer(entry);
-    const wb = entry.win.getBounds();
-    if (layout.isVertical(entry.edge)) {
-      // Keep the strip's length and its anchored edge; let the window stay as
-      // wide as the open drawers have made it. A right bar's x is derived from
-      // that width so its right edge stays flush with the screen.
-      const w = Math.max(dr.width, wb.width);
-      const want = barRectFor(displayObj(entry.displayId), entry.edge, w);
-      const x = entry.reservedDip ? (entry.edge === 'right' ? dr.x + dr.width - w : dr.x) : want.x;
-      if (wb.x !== x || wb.y !== dr.y || wb.height !== dr.height) {
-        if (!entry.rePinnedOnce) { console.info('[appbar] re-pin (' + reason + ') display ' + entry.displayId + ' edge=' + entry.edge + ' strip=' + JSON.stringify(dr)); entry.rePinnedOnce = true; }
-        entry.win.setBounds({ x, y: dr.y, width: w, height: dr.height });
-        entry.win.moveTop();
-      }
-    } else if (wb.x !== dr.x || wb.y !== dr.y || wb.width !== dr.width) {
-      if (!entry.rePinnedOnce) { console.info('[appbar] re-pin (' + reason + ') display ' + entry.displayId + ' strip=' + JSON.stringify(dr)); entry.rePinnedOnce = true; }
-      entry.win.setBounds({ x: dr.x, y: dr.y, width: dr.width, height: Math.max(dr.height, wb.height) });
-      entry.win.moveTop();
-    }
-  } finally { entry.pinning = false; }
+    s.setBounds(layout.spacerRect(strip, entry.edge, thin));
+    const got = s.getBounds();
+    const granted = layout.isVertical(entry.edge) ? got.width : got.height;
+    if (granted > thin) entry.spacerDepth = Math.min(granted, thin * 2);
+  } catch (_) { /* keep the un-clamped guess */ }
+}
+
+function pinBar(entry, reason) {
+  if (!entry || !entry.win || entry.win.isDestroyed()) return;
+  if (entry.spacer && !entry.spacer.isDestroyed()) {
+    const ws = targetSpacerRect(entry);
+    if (!sameRect(entry.spacer.getBounds(), ws)) entry.spacer.setBounds(ws);
+  }
+  const want = targetBarRect(entry);
+  if (sameRect(entry.win.getBounds(), want)) return;
+  if (!entry.pinLogged) {
+    console.info('[appbar] pin (' + reason + ') display ' + entry.displayId + ' edge=' + entry.edge
+      + ' strip=' + JSON.stringify(stripDip(entry)) + ' -> ' + JSON.stringify(want));
+    entry.pinLogged = true;
+  }
+  entry.win.setBounds(want);
+  if (entry.reserveActive) entry.win.moveTop();
 }
 
 function applyReserve(entry) {
@@ -215,7 +237,7 @@ function applyReserve(entry) {
   const reserve = cfg.mode === 'always' && cfg.reserve && process.platform === 'win32';
   entry.reserveActive = reserve;
   entry.repinMode = cfg.repin === 'poll' ? 'poll' : 'event';
-  entry.rePinnedOnce = false;
+  entry.pinLogged = false;
   let status = 'off';
   if (reserve) {
     if (!entry.spacer || entry.spacer.isDestroyed()) {
@@ -223,17 +245,28 @@ function applyReserve(entry) {
       entry.spacer.webContents.once('dom-ready', () => paintSpacer(entry));
     }
     paintSpacer(entry);
+    learnSpacerDepth(entry);
     status = appbar.register(entry.spacer, { edge: entry.edge, height: BAR_HEIGHT, display: displayObj(entry.displayId) });
     // Convert the OS-granted physical rect back to THIS monitor's DIP — the
     // authoritative, DPI-correct size/position for both windows.
     const rc = appbar.getRect(entry.spacer);
-    entry.reservedDip = rc
+    const dip = rc
       ? screen.screenToDipRect(entry.spacer, { x: rc.left, y: rc.top, width: rc.right - rc.left, height: rc.bottom - rc.top })
       : null;
-    console.info('[appbar] display ' + entry.displayId + ' rc=' + JSON.stringify(rc) + ' reservedDip=' + JSON.stringify(entry.reservedDip));
+    // Only trust the grant if it really is a bar-thick strip on our edge of
+    // this display. Everything downstream treats reservedDip as authoritative
+    // geometry, so one odd answer from the OS would move the bar somewhere it
+    // does not belong — and a reservation changes the work area, which brings
+    // us back here, so a wrong rect gets to compound. Fall back to the plain
+    // edge rect instead; the overlay still works, it just reserves nothing.
+    entry.reservedDip = plausibleStrip(entry, dip) ? dip : null;
+    console.info('[appbar] display ' + entry.displayId + ' rc=' + JSON.stringify(rc)
+      + ' dip=' + JSON.stringify(dip) + (entry.reservedDip ? '' : ' (rejected — using the display edge)'));
     entry.win.setAlwaysOnTop(true, 'screen-saver');
     entry.win.moveTop();
-    rePin(entry, 'init');
+    // The reservation moved the strip, so the OS minimum may differ now.
+    learnSpacerDepth(entry);
+    pinBar(entry, 'init');
     // Ground-truth diagnostic: what Electron actually reports for both windows
     // after pinning (DIP). The spacer's BOTTOM (y + height) should equal the
     // bar's bottom; surplus height (OS min) spills upward (negative-ish y).
@@ -254,12 +287,25 @@ function applyReserve(entry) {
 function createBar(display, edge) {
   const key = layout.barKey(display.id, edge);
   const win = makeOverlay(display, edge);
-  const entry = { displayId: display.id, edge: layout.normalizeEdge(edge), key, win, spacer: null, reserveActive: false, repinMode: 'event', rePinnedOnce: false, pinning: false, lastEdge: null,
+  const entry = { displayId: display.id, edge: layout.normalizeEdge(edge), key, win, spacer: null,
+    reserveActive: false, repinMode: 'event', pinLogged: false, lastEdge: null,
+    // How far the open drawers reach across the bar's thickness axis, in DIP.
+    // The renderer owns this number (overlay:set-height); nothing else writes
+    // it, so the bar's depth has exactly one source of truth.
+    extent: BAR_HEIGHT, reservedDip: null, spacerDepth: BAR_HEIGHT,
     // Click pass-through, driven by the cursor watch from the renderer's reported
     // geometry. mode: 'none' (all through) | 'all' (all captured) | 'rects'.
     // Default 'none' so the desktop stays clickable until the renderer reports in.
     hit: { mode: 'none', rects: [] }, ignoring: true };
-  win.on('move', () => { if (entry.repinMode === 'event') rePin(entry, 'move'); });
+  // Under an active reservation the OS pushes our window out of the strip and
+  // we push back; debounce so that exchange settles instead of running at the
+  // event rate. (It can no longer grow anything — pinBar is idempotent — but
+  // there is no reason to spend the wakeups.)
+  win.on('move', () => {
+    if (entry.repinMode !== 'event' || !entry.reserveActive) return;
+    clearTimeout(entry.moveTimer);
+    entry.moveTimer = setTimeout(() => pinBar(entry, 'move'), 60);
+  });
   win.on('blur', () => { if (!win.isDestroyed()) win.webContents.send('overlay:blur'); });
   win.on('closed', () => { bars.delete(key); });
   win.webContents.once('did-finish-load', () => {
@@ -275,6 +321,7 @@ function createBar(display, edge) {
 function destroyBar(key) {
   const e = bars.get(key);
   if (!e) return;
+  clearTimeout(e.moveTimer);
   if (e.spacer && !e.spacer.isDestroyed()) { appbar.unregister(e.spacer); e.spacer.close(); }
   if (e.win && !e.win.isDestroyed()) e.win.close();
   bars.delete(key);
@@ -557,7 +604,7 @@ function startEdgeWatch() {
       applyHit(e, p);
       if (!slow || !e.win.isVisible()) continue;
       const dd = displayObj(e.displayId);
-      if (e.reserveActive) rePin(e, 'poll'); // always re-pin (robust on multi-monitor)
+      if (e.reserveActive) pinBar(e, 'poll'); // keep the strip put (robust on multi-monitor)
       // Is the cursor slammed into THIS bar's edge of THIS display? atEdge()
       // requires the cursor to be on the display first, so a bar never answers
       // for a cursor that is really on the neighbouring screen.
@@ -638,15 +685,13 @@ ipcMain.on('overlay:set-height', (e, extent) => {
   const w = BrowserWindow.fromWebContents(e.sender);
   if (!w || w.isDestroyed()) return;
   const entry = [...bars.values()].find((b) => b.win === w);
-  const b = w.getBounds();
-  const want = Math.max(BAR_HEIGHT, Math.ceil(extent) || BAR_HEIGHT);
-  if (entry && layout.isVertical(entry.edge)) {
-    if (b.width === want) return;
-    const r = barRectFor(displayObj(entry.displayId), entry.edge, want);
-    w.setBounds({ x: r.x, y: b.y, width: want, height: b.height });
-    return;
-  }
-  if (b.height !== want) w.setBounds({ x: b.x, y: b.y, width: b.width, height: want });
+  if (!entry) return;
+  // Record the renderer's measurement and let pinBar() place the window. The
+  // value is clamped to the display here, at the one place it enters the main
+  // process, so nothing downstream has to defend against a runaway number.
+  const n = Math.ceil(Number(extent));
+  entry.extent = Number.isFinite(n) ? Math.max(BAR_HEIGHT, Math.min(n, maxExtent(entry))) : BAR_HEIGHT;
+  pinBar(entry, 'extent');
 });
 
 ipcMain.on('app:quit', () => app.quit());
@@ -771,13 +816,13 @@ function onDisplaysChanged() {
   if (!setChanged && Date.now() < suppressMetricsUntil) return;
   clearTimeout(metricsTimer);
   metricsTimer = setTimeout(() => {
+    // Re-pin every bar to its (possibly moved or resized) display. This used to
+    // force EVERY bar to the display's top edge at the display's full width,
+    // which stretched a side bar right across the screen on any metrics change
+    // — and a reservation changes the work area, so it fired at startup.
     for (const e of bars.values()) {
-      if (!e.win || e.win.isDestroyed()) continue;
-      const dd = displayObj(e.displayId);
-      const d = dd.bounds;
-      const top = barTop(dd);
-      const b = e.win.getBounds();
-      if (b.x !== d.x || b.y !== top || b.width !== d.width) e.win.setBounds({ x: d.x, y: top, width: d.width, height: b.height });
+      e.reservedDip = null; // the previous reservation rect is stale now
+      pinBar(e, 'display');
     }
     reconcile();
   }, 300);
@@ -791,9 +836,11 @@ function runSelfTest() {
     return;
   }
   // Force reserve mode on every connected monitor.
-  cfg = { mode: 'always', reserve: true, repin: 'event', monitors: allDisplays().map((d) => d.id), barColor: '#1f6f6f' };
+  cfg = { mode: 'always', reserve: true, repin: 'event', monitors: allDisplays().map((d) => d.id),
+    barColor: '#1f6f6f', hideFs: true, edges: {},
+    edge: layout.normalizeEdge(process.env.DESKHATCH_EDGE || 'right') };
   reconcile();
-  startEdgeWatch(); // keep rePin correcting the OS's post-reservation push
+  startEdgeWatch(); // keep pinBar correcting the OS's post-reservation push
   // Let the windows settle (reservation shrinks the work area asynchronously,
   // then the poll re-pins), then assert the invariant.
   setTimeout(() => {
@@ -806,13 +853,16 @@ function runSelfTest() {
       const wb = e.win.getBounds();
       const sb = e.spacer && !e.spacer.isDestroyed() ? e.spacer.getBounds() : null;
       if (!sb) { allPass = false; console.info('[selftest] display ' + e.displayId + ' FAIL no-spacer'); continue; }
-      const spacerBottom = sb.y + sb.height;
-      const barBottom = wb.y + wb.height;
-      const overflowBelow = spacerBottom - barBottom; // >0 = pokes below the bar (BAD)
-      const pass = overflowBelow <= 0 && spacerBottom === barBottom;
+      // Inner edges must coincide exactly: any surplus from the OS window
+      // minimum belongs OFF the screen, not inwards over the desktop.
+      const si = layout.innerEdge(sb, e.edge);
+      const bi = layout.innerEdge(wb, e.edge);
+      // ...and an idle bar must be exactly one bar thick, never creeping.
+      const depth = layout.isVertical(e.edge) ? wb.width : wb.height;
+      const pass = si === bi && depth <= BAR_HEIGHT;
       if (!pass) allPass = false;
-      console.info('[selftest] display ' + e.displayId + ' sf=' + d.scaleFactor + ' ' + (pass ? 'PASS' : 'FAIL') +
-        ' spacerBottom=' + spacerBottom + ' barBottom=' + barBottom + ' overflowBelow=' + overflowBelow +
+      console.info('[selftest] display ' + e.displayId + ' edge=' + e.edge + ' sf=' + d.scaleFactor + ' ' + (pass ? 'PASS' : 'FAIL') +
+        ' spacerInner=' + si + ' barInner=' + bi + ' depth=' + depth + '/' + BAR_HEIGHT +
         ' spacer=' + JSON.stringify(sb) + ' bar=' + JSON.stringify(wb));
     }
     if (n === 0) { allPass = false; console.info('[selftest] FAIL no-bars'); }

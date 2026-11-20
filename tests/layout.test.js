@@ -185,3 +185,106 @@ describe('barKey / normalizeEdge / isVertical', () => {
     expect(layout.isVertical('top')).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Runaway-growth regressions. DeskHatch's bar used to creep across the screen
+// from startup: the target geometry was derived from the window's own current
+// bounds (Math.max against them, and writing the spacer's clamped size back),
+// so any stray resize was locked in and could only grow. These pin the two
+// properties that make that impossible.
+// ---------------------------------------------------------------------------
+describe('computeExtent cap', () => {
+  it('never exceeds the cap, however big the drawer measures', () => {
+    expect(layout.computeExtent(44, [100000], 1080)).toBe(1080);
+    expect(layout.computeExtent(44, [600], 1080)).toBe(644);
+  });
+
+  it('keeps at least the bar thickness even with an absurdly small cap', () => {
+    expect(layout.computeExtent(44, [600], 10)).toBe(44);
+  });
+
+  it('ignores sizes that are not positive numbers', () => {
+    // An element measured before layout reports 0; NaN would poison the max
+    // and arrive in the main process as a garbage window size.
+    expect(layout.computeExtent(44, [0, NaN, -5, undefined, null])).toBe(44);
+    expect(layout.computeExtent(44, [NaN, 300])).toBe(344);
+  });
+
+  it('is unbounded when no cap is given (the original behaviour)', () => {
+    expect(layout.computeExtent(44, [5000])).toBe(5044);
+  });
+});
+
+describe('barRect is a fixed point when fed its own strip', () => {
+  // This is what makes pinBar() idempotent: the main process computes the
+  // target from the reserved strip, not from the live window bounds. Growing
+  // and shrinking must be reversible, with no memory of how deep it once was.
+  const screen = { x: 0, y: 0, width: 1920, height: 1080 };
+  for (const edge of ['top', 'left', 'right']) {
+    it('returns to one bar thickness after growing, on the ' + edge + ' edge', () => {
+      const strip = layout.barRect(screen, screen, edge, 44, false);
+      const grown = layout.barRect(strip, strip, edge, 44, false, 600);
+      const back = layout.barRect(strip, strip, edge, 44, false, 44);
+      expect(back).toEqual(strip);
+      // Growing keeps the strip anchored on its own edge...
+      expect(layout.innerEdge(grown, edge)).not.toBe(layout.innerEdge(strip, edge));
+      // ...and re-feeding the result never drifts.
+      expect(layout.barRect(strip, strip, edge, 44, false, 600)).toEqual(grown);
+    });
+
+    it('grows inwards from the screen edge, not outwards, on the ' + edge + ' edge', () => {
+      const strip = layout.barRect(screen, screen, edge, 44, false);
+      const grown = layout.barRect(strip, strip, edge, 44, false, 600);
+      expect(grown.x).toBeGreaterThanOrEqual(screen.x);
+      expect(grown.y).toBeGreaterThanOrEqual(screen.y);
+      expect(grown.x + grown.width).toBeLessThanOrEqual(screen.x + screen.width);
+      expect(grown.y + grown.height).toBeLessThanOrEqual(screen.y + screen.height);
+    });
+  }
+});
+
+describe('innerEdge', () => {
+  it('is the boundary between the bar and the desktop', () => {
+    expect(layout.innerEdge({ x: 0, y: 0, width: 1920, height: 44 }, 'top')).toBe(44);
+    expect(layout.innerEdge({ x: 0, y: 0, width: 44, height: 1080 }, 'left')).toBe(44);
+    expect(layout.innerEdge({ x: 1876, y: 0, width: 44, height: 1080 }, 'right')).toBe(1876);
+  });
+});
+
+describe('spacerRect', () => {
+  const screen = { x: 0, y: 0, width: 1920, height: 1080 };
+  for (const edge of ['top', 'left', 'right']) {
+    const strip = layout.barRect(screen, screen, edge, 44, false);
+
+    it('matches the strip exactly when the OS grants the thin size (' + edge + ')', () => {
+      expect(layout.spacerRect(strip, edge, 44)).toEqual(strip);
+      expect(layout.spacerRect(strip, edge, null)).toEqual(strip);
+    });
+
+    it('spills the OS minimum off-screen, never inwards (' + edge + ')', () => {
+      const sp = layout.spacerRect(strip, edge, 56);
+      // The visible inner edge must stay flush with the bar, or the spacer
+      // covers the edge of maximized windows underneath.
+      expect(layout.innerEdge(sp, edge)).toBe(layout.innerEdge(strip, edge));
+      // The surplus 12px goes past the screen edge.
+      const depth = layout.isVertical(edge) ? sp.width : sp.height;
+      expect(depth).toBe(56);
+    });
+
+    it('never shrinks below the strip (' + edge + ')', () => {
+      expect(layout.spacerRect(strip, edge, 10)).toEqual(strip);
+    });
+  }
+
+  it('spills a top spacer upward, off the top of the screen', () => {
+    const strip = layout.barRect(screen, screen, 'top', 44, false);
+    expect(layout.spacerRect(strip, 'top', 56).y).toBe(-12);
+  });
+
+  it('spills a left spacer leftward and a right spacer rightward', () => {
+    expect(layout.spacerRect(layout.barRect(screen, screen, 'left', 44, false), 'left', 56).x).toBe(-12);
+    const r = layout.spacerRect(layout.barRect(screen, screen, 'right', 44, false), 'right', 56);
+    expect(r.x).toBe(1876);
+    expect(r.x + r.width).toBe(1932); // past the right edge
+  });
+});
