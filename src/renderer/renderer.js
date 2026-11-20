@@ -110,7 +110,11 @@ const Store = {
   },
   saveSize(id, s) { localStorage.setItem('ss.size.' + id, JSON.stringify(s)); },
   getDisplay() {
-    const def = { mode: 'autohide', reserve: false, repin: 'event', theme: 'teal', roundEnds: false, hideOnFullscreen: true };
+    // `edges` maps a display id to 'top' | 'left' | 'right' | 'both'; `edge` is
+    // the fallback for a display with no entry. 'right' by default: the top
+    // edge is the macOS menu bar's, and a side strip gives drawers the full
+    // screen height.
+    const def = { mode: 'autohide', reserve: false, repin: 'event', theme: 'system', roundEnds: false, hideOnFullscreen: true, edges: {}, edge: 'right' };
     try { const d = JSON.parse(localStorage.getItem('ss.display')); return d && d.mode ? { ...def, ...d } : def; } catch (_) { return def; }
   },
   saveDisplay(d) { localStorage.setItem('ss.display', JSON.stringify(d)); },
@@ -2746,6 +2750,18 @@ function buildDisplaySettings() {
         applyDisplay();
       };
       l.append(cb, document.createTextNode(' ' + dp.label));
+
+      // Which edge this display's bar hugs. 'both' puts one on each side; the
+      // two are configured separately (their own tabs), which is the point.
+      const edgeSel = el('select', 'ss-set-type ss-mon-edge');
+      [['right', L('右')], ['left', L('左')], ["both", L("両側")], ['top', L('上')]]
+        .forEach(([v, lbl]) => { const op = el('option', null, lbl); op.value = v; edgeSel.appendChild(op); });
+      edgeSel.value = (display.edges || {})[dp.id] || display.edge || 'right';
+      edgeSel.onchange = () => {
+        display = { ...display, edges: { ...(display.edges || {}), [dp.id]: edgeSel.value } };
+        applyDisplay();
+      };
+      l.appendChild(edgeSel);
       monBox.appendChild(l);
     });
   });

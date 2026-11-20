@@ -816,3 +816,7 @@ html.vertical .ss-drawer { border-radius: var(--radius, 0); }
 @font-face { font-family: 'Oswald'; font-weight: 600; src: url('../../assets/fonts/oswald_semibold.ttf') format('truetype'); font-display: swap; }
 @font-face { font-family: 'Share Tech Mono'; src: url('../../assets/fonts/share_tech_mono.ttf') format('truetype'); font-display: swap; }
 .ss-drawer-title, .ss-tools-title { font-family: var(--display); }
+
+/* Per-display edge picker, inline on each monitor row in Settings. */
+.ss-mon-edge { margin-left: auto; font-size: 11.5px; padding: 1px 4px; }
+.ss-mon .ss-set-check { display: flex; align-items: center; gap: 6px; width: 100%; }
